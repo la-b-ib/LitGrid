@@ -1,6 +1,6 @@
 #  LitGrid - Library Management System
 
-![LitGrid Dashboard](LitGrid/images/Dashboard.png)
+![LitGrid Dashboard](image/Dashboard.png)
 
 **LitGrid** is a comprehensive Library Management System built on Google Sheets and Google Apps Script, offering a modern, feature-rich solution for small to medium-sized libraries.
 
@@ -20,14 +20,14 @@
 - Track copies and availability
 - Advanced search functionality
 
-![New Book Form](images/NewBook.png)
+![New Book Form](image/NewBook.png)
 
 ###  Member Management
 - Add/edit member profiles
 - Track membership status
 - Comprehensive member search
 
-![Search Member](images/SearchMember.png)
+![Search Member](image/SearchMember.png)
 
 ###  Circulation System
 - Check-out books with due dates
@@ -44,14 +44,14 @@
 - Overdue books reports
 - Member activity analytics
 
-![Reports](images/Report.png)
+![Reports](image/Report.png)
 
-### 🎨 Modern UI
+###  Modern UI
 - Material Design interface
 - Responsive layouts
 - Intuitive navigation
 
-![Dashboard View](images/Dashboard.png)
+![Dashboard View](image/Dashboard.png)
 
 ---
 
@@ -59,13 +59,13 @@
 
 | Feature            | Screenshot                  |
 |--------------------|-----------------------------|
-| About Page         | ![About](images/About.png)  |
-| Book Search        | ![Search Book](images/SearchBook.png) |
-| Dashboard Overview | ![Dashboard](images/Dashboard.png) |
+| About Page         | ![About](image/About.png)  |
+| Book Search        | ![Search Book](image/SearchBook.png) |
+| Dashboard Overview | ![Dashboard](image/Dashboard.png) |
 
 ---
 
-## 🛠 Technical Specifications
+##  Technical Specifications
 
 ### Backend
 - **Platform**: Google Apps Script
