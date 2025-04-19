@@ -1,5 +1,7 @@
 #  LitGrid - Library Management System
 
+**LitGrid** is a modern, cloud-based Library Management System designed for small to medium-sized libraries, offering a free and user-friendly solution built entirely on Google Sheets and Google Apps Script. Developed by Labib Bin Shahed, this system provides a comprehensive set of features, including book and member management, circulation tracking with check-in/check-out functionality, automatic fine calculation for overdue books, and detailed reporting for inventory and member activity. With its Material Design interface, LitGrid ensures an intuitive and visually appealing user experience, accessible from any device with a web browser, requiring no server costs or software installation since it leverages Google’s infrastructure. Perfect for small libraries, non-profits, book clubs, or anyone seeking a lightweight alternative to expensive library management software, LitGrid simplifies library operations with real-time data and automated processes, all manageable with just a Google Account.
+
 ![LitGrid Dashboard](image/Dashboard.png)
 
 **LitGrid** is a comprehensive Library Management System built on Google Sheets and Google Apps Script, offering a modern, feature-rich solution for small to medium-sized libraries.
@@ -132,6 +134,11 @@
 ##  Impact
 
 LitGrid simplifies library operations through a fully cloud-based system. It supports real-time data, automated circulation, and fine tracking, promoting digital transformation in education and learning environments.
+
+---
+
+# About
+![LitGrid About](image/About.png)
 
 ---
 
