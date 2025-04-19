@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .form-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .form-header h2 {
+      margin: 0;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+    }
+    .form-header .material-icons {
+      margin-right: 10px;
+      color: #4285f4;
+    }
+    .form-row {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .button-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+    }
+    .primary-button {
+      background: #4285f4;
+      color: white;
+    }
+    .secondary-button {
+      background: #f1f1f1;
+      margin-right: 10px;
+    }
+    button .material-icons {
+      margin-right: 8px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-header">
+    <h2><i class="material-icons">post_add</i> Add New Book</h2>
+  </div>
+  
+  <div class="form-row">
+    <label for="title">Title *</label>
+    <input type="text" id="title" required>
+  </div>
+  
+  <div class="form-row">
+    <label for="author">Author *</label>
+    <input type="text" id="author" required>
+  </div>
+  
+  <div class="form-row">
+    <label for="isbn">ISBN</label>
+    <input type="text" id="isbn" placeholder="Leave blank to auto-generate">
+  </div>
+  
+  <div class="form-row">
+    <label for="publisher">Publisher</label>
+    <input type="text" id="publisher">
+  </div>
+  
+  <div class="form-row">
+    <label for="publicationYear">Publication Year</label>
+    <input type="number" id="publicationYear" min="1000" max="2099">
+  </div>
+  
+  <div class="form-row">
+    <label for="genre">Genre</label>
+    <input type="text" id="genre">
+  </div>
+  
+  <div class="form-row">
+    <label for="pages">Pages</label>
+    <input type="number" id="pages" min="1">
+  </div>
+  
+  <div class="form-row">
+    <label for="copies">Copies *</label>
+    <input type="number" id="copies" min="1" required value="1">
+  </div>
+  
+  <div class="form-row">
+    <label for="location">Location</label>
+    <input type="text" id="location">
+  </div>
+  
+  <div class="button-row">
+    <button class="secondary-button" onclick="cancel()">
+      <i class="material-icons">close</i> Cancel
+    </button>
+    <button class="primary-button" onclick="saveBook()">
+      <i class="material-icons">save</i> Save Book
+    </button>
+  </div>
+  
+  <script>
+    function saveBook() {
+      const title = document.getElementById('title').value;
+      const author = document.getElementById('author').value;
+      
+      if (!title || !author) {
+        alert('Title and Author are required fields');
+        return;
+      }
+      
+      const bookData = {
+        title,
+        author,
+        isbn: document.getElementById('isbn').value,
+        publisher: document.getElementById('publisher').value,
+        publicationYear: document.getElementById('publicationYear').value,
+        genre: document.getElementById('genre').value,
+        pages: document.getElementById('pages').value,
+        copies: document.getElementById('copies').value || 1,
+        location: document.getElementById('location').value
+      };
+      
+      google.script.run
+        .withSuccessHandler(handleSuccess)
+        .withFailureHandler(handleError)
+        .addBook(bookData);
+    }
+    
+    function handleSuccess(result) {
+      if (result.success) {
+        alert(`Book added successfully${result.isbn ? '\nISBN: ' + result.isbn : ''}`);
+        google.script.host.close();
+      }
+    }
+    
+    function handleError(error) {
+      alert('Error: ' + error.message);
+    }
+    
+    function cancel() {
+      google.script.host.close();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .form-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .form-header h2 {
+      margin: 0;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+    }
+    .form-header .material-icons {
+      margin-right: 10px;
+      color: #4285f4;
+    }
+    .form-row {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .button-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+    }
+    .primary-button {
+      background: #4285f4;
+      color: white;
+    }
+    .secondary-button {
+      background: #f1f1f1;
+      margin-right: 10px;
+    }
+    button .material-icons {
+      margin-right: 8px;
+      font-size: 18px;
+    }
+    .search-results {
+      margin-top: 20px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .result-item {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+    .result-item:hover {
+      background: #f5f5f5;
+    }
+    .result-item:last-child {
+      border-bottom: none;
+    }
+    .highlight {
+      font-weight: 500;
+      color: #4285f4;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-header">
+    <h2><i class="material-icons">bookmark_add</i> Check Out Book</h2>
+  </div>
+  
+  <div class="form-row">
+    <label for="memberSearch">Member Search</label>
+    <input type="text" id="memberSearch" placeholder="Search by name, email, or member ID">
+    <div id="memberResults" class="search-results" style="display:none;"></div>
+  </div>
+  
+  <div class="form-row">
+    <label for="bookSearch">Book Search</label>
+    <input type="text" id="bookSearch" placeholder="Search by title, author, or ISBN">
+    <div id="bookResults" class="search-results" style="display:none;"></div>
+  </div>
+  
+  <div id="checkoutDetails" style="display:none; margin-top:20px; padding:15px; background:#f9f9f9; border-radius:4px;">
+    <h3 style="margin-top:0;">Checkout Details</h3>
+    <div><strong>Member:</strong> <span id="selectedMember"></span></div>
+    <div><strong>Book:</strong> <span id="selectedBook"></span></div>
+    <div><strong>Due Date:</strong> <span id="dueDate"></span></div>
+  </div>
+  
+  <div class="button-row">
+    <button class="secondary-button" onclick="cancel()">
+      <i class="material-icons">close</i> Cancel
+    </button>
+    <button id="checkoutButton" class="primary-button" disabled onclick="processCheckout()">
+      <i class="material-icons">check</i> Confirm Checkout
+    </button>
+  </div>
+  
+  <script>
+    let selectedMember = null;
+    let selectedBook = null;
+    
+    // Member search
+    document.getElementById('memberSearch').addEventListener('input', function(e) {
+      const query = e.target.value.trim();
+      if (query.length < 2) {
+        document.getElementById('memberResults').style.display = 'none';
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(displayMemberResults)
+        .searchMembers(query);
+    });
+    
+    // Book search
+    document.getElementById('bookSearch').addEventListener('input', function(e) {
+      const query = e.target.value.trim();
+      if (query.length < 2) {
+        document.getElementById('bookResults').style.display = 'none';
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(displayBookResults)
+        .searchBooks(query);
+    });
+    
+    function displayMemberResults(results) {
+      const container = document.getElementById('memberResults');
+      container.innerHTML = '';
+      
+      if (results.length === 0) {
+        container.innerHTML = '<div class="result-item">No members found</div>';
+        container.style.display = 'block';
+        return;
+      }
+      
+      results.forEach(member => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <div><strong>${member.name}</strong> (${member.id})</div>
+          <div>${member.email}</div>
+          <div>${member.phone}</div>
+        `;
+        div.addEventListener('click', () => selectMember(member));
+        container.appendChild(div);
+      });
+      
+      container.style.display = 'block';
+    }
+    
+    function displayBookResults(results) {
+      const container = document.getElementById('bookResults');
+      container.innerHTML = '';
+      
+      if (results.length === 0) {
+        container.innerHTML = '<div class="result-item">No books found</div>';
+        container.style.display = 'block';
+        return;
+      }
+      
+      results.forEach(book => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <div><strong>${book.title}</strong> (${book.isbn})</div>
+          <div>by ${book.author}</div>
+          <div>Available: ${book.available}/${book.copies}</div>
+        `;
+        div.addEventListener('click', () => selectBook(book));
+        container.appendChild(div);
+      });
+      
+      container.style.display = 'block';
+    }
+    
+    function selectMember(member) {
+      selectedMember = member;
+      document.getElementById('memberSearch').value = `${member.name} (${member.id})`;
+      document.getElementById('memberResults').style.display = 'none';
+      document.getElementById('selectedMember').textContent = `${member.name} (${member.id})`;
+      updateCheckoutDetails();
+    }
+    
+    function selectBook(book) {
+      selectedBook = book;
+      document.getElementById('bookSearch').value = `${book.title} by ${book.author}`;
+      document.getElementById('bookResults').style.display = 'none';
+      document.getElementById('selectedBook').textContent = `${book.title} by ${book.author} (ISBN: ${book.isbn})`;
+      updateCheckoutDetails();
+    }
+    
+    function updateCheckoutDetails() {
+      const details = document.getElementById('checkoutDetails');
+      const checkoutButton = document.getElementById('checkoutButton');
+      
+      if (selectedMember && selectedBook) {
+        details.style.display = 'block';
+        
+        // Calculate due date (14 days from today)
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 14);
+        document.getElementById('dueDate').textContent = dueDate.toDateString();
+        
+        checkoutButton.disabled = false;
+      } else {
+        details.style.display = 'none';
+        checkoutButton.disabled = true;
+      }
+    }
+    
+    function processCheckout() {
+      google.script.run
+        .withSuccessHandler(handleCheckoutSuccess)
+        .withFailureHandler(handleError)
+        .checkoutBook(selectedBook.isbn, selectedMember.id);
+    }
+    
+    function handleCheckoutSuccess(result) {
+      if (result.success) {
+        alert(`Book checked out successfully. Due date: ${result.dueDate}`);
+        google.script.host.close();
+      }
+    }
+    
+    function handleError(error) {
+      alert('Error: ' + error.message);
+    }
+    
+    function cancel() {
+      google.script.host.close();
+    }
+    
+    // Close search results when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.search-results') && !e.target.closest('#memberSearch')) {
+        document.getElementById('memberResults').style.display = 'none';
+      }
+      if (!e.target.closest('.search-results') && !e.target.closest('#bookSearch')) {
+        document.getElementById('bookResults').style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>

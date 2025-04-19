@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .form-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .form-header h2 {
+      margin: 0;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+    }
+    .form-header .material-icons {
+      margin-right: 10px;
+      color: #4285f4;
+    }
+    .form-row {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .button-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+    }
+    .primary-button {
+      background: #4285f4;
+      color: white;
+    }
+    .secondary-button {
+      background: #f1f1f1;
+      margin-right: 10px;
+    }
+    button .material-icons {
+      margin-right: 8px;
+      font-size: 18px;
+    }
+    .search-results {
+      margin-top: 20px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .result-item {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .result-item:hover {
+      background: #f5f5f5;
+    }
+    .result-item:last-child {
+      border-bottom: none;
+    }
+    .member-name {
+      font-weight: 500;
+      color: #4285f4;
+      margin-bottom: 4px;
+    }
+    .member-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    .member-details span {
+      display: flex;
+      align-items: center;
+    }
+    .member-details .material-icons {
+      font-size: 16px;
+      margin-right: 4px;
+    }
+    .member-status {
+      background: #e8f0fe;
+      color: #4285f4;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .active {
+      background: #e6f4ea;
+      color: #34a853;
+    }
+    .inactive {
+      background: #fce8e6;
+      color: #d93025;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-header">
+    <h2><i class="material-icons">people</i> Search Members</h2>
+  </div>
+  
+  <div class="form-row">
+    <label for="searchQuery">Search Criteria</label>
+    <input type="text" id="searchQuery" placeholder="Name, Email, Phone, or Member ID">
+  </div>
+  
+  <div class="form-row">
+    <button class="primary-button" onclick="searchMembers()">
+      <i class="material-icons">search</i> Search
+    </button>
+  </div>
+  
+  <div id="searchResults" class="search-results" style="display:none;">
+    <!-- Results will be populated here -->
+  </div>
+  
+  <div class="button-row">
+    <button class="secondary-button" onclick="cancel()">
+      <i class="material-icons">close</i> Close
+    </button>
+  </div>
+  
+  <script>
+    function searchMembers() {
+      const query = document.getElementById('searchQuery').value.trim();
+      if (!query) {
+        alert('Please enter search criteria');
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(displayResults)
+        .withFailureHandler(showError)
+        .searchMembers(query);
+    }
+    
+    function displayResults(results) {
+      const container = document.getElementById('searchResults');
+      container.innerHTML = '';
+      
+      if (results.length === 0) {
+        container.innerHTML = '<div class="result-item">No members found matching your criteria</div>';
+        container.style.display = 'block';
+        return;
+      }
+      
+      results.forEach(member => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <div class="member-name">${member.name}</div>
+          <div class="member-details">
+            <span><i class="material-icons">badge</i> ${member.id}</span>
+            <span><i class="material-icons">email</i> ${member.email || 'N/A'}</span>
+            <span><i class="material-icons">phone</i> ${member.phone || 'N/A'}</span>
+            <span class="member-status ${member.status === 'Active' ? 'active' : 'inactive'}">
+              <i class="material-icons">${member.status === 'Active' ? 'check_circle' : 'cancel'}</i>
+              ${member.status}
+            </span>
+          </div>
+        `;
+        div.addEventListener('click', () => selectMember(member));
+        container.appendChild(div);
+      });
+      
+      container.style.display = 'block';
+    }
+    
+    function selectMember(member) {
+      // You can implement member selection logic here
+      alert(`Selected: ${member.name}\nID: ${member.id}\nStatus: ${member.status}`);
+    }
+    
+    function showError(error) {
+      alert('Error: ' + error.message);
+    }
+    
+    function cancel() {
+      google.script.host.close();
+    }
+  </script>
+</body>
+</html>
