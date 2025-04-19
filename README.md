@@ -135,18 +135,17 @@ LitGrid simplifies library operations through a fully cloud-based system. It sup
 
 ---
 
-##  Contact Information
+## Contact
 
-**Labib Bin Shahed**  
-GitHub: [@la-b-ib](https://github.com/la-b-ib)  
-Email: [labib-x@protonmail.com](mailto:labib-x@protonmail.com)  
-Project Link: [https://github.com/la-b-ib/LitGrid](https://github.com/la-b-ib/LitGrid)
+- **Developer**: Labib Bin Shahed
+- **Email**: [labib-x@protonmail.com](mailto:labib-x@protonmail.com)  
+- **GitHub**: [github.com/la-b-ib](https://github.com/la-b-ib)
 
 ---
 
-##  License
+## License
 
-MIT License – open to the community for collaboration and improvement.
+This project is licensed under the MIT License. See `LICENSE` file for details.
 
 ---
 
