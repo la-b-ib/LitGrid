@@ -1,6 +1,6 @@
 #  LitGrid - Library Management System
 
-![LitGrid Dashboard](images/Dashboard.png)
+![LitGrid Dashboard](LitGrid/images/Dashboard.png)
 
 **LitGrid** is a comprehensive Library Management System built on Google Sheets and Google Apps Script, offering a modern, feature-rich solution for small to medium-sized libraries.
 
