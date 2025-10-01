@@ -2072,14 +2072,22 @@ class Config:
     """Configuration management with JSON support"""
     # Default configuration - Try Streamlit secrets first, then environment variables
     try:
-        # Streamlit Cloud secrets
-        DB_HOST = st.secrets.get("DB_HOST", os.getenv('DB_HOST', 'localhost'))
-        DB_PORT = int(st.secrets.get("DB_PORT", os.getenv('DB_PORT', 3306)))
-        DB_USER = st.secrets.get("DB_USER", os.getenv('DB_USER', 'litgrid'))
-        DB_PASSWORD = st.secrets.get("DB_PASSWORD", os.getenv('DB_PASSWORD', 'litgrid123'))
-        DB_NAME = st.secrets.get("DB_NAME", os.getenv('DB_NAME', 'litgrid'))
-    except:
-        # Fallback to environment variables if secrets not available
+        # Streamlit Cloud secrets (use direct access, not .get())
+        if hasattr(st, 'secrets') and 'DB_HOST' in st.secrets:
+            DB_HOST = st.secrets["DB_HOST"]
+            DB_PORT = int(st.secrets["DB_PORT"])
+            DB_USER = st.secrets["DB_USER"]
+            DB_PASSWORD = st.secrets["DB_PASSWORD"]
+            DB_NAME = st.secrets["DB_NAME"]
+        else:
+            # Fallback to environment variables
+            DB_HOST = os.getenv('DB_HOST', 'localhost')
+            DB_PORT = int(os.getenv('DB_PORT', 3306))
+            DB_USER = os.getenv('DB_USER', 'litgrid')
+            DB_PASSWORD = os.getenv('DB_PASSWORD', 'litgrid123')
+            DB_NAME = os.getenv('DB_NAME', 'litgrid')
+    except Exception as e:
+        # Final fallback to environment variables if secrets fail
         DB_HOST = os.getenv('DB_HOST', 'localhost')
         DB_PORT = int(os.getenv('DB_PORT', 3306))
         DB_USER = os.getenv('DB_USER', 'litgrid')
