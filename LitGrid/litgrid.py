@@ -2600,6 +2600,9 @@ class Database:
         """Initialize connection pool"""
         if cls._pool is None:
             try:
+                # Debug: Show connection details (without password)
+                st.info(f"🔌 Connecting to: {Config.DB_HOST}:{Config.DB_PORT} as {Config.DB_USER}")
+                
                 cls._pool = pooling.MySQLConnectionPool(
                     pool_name="litgrid_pool",
                     pool_size=5,
@@ -2611,8 +2614,15 @@ class Database:
                     charset='utf8mb4',
                     autocommit=False
                 )
+                st.success("✅ Database connected successfully!")
             except Error as e:
-                st.error(f"Database connection error: {e}")
+                st.error(f"❌ Database connection failed!")
+                st.error(f"Error: {e}")
+                st.error(f"Host: {Config.DB_HOST}")
+                st.error(f"Port: {Config.DB_PORT}")
+                st.error(f"User: {Config.DB_USER}")
+                st.error(f"Database: {Config.DB_NAME}")
+                cls._pool = None
                 return None
         return cls._pool
     
