@@ -2070,12 +2070,21 @@ class EnhancedBorrowingManager:
 
 class Config:
     """Configuration management with JSON support"""
-    # Default configuration
-    DB_HOST = os.getenv('DB_HOST', 'localhost')
-    DB_PORT = int(os.getenv('DB_PORT', 3306))
-    DB_USER = os.getenv('DB_USER', 'litgrid')
-    DB_PASSWORD = os.getenv('DB_PASSWORD', 'litgrid123')
-    DB_NAME = os.getenv('DB_NAME', 'litgrid')
+    # Default configuration - Try Streamlit secrets first, then environment variables
+    try:
+        # Streamlit Cloud secrets
+        DB_HOST = st.secrets.get("DB_HOST", os.getenv('DB_HOST', 'localhost'))
+        DB_PORT = int(st.secrets.get("DB_PORT", os.getenv('DB_PORT', 3306)))
+        DB_USER = st.secrets.get("DB_USER", os.getenv('DB_USER', 'litgrid'))
+        DB_PASSWORD = st.secrets.get("DB_PASSWORD", os.getenv('DB_PASSWORD', 'litgrid123'))
+        DB_NAME = st.secrets.get("DB_NAME", os.getenv('DB_NAME', 'litgrid'))
+    except:
+        # Fallback to environment variables if secrets not available
+        DB_HOST = os.getenv('DB_HOST', 'localhost')
+        DB_PORT = int(os.getenv('DB_PORT', 3306))
+        DB_USER = os.getenv('DB_USER', 'litgrid')
+        DB_PASSWORD = os.getenv('DB_PASSWORD', 'litgrid123')
+        DB_NAME = os.getenv('DB_NAME', 'litgrid')
     
     SESSION_TIMEOUT = 60  # minutes
     DEFAULT_BORROWING_DAYS = 14
