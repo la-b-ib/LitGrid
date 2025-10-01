@@ -1,234 +1,38 @@
-# LitGrid - Library Management System# ============================================================================# Core Framework
-
-# Requirements for Streamlit Cloud Deployment
-
-# Python 3.9+# LitGrid - Library Management Systemstreamlit==1.29.0
-
-
-
-# Core Framework# Requirements for GitHub and Streamlit Cloud Deployment
-
 streamlit==1.29.0
-
-# Python 3.9+# Database
-
-# Database Connectivity
-
-mysql-connector-python==8.2.0# ============================================================================mysql-connector-python==8.2.0
-
+mysql-connector-python==8.2.0
 pymysql==1.1.0
-
-SQLAlchemy==2.0.23pymysql==1.1.0
-
-
-
-# Authentication & Security# Core FrameworkSQLAlchemy==2.0.23
-
+SQLAlchemy==2.0.23
 bcrypt==4.1.2
-
-passlib==1.7.4streamlit>=1.50.0
-
+passlib==1.7.4
 cryptography==41.0.7
-
-pyjwt==2.8.0# Authentication & Security
-
+pyjwt==2.8.0
 python-dotenv==1.0.0
-
-# Database Connectivitybcrypt==4.1.2
-
-# Data Processing & Analysis
-
-pandas==2.1.4mysql-connector-python>=9.0.0pyjwt==2.8.0
-
+pandas==2.1.4
 numpy==1.26.2
-
-python-dotenv==1.0.0
-
-# Data Visualization
-
-plotly==5.18.0# Authentication & Security
-
+plotly==5.18.0
 altair==5.2.0
-
-matplotlib==3.8.2bcrypt>=4.0.0# Data Processing
-
-
-
-# File Handling & Generationpasslib>=1.7.4pandas==2.1.4
-
+matplotlib==3.8.2
 openpyxl==3.1.2
-
-reportlab==4.0.7cryptography>=44.0.0numpy==1.26.2
-
+reportlab==4.0.7
 pdfplumber==0.10.3
-
-PyMuPDF==1.23.8python-dotenv>=1.0.0
-
+PyMuPDF==1.23.8
 Pillow==10.1.0
-
-python-docx==1.1.0# Visualization
-
+python-docx==1.1.0
 PyPDF2==3.0.1
-
-# Data Processing & Analysisplotly==5.18.0
-
-# Barcode & QR Code Generation
-
-python-barcode==0.15.1pandas>=2.2.0altair==5.2.0
-
+python-barcode==0.15.1
 qrcode==7.4.2
-
-numpy>=2.2.0matplotlib==3.8.2
-
-# Fuzzy String Matching
-
 fuzzywuzzy==0.18.0
-
 python-Levenshtein==0.23.0
-
-# Data Visualization# File Handling
-
-# Email Validation
-
-email-validator==2.1.0plotly>=6.0.0Pillow==10.1.0
-
+email-validator==2.1.0
 python-multipart==0.0.6
-
-openpyxl==3.1.2
-
-# Utilities
-
-python-dateutil==2.8.2# File Processing & Generationpython-docx==1.1.0
-
+python-dateutil==2.8.2
 pytz==2023.3
-
-pyyaml==6.0.1openpyxl>=3.1.0              # Excel file handlingPyPDF2==3.0.1
-
-requests==2.31.0
-
-streamlit-extras==0.3.6reportlab>=4.4.0             # PDF generation
-
-xlsxwriter==3.1.9
-
-tqdm==4.66.1pdfplumber>=0.11.0           # PDF reading and extraction# Email
-
-httpx==0.25.2
-
-markdown==3.5.1PyMuPDF>=1.26.0              # PDF processing (fitz)email-validator==2.1.0
-
-tzlocal==5.2
-
-Pillow>=11.0.0               # Image processingpython-multipart==0.0.6
-
-# Image Processing (headless for cloud)
-
-opencv-python-headless==4.8.1.78
-
-
-# Barcode & QR Code Generation# Utilities
-
-python-barcode>=0.16.0       # Barcode generationpython-dateutil==2.8.2
-
-qrcode>=8.0                  # QR code generationpytz==2023.3
-
 pyyaml==6.0.1
-
-# Fuzzy String Matching & Searchrequests==2.31.0
-
-fuzzywuzzy>=0.18.0           # Fuzzy string matching
-
-python-Levenshtein>=0.20.0   # Fast string comparison# Caching
-
+requests==2.31.0
 streamlit-extras==0.3.6
-
-# YAML Configuration
-
-PyYAML>=6.0.0# Image Processing
-
-opencv-python-headless==4.8.1.78
-
-# Date & Time Utilities
-
-python-dateutil>=2.8.0# Excel and CSV handling
-
 xlsxwriter==3.1.9
-
-# ============================================================================
-
-# Optional Dependencies (Install if needed)# QR Code generation (for book barcodes)
-
-# ============================================================================qrcode==7.4.2
-
-
-
-# Email Functionality (if implementing email features)# Fuzzy string matching (for search)
-
-# email-validator>=2.0.0fuzzywuzzy==0.18.0
-
-python-Levenshtein==0.23.0
-
-# Progress Bars (for long operations)
-
-# tqdm>=4.66.0# Progress bars
-
 tqdm==4.66.1
-
-# Web Scraping (if needed for book data)
-
-# requests>=2.31.0# HTTP requests
-
-# beautifulsoup4>=4.12.0httpx==0.25.2
-
-
-
-# Caching Enhancement# Markdown rendering
-
-# streamlit-extras>=0.3.0markdown==3.5.1
-
-
-
-# ============================================================================# Timezone handling
-
-# Development Dependencies (Not required for deployment)tzlocal==5.2
-
-# ============================================================================
-
-# Testing
-# pytest>=7.4.0
-# pytest-cov>=4.1.0
-
-# Code Quality
-# pylint>=3.0.0
-# black>=23.0.0
-# mypy>=1.7.0
-
-# ============================================================================
-# Deployment Notes
-# ============================================================================
-# 
-# For Streamlit Cloud:
-# 1. Ensure this requirements.txt is in the root directory
-# 2. Set up secrets in Streamlit Cloud dashboard:
-#    - DB_HOST
-#    - DB_USER
-#    - DB_PASSWORD
-#    - DB_NAME
-# 
-# For GitHub:
-# 1. Create .gitignore to exclude:
-#    - .env
-#    - __pycache__/
-#    - *.pyc
-#    - .venv/
-#    - *.log
-# 
-# Database Setup:
-# - MySQL/MariaDB must be accessible from deployment server
-# - Consider using managed database services like:
-#   * AWS RDS
-#   * Google Cloud SQL
-#   * Azure Database for MySQL
-#   * PlanetScale
-#   * Railway
-# 
-# ============================================================================
+httpx==0.25.2
+markdown==3.5.1
+tzlocal==5.2
+opencv-python-headless==4.8.1.78
