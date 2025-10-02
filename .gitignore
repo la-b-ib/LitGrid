@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+*.env
+!.env.example
+
+# Database
+*.sql.backup
+*.db
+# But include the main database for deployment
+!litgrid_local.db
+
+# Logs
+*.log
+logs/
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Cache
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+Thumbs.db
+.DS_Store
