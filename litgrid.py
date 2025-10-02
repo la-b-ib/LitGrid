@@ -18,9 +18,20 @@ import secrets
 import json
 import re
 from collections import Counter
-from cryptography.fernet import Fernet
-from passlib.context import CryptContext
 import warnings
+
+# Optional security imports
+try:
+    from cryptography.fernet import Fernet
+    CRYPTO_AVAILABLE = True
+except ImportError:
+    CRYPTO_AVAILABLE = False
+
+try:
+    from passlib.context import CryptContext
+    PASSLIB_AVAILABLE = True
+except ImportError:
+    PASSLIB_AVAILABLE = False
 import time
 import io
 import base64
@@ -68,38 +79,48 @@ class SecurityManager:
     """Advanced security and encryption manager"""
     
     def __init__(self):
-        # Initialize password context
-        self.pwd_context = CryptContext(
-            schemes=["bcrypt"],
-            deprecated="auto",
-            bcrypt__rounds=12
-        )
+        # Initialize password context if passlib is available
+        if PASSLIB_AVAILABLE:
+            self.pwd_context = CryptContext(
+                schemes=["bcrypt"],
+                deprecated="auto",
+                bcrypt__rounds=12
+            )
+        else:
+            self.pwd_context = None
         
         # Generate encryption key (in production, store securely)
         self._init_encryption_key()
     
     def _init_encryption_key(self):
         """Initialize or load encryption key"""
-        key_file = ".encryption_key"
-        if os.path.exists(key_file):
-            with open(key_file, 'rb') as f:
-                self.encryption_key = f.read()
+        if CRYPTO_AVAILABLE:
+            key_file = ".encryption_key"
+            if os.path.exists(key_file):
+                with open(key_file, 'rb') as f:
+                    self.encryption_key = f.read()
+            else:
+                self.encryption_key = Fernet.generate_key()
+                with open(key_file, 'wb') as f:
+                    f.write(self.encryption_key)
+            
+            self.cipher = Fernet(self.encryption_key)
         else:
-            self.encryption_key = Fernet.generate_key()
-            with open(key_file, 'wb') as f:
-                f.write(self.encryption_key)
-        
-        self.cipher = Fernet(self.encryption_key)
+            self.cipher = None
+            self.encryption_key = None
     
     def encrypt_data(self, data: str) -> str:
         """Encrypt sensitive data"""
-        if not data:
+        if not data or not self.cipher:
             return data
-        return self.cipher.encrypt(data.encode()).decode()
+        try:
+            return self.cipher.encrypt(data.encode()).decode()
+        except:
+            return data
     
     def decrypt_data(self, encrypted_data: str) -> str:
         """Decrypt sensitive data"""
-        if not encrypted_data:
+        if not encrypted_data or not self.cipher:
             return encrypted_data
         try:
             return self.cipher.decrypt(encrypted_data.encode()).decode()
@@ -107,12 +128,25 @@ class SecurityManager:
             return encrypted_data
     
     def hash_password(self, password: str) -> str:
-        """Hash password using passlib"""
-        return self.pwd_context.hash(password)
+        """Hash password using passlib or fallback to bcrypt"""
+        if self.pwd_context:
+            return self.pwd_context.hash(password)
+        else:
+            # Fallback to bcrypt directly
+            import bcrypt
+            return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
     def verify_password(self, password: str, hashed: str) -> bool:
         """Verify password"""
-        return self.pwd_context.verify(password, hashed)
+        if self.pwd_context:
+            return self.pwd_context.verify(password, hashed)
+        else:
+            # Fallback to bcrypt directly
+            import bcrypt
+            try:
+                return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+            except:
+                return False
     
     def sanitize_input(self, text: str) -> str:
         """Sanitize user input to prevent XSS"""
