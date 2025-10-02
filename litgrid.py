@@ -2533,6 +2533,7 @@ class Database:
                     condition_notes TEXT,
                     is_available INTEGER DEFAULT 1,
                     is_active INTEGER DEFAULT 1,
+                    publisher_id INTEGER,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
@@ -2663,6 +2664,8 @@ class Database:
                     total_borrowed INTEGER DEFAULT 0,
                     current_borrowed INTEGER DEFAULT 0,
                     total_checkouts INTEGER DEFAULT 0,
+                    total_copies INTEGER DEFAULT 0,
+                    available_copies INTEGER DEFAULT 0,
                     average_rating REAL DEFAULT 0.0,
                     rating_count INTEGER DEFAULT 0,
                     popularity_score INTEGER DEFAULT 0,
