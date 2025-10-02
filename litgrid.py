@@ -2834,6 +2834,9 @@ class Database:
                     code_type TEXT NOT NULL,
                     code_image BLOB,
                     code_data TEXT,
+                    entity_type TEXT,
+                    entity_id INTEGER,
+                    code_value TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             '''
