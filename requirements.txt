@@ -5,6 +5,8 @@ streamlit>=1.35.0
 bcrypt>=4.2.0
 pyjwt>=2.8.0
 python-dotenv>=1.0.0
+passlib>=1.7.4
+cryptography>=42.0.0
 
 # Data Processing - Python 3.13 Compatible
 pandas>=2.2.0
