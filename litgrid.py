@@ -1682,23 +1682,22 @@ class DataManagement:
                 if user and user.get('user_id', 0) > 0:
                     query = """
                         INSERT INTO backup_logs
-                        (backup_filename, backup_type, backup_size, created_by)
-                        VALUES (?, 'full', ?, ?)
+                        (file_path, operation_type, file_size, status, message)
+                        VALUES (?, 'backup', ?, 'success', 'Full backup completed')
                     """
                     Database.execute_update(query, (
-                        os.path.basename(backup_path),
-                        backup_size,
-                        user['user_id']
+                        backup_path,
+                        backup_size
                     ))
                 else:
                     # For functional admin, log without user_id
                     query = """
                         INSERT INTO backup_logs
-                        (backup_filename, backup_type, backup_size)
-                        VALUES (?, 'full', ?)
+                        (file_path, operation_type, file_size, status, message)
+                        VALUES (?, 'backup', ?, 'success', 'Full backup completed')
                     """
                     Database.execute_update(query, (
-                        os.path.basename(backup_path),
+                        backup_path,
                         backup_size
                     ))
             except Exception as e:
@@ -2548,6 +2547,7 @@ class Database:
                     due_date DATETIME,
                     return_date DATETIME,
                     fine_amount REAL DEFAULT 0.0,
+                    status TEXT DEFAULT 'active',
                     notes TEXT,
                     FOREIGN KEY (user_id) REFERENCES users(user_id),
                     FOREIGN KEY (book_id) REFERENCES books(book_id)
@@ -2824,6 +2824,17 @@ class Database:
                     message TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     completed_at DATETIME
+                )
+            ''',
+            'item_codes': '''
+                CREATE TABLE IF NOT EXISTS item_codes (
+                    code_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    item_type TEXT NOT NULL,
+                    item_id INTEGER NOT NULL,
+                    code_type TEXT NOT NULL,
+                    code_image BLOB,
+                    code_data TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             '''
         }
@@ -3703,7 +3714,7 @@ def show_dashboard():
     """Dashboard page"""
     user = Auth.get_user()
     
-    st.markdown(f'<h1 class="custom-header">📊 Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="custom-header">🧭 Dashboard</h1>', unsafe_allow_html=True)
     st.markdown(f"<p style='text-align: center; color: #666;'>Welcome back, {user['full_name']}!</p>", unsafe_allow_html=True)
     
     if user['role'] in ['admin', 'librarian']:
@@ -4054,7 +4065,7 @@ def show_dashboard():
 
 def show_books():
     """Enhanced Books browsing page with advanced search and filters"""
-    st.markdown('<h1 class="custom-header">📚 Browse Books</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="custom-header">🧿 Browse Books</h1>', unsafe_allow_html=True)
     
     # Advanced Search & Filter Section
     with st.expander("🔍 Advanced Search & Filters", expanded=True):
@@ -4251,7 +4262,7 @@ def show_account():
     """Enhanced Account page with password change and statistics"""
     user = Auth.get_user()
     
-    st.markdown('<h1 class="custom-header">👤 My Account</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="custom-header">🗿 My Account</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3 = st.tabs(["📋 Profile", "🔐 Security", "📊 My Statistics"])
     
@@ -4410,7 +4421,7 @@ def show_account():
 
 def show_manage_books():
     """Book management page"""
-    st.markdown('<h1 class="custom-header">📚 Manage Books</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="custom-header">🛠️ Manage Books</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4 = st.tabs(["📖 All Books", "➕ Add Book", "⚒️ Bulk Import", "📊 Statistics"])
     
@@ -4675,7 +4686,7 @@ def show_manage_books():
 
 def show_manage_members():
     """Member management page"""
-    st.markdown('<h1 class="custom-header">👥 Manage Members</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="custom-header">👨🏻‍🌾 Manage Members</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4 = st.tabs(["👥 All Members", "➕ Register User", "📝 Edit/Delete", "📊 Statistics"])
     
@@ -4957,7 +4968,7 @@ def show_manage_members():
 
 def show_borrowing_returns():
     """Borrowing and returns page"""
-    st.markdown('<h1 class="custom-header">📖 Borrowing & Returns</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="custom-header">⏳ Borrowing & Returns</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📤 Checkout", "📥 Return", "📋 Active Borrowings", "🔄 Renewals", "📊 Trends"])
     
@@ -6696,59 +6707,36 @@ def show_my_library():
     with tabs[3]:
         st.subheader("👤 My Profile")
         
-        # User photo
-        col1, col2 = st.columns([1, 3])
+        # User profile information
+        st.write(f"**Full Name:** {user['full_name']}")
+        st.write(f"**Username:** {user['username']}")
+        st.write(f"**Email:** {user['email']}")
+        st.write(f"**Role:** {user['role'].title()}")
+        st.write(f"**Member Tier:** {user['member_tier'].title()}")
         
-        with col1:
-            # Only show photo upload for real database users
-            if user['user_id'] > 0:
-                user_photo = EnhancedUserManager.get_user_photo(user['user_id'])
-                if user_photo:
-                    st.image(user_photo, width=150)
-                else:
-                    st.image("https://via.placeholder.com/150?text=No+Photo", width=150)
-                
-                photo_file = st.file_uploader("Upload Photo", type=['jpg', 'jpeg', 'png'])
-                if photo_file:
-                    if EnhancedUserManager.upload_user_photo(user['user_id'], photo_file):
-                        st.success("Photo uploaded!")
-                        st.rerun()
-            else:
-                st.image("https://via.placeholder.com/150?text=Admin", width=150)
-                st.caption("Photo upload not available for functional admin")
-        
-        with col2:
-            st.write(f"**Full Name:** {user['full_name']}")
-            st.write(f"**Username:** {user['username']}")
-            st.write(f"**Email:** {user['email']}")
-            st.write(f"**Role:** {user['role'].title()}")
-            st.write(f"**Member Tier:** {user['member_tier'].title()}")
+        # Only show unique ID and QR code for real database users (not functional admin)
+        if user['user_id'] > 0:
+            # Unique ID
+            unique_id = Database.execute_query(
+                "SELECT user_unique_code FROM users WHERE user_id = ?",
+                (user['user_id'],)
+            )
+            unique_code = unique_id[0]['user_unique_code'] if unique_id and unique_id[0]['user_unique_code'] else None
             
-            # Only show unique ID and QR code for real database users (not functional admin)
-            if user['user_id'] > 0:
-                # Unique ID
-                unique_id = Database.execute_query(
-                    "SELECT user_unique_code FROM users WHERE user_id = ?",
-                    (user['user_id'],)
-                )
-                unique_code = unique_id[0]['user_unique_code'] if unique_id and unique_id[0]['user_unique_code'] else None
-                
-                if unique_code:
-                    st.write(f"**Unique ID:** {unique_code}")
-                else:
-                    if st.button("🆔 Generate Unique ID"):
-                        new_id = EnhancedUserManager.generate_user_unique_id(user['user_id'])
-                        if new_id:
-                            st.success(f"Generated: {new_id}")
-                            st.rerun()
-                
-                # QR Code
-                if st.button("📱 Generate My QR Code"):
-                    qr_data = SmartUtilities.generate_user_qr(user['user_id'])
-                    if qr_data:
-                        st.image(qr_data, width=200)
+            if unique_code:
+                st.write(f"**Unique ID:** {unique_code}")
             else:
-                st.info("ℹ️ Unique ID and QR Code features not available for functional admin account")
+                if st.button("🆔 Generate Unique ID"):
+                    new_id = EnhancedUserManager.generate_user_unique_id(user['user_id'])
+                    if new_id:
+                        st.success(f"Generated: {new_id}")
+                        st.rerun()
+            
+            # QR Code
+            if st.button("📱 Generate My QR Code"):
+                qr_data = SmartUtilities.generate_user_qr(user['user_id'])
+                if qr_data:
+                    st.image(qr_data, width=200)
 
 def show_community_library():
     """Browse Community Library"""
