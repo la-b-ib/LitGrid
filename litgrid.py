@@ -2507,6 +2507,7 @@ class Database:
                     address TEXT,
                     fine_balance REAL DEFAULT 0.0,
                     is_active INTEGER DEFAULT 1,
+                    member_tier TEXT DEFAULT 'bronze',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
@@ -2531,6 +2532,7 @@ class Database:
                     location TEXT,
                     condition_notes TEXT,
                     is_available INTEGER DEFAULT 1,
+                    is_active INTEGER DEFAULT 1,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
@@ -2588,30 +2590,6 @@ class Database:
                     notes TEXT,
                     FOREIGN KEY (user_id) REFERENCES users(user_id),
                     FOREIGN KEY (book_id) REFERENCES books(book_id)
-                )
-            ''',
-            'books': '''
-                CREATE TABLE IF NOT EXISTS books (
-                    book_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    isbn TEXT UNIQUE,
-                    isbn_13 TEXT,
-                    isbn_10 TEXT,
-                    author TEXT NOT NULL,
-                    genre TEXT,
-                    publication_year INTEGER,
-                    publisher TEXT,
-                    pages INTEGER,
-                    page_count INTEGER,
-                    language TEXT DEFAULT 'English',
-                    description TEXT,
-                    keywords TEXT,
-                    popularity_score INTEGER DEFAULT 0,
-                    location TEXT,
-                    condition_notes TEXT,
-                    is_available INTEGER DEFAULT 1,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''',
             'book_inventory': '''
@@ -2684,6 +2662,7 @@ class Database:
                     book_id INTEGER NOT NULL,
                     total_borrowed INTEGER DEFAULT 0,
                     current_borrowed INTEGER DEFAULT 0,
+                    total_checkouts INTEGER DEFAULT 0,
                     average_rating REAL DEFAULT 0.0,
                     rating_count INTEGER DEFAULT 0,
                     popularity_score INTEGER DEFAULT 0,
