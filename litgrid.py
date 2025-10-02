@@ -2729,6 +2729,102 @@ class Database:
                     FOREIGN KEY (user_id) REFERENCES users(user_id),
                     UNIQUE(book_id, user_id)
                 )
+            ''',
+            'sync_log': '''
+                CREATE TABLE IF NOT EXISTS sync_log (
+                    sync_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sync_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    message TEXT,
+                    synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''',
+            'fines': '''
+                CREATE TABLE IF NOT EXISTS fines (
+                    fine_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    book_id INTEGER,
+                    fine_amount REAL NOT NULL DEFAULT 0.0,
+                    fine_type TEXT DEFAULT 'overdue',
+                    status TEXT DEFAULT 'pending',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    paid_at DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id),
+                    FOREIGN KEY (book_id) REFERENCES books(book_id)
+                )
+            ''',
+            'roles': '''
+                CREATE TABLE IF NOT EXISTS roles (
+                    role_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role_name TEXT UNIQUE NOT NULL,
+                    description TEXT,
+                    permissions TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''',
+            'member_tiers': '''
+                CREATE TABLE IF NOT EXISTS member_tiers (
+                    tier_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tier_name TEXT UNIQUE NOT NULL,
+                    description TEXT,
+                    benefits TEXT,
+                    borrowing_limit INTEGER DEFAULT 5,
+                    renewal_limit INTEGER DEFAULT 2,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''',
+            'user_photos': '''
+                CREATE TABLE IF NOT EXISTS user_photos (
+                    photo_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    photo_image BLOB,
+                    photo_url TEXT,
+                    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            ''',
+            'user_profiles': '''
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    bio TEXT,
+                    date_of_birth DATE,
+                    occupation TEXT,
+                    interests TEXT,
+                    favorite_genres TEXT,
+                    reading_goals TEXT,
+                    social_links TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            ''',
+            'author_profiles': '''
+                CREATE TABLE IF NOT EXISTS author_profiles (
+                    profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    author_name TEXT NOT NULL,
+                    bio TEXT,
+                    birth_date DATE,
+                    death_date DATE,
+                    nationality TEXT,
+                    awards TEXT,
+                    notable_works TEXT,
+                    photo_url TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''',
+            'backup_logs': '''
+                CREATE TABLE IF NOT EXISTS backup_logs (
+                    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    operation_type TEXT NOT NULL,
+                    file_path TEXT,
+                    file_size INTEGER,
+                    status TEXT NOT NULL,
+                    message TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    completed_at DATETIME
+                )
             '''
         }
         
@@ -6960,7 +7056,9 @@ def show_system_tools():
             
             if backups:
                 for backup in backups:
-                    st.write(f"📦 {backup['backup_filename']} - {backup['created_at']} ({backup['backup_size'] / 1024 / 1024:.2f} MB)")
+                    filename = backup['file_path'].split('/')[-1] if backup['file_path'] else 'Unknown'
+                    file_size_mb = (backup['file_size'] / 1024 / 1024) if backup['file_size'] else 0
+                    st.write(f"📦 {filename} - {backup['created_at']} ({file_size_mb:.2f} MB)")
         
         with col2:
             st.markdown("### Restore Backup")
