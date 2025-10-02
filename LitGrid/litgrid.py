@@ -2070,29 +2070,12 @@ class EnhancedBorrowingManager:
 
 class Config:
     """Configuration management with JSON support"""
-    # Default configuration - Try Streamlit secrets first, then environment variables
-    try:
-        # Streamlit Cloud secrets (use direct access, not .get())
-        if hasattr(st, 'secrets') and 'DB_HOST' in st.secrets:
-            DB_HOST = st.secrets["DB_HOST"]
-            DB_PORT = int(st.secrets["DB_PORT"])
-            DB_USER = st.secrets["DB_USER"]
-            DB_PASSWORD = st.secrets["DB_PASSWORD"]
-            DB_NAME = st.secrets["DB_NAME"]
-        else:
-            # Fallback to environment variables
-            DB_HOST = os.getenv('DB_HOST', 'localhost')
-            DB_PORT = int(os.getenv('DB_PORT', 3306))
-            DB_USER = os.getenv('DB_USER', 'litgrid')
-            DB_PASSWORD = os.getenv('DB_PASSWORD', 'litgrid123')
-            DB_NAME = os.getenv('DB_NAME', 'litgrid')
-    except Exception as e:
-        # Final fallback to environment variables if secrets fail
-        DB_HOST = os.getenv('DB_HOST', 'localhost')
-        DB_PORT = int(os.getenv('DB_PORT', 3306))
-        DB_USER = os.getenv('DB_USER', 'litgrid')
-        DB_PASSWORD = os.getenv('DB_PASSWORD', 'litgrid123')
-        DB_NAME = os.getenv('DB_NAME', 'litgrid')
+    # Default configuration
+    DB_HOST = os.getenv('DB_HOST', 'localhost')
+    DB_PORT = int(os.getenv('DB_PORT', 3306))
+    DB_USER = os.getenv('DB_USER', 'litgrid')
+    DB_PASSWORD = os.getenv('DB_PASSWORD', 'litgrid123')
+    DB_NAME = os.getenv('DB_NAME', 'litgrid')
     
     SESSION_TIMEOUT = 60  # minutes
     DEFAULT_BORROWING_DAYS = 14
@@ -2600,9 +2583,6 @@ class Database:
         """Initialize connection pool"""
         if cls._pool is None:
             try:
-                # Debug: Show connection details (without password)
-                st.info(f"🔌 Connecting to: {Config.DB_HOST}:{Config.DB_PORT} as {Config.DB_USER}")
-                
                 cls._pool = pooling.MySQLConnectionPool(
                     pool_name="litgrid_pool",
                     pool_size=5,
@@ -2614,15 +2594,8 @@ class Database:
                     charset='utf8mb4',
                     autocommit=False
                 )
-                st.success("✅ Database connected successfully!")
             except Error as e:
-                st.error(f"❌ Database connection failed!")
-                st.error(f"Error: {e}")
-                st.error(f"Host: {Config.DB_HOST}")
-                st.error(f"Port: {Config.DB_PORT}")
-                st.error(f"User: {Config.DB_USER}")
-                st.error(f"Database: {Config.DB_NAME}")
-                cls._pool = None
+                st.error(f"Database connection error: {e}")
                 return None
         return cls._pool
     
@@ -3279,7 +3252,7 @@ def show_login_page():
         st.markdown("""
         <div style='text-align: center;'>
             <h1 style='color: #1E88E5; font-size: 3rem;'>📚 LitGrid</h1>
-
+            <p style='color: #666; font-size: 1.2rem;'>Advanced Library Management System</p>
         </div>
         """, unsafe_allow_html=True)
         
