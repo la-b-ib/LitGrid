@@ -2661,6 +2661,92 @@ class Database:
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(user_id)
                 )
+            ''',
+            'renewal_requests': '''
+                CREATE TABLE IF NOT EXISTS renewal_requests (
+                    renewal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    borrowing_id INTEGER NOT NULL,
+                    requested_by INTEGER NOT NULL,
+                    requested_days INTEGER DEFAULT 14,
+                    status TEXT DEFAULT 'pending',
+                    reviewed_by INTEGER,
+                    review_notes TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at DATETIME,
+                    FOREIGN KEY (borrowing_id) REFERENCES borrowing(borrowing_id),
+                    FOREIGN KEY (requested_by) REFERENCES users(user_id),
+                    FOREIGN KEY (reviewed_by) REFERENCES users(user_id)
+                )
+            ''',
+            'book_statistics': '''
+                CREATE TABLE IF NOT EXISTS book_statistics (
+                    stat_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    book_id INTEGER NOT NULL,
+                    total_borrowed INTEGER DEFAULT 0,
+                    current_borrowed INTEGER DEFAULT 0,
+                    average_rating REAL DEFAULT 0.0,
+                    rating_count INTEGER DEFAULT 0,
+                    popularity_score INTEGER DEFAULT 0,
+                    last_borrowed DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (book_id) REFERENCES books(book_id)
+                )
+            ''',
+            'genres': '''
+                CREATE TABLE IF NOT EXISTS genres (
+                    genre_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    genre_name TEXT UNIQUE NOT NULL,
+                    description TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''',
+            'book_genres': '''
+                CREATE TABLE IF NOT EXISTS book_genres (
+                    bg_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    book_id INTEGER NOT NULL,
+                    genre_id INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (book_id) REFERENCES books(book_id),
+                    FOREIGN KEY (genre_id) REFERENCES genres(genre_id),
+                    UNIQUE(book_id, genre_id)
+                )
+            ''',
+            'authors': '''
+                CREATE TABLE IF NOT EXISTS authors (
+                    author_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    biography TEXT,
+                    birth_date DATE,
+                    death_date DATE,
+                    nationality TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''',
+            'publishers': '''
+                CREATE TABLE IF NOT EXISTS publishers (
+                    publisher_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    address TEXT,
+                    website TEXT,
+                    founded_year INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''',
+            'book_reviews': '''
+                CREATE TABLE IF NOT EXISTS book_reviews (
+                    review_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    book_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+                    review_text TEXT,
+                    is_public INTEGER DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (book_id) REFERENCES books(book_id),
+                    FOREIGN KEY (user_id) REFERENCES users(user_id),
+                    UNIQUE(book_id, user_id)
+                )
             '''
         }
         
