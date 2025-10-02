@@ -29,14 +29,30 @@ import csv
 from io import BytesIO
 from PIL import Image
 import qrcode
-import barcode
-from barcode.writer import ImageWriter
-import pdfplumber
-import fitz  # PyMuPDF
 from fuzzywuzzy import fuzz, process
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from typing import List, Dict
+
+# Optional imports - may not be available in all environments
+try:
+    import barcode
+    from barcode.writer import ImageWriter
+    BARCODE_AVAILABLE = True
+except ImportError:
+    BARCODE_AVAILABLE = False
+
+try:
+    import pdfplumber
+    PDF_PLUMBER_AVAILABLE = True
+except ImportError:
+    PDF_PLUMBER_AVAILABLE = False
+
+try:
+    import fitz  # PyMuPDF
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
