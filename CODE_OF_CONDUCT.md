@@ -1,138 +1,262 @@
-# Contributor Covenant Code of Conduct
+# LitGrid Community Code of Conduct
 
-## Our Pledge
+## 📜 Our Mission & Commitment
 
-We as members, contributors, and leaders pledge to make participation in our
-community a harassment-free experience for everyone, regardless of age, body
-size, visible or invisible disability, ethnicity, sex characteristics, gender
-identity and expression, level of experience, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity
-and orientation.
+**LitGrid** is a comprehensive library management system designed to serve educational institutions, public libraries, and private collections worldwide. As contributors to an open-source project that handles sensitive library data and serves diverse communities, we are committed to fostering an inclusive, professional, and secure development environment.
 
-We pledge to act and interact in ways that contribute to an open, welcoming,
-diverse, inclusive, and healthy community.
+We as members, contributors, maintainers, and community leaders pledge to make participation in the LitGrid project and community a harassment-free, professional, and educational experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, sexual identity and orientation, or technical background.
 
-## Our Standards
+We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, healthy, and **security-conscious** community.
 
-Examples of behavior that contributes to a positive environment for our
-community include:
+---
 
-* Demonstrating empathy and kindness toward other people
-* Being respectful of differing opinions, viewpoints, and experiences
-* Giving and gracefully accepting constructive feedback
-* Accepting responsibility and apologizing to those affected by our mistakes,
-  and learning from the experience
-* Focusing on what is best not just for us as individuals, but for the
-  overall community
+## ✨ Our Values & Standards
 
-Examples of unacceptable behavior include:
+### Positive Community Behaviors
 
-* The use of sexualized language or imagery, and sexual attention or
-  advances of any kind
+Examples of behavior that contributes to a positive environment for our community include:
+
+**🤝 Respectful Collaboration:**
+* Demonstrating empathy and kindness toward other contributors
+* Being respectful of differing opinions, viewpoints, and technical approaches
+* Giving and gracefully accepting constructive feedback on code, documentation, and ideas
+* Acknowledging different levels of technical expertise and offering mentorship
+
+**🎯 Professional Excellence:**
+* Focusing on what is best for the LitGrid project and its users
+* Accepting responsibility and apologizing to those affected by our mistakes
+* Learning from experience and helping others learn
+* Maintaining high standards for code quality, security, and documentation
+
+**🔒 Security & Privacy Awareness:**
+* Taking library data privacy and security seriously in all discussions
+* Reporting security vulnerabilities responsibly and privately
+* Respecting confidentiality when handling sensitive information
+* Following secure coding practices and encouraging others to do the same
+
+**📚 Educational Focus:**
+* Sharing knowledge about library management systems and best practices
+* Helping newcomers understand the project's educational and institutional context
+* Contributing to clear documentation that serves librarians and developers alike
+
+### Unacceptable Behaviors
+
+The following behaviors are considered harassment and are unacceptable within our community:
+
+**❌ Personal Misconduct:**
+* The use of sexualized language or imagery, and unwelcome sexual attention or advances
 * Trolling, insulting or derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information, such as a physical or email
-  address, without their explicit permission
-* Other conduct which could reasonably be considered inappropriate in a
-  professional setting
+* Public or private harassment, including persistent unwelcome contact
+* Publishing others' private information without explicit permission
 
-## Enforcement Responsibilities
+**❌ Professional Misconduct:**
+* Deliberately introducing security vulnerabilities or malicious code
+* Sharing or misusing library data, user information, or institutional details
+* Sabotaging or deliberately breaking project infrastructure
+* Impersonating maintainers, institutions, or other community members
 
-Community leaders are responsible for clarifying and enforcing our standards of
-acceptable behavior and will take appropriate and fair corrective action in
-response to any behavior that they deem inappropriate, threatening, offensive,
-or harmful.
+**❌ Technical Misconduct:**
+* Knowingly submitting low-quality code without addressing feedback
+* Ignoring security best practices or established coding standards
+* Circumventing or undermining the project's access controls or authentication systems
+* Misrepresenting the capabilities or limitations of the LitGrid system
 
-Community leaders have the right and responsibility to remove, edit, or reject
-comments, commits, code, wiki edits, issues, and other contributions that are
-not aligned to this Code of Conduct, and will communicate reasons for moderation
-decisions when appropriate.
+---
 
-## Scope
+## 🛡️ Enforcement Responsibilities & Process
 
-This Code of Conduct applies within all community spaces, and also applies when
-an individual is officially representing the community in public spaces.
-Examples of representing our community include using an official e-mail address,
-posting via an official social media account, or acting as an appointed
-representative at an online or offline event.
+### Community Leadership Team
 
-## Enforcement
+**Project Maintainers** are responsible for clarifying and enforcing our standards of acceptable behavior. They will take appropriate and fair corrective action in response to any behavior deemed inappropriate, threatening, offensive, or harmful to the project or its users.
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-.
-All complaints will be reviewed and investigated promptly and fairly.
+**Responsibilities include:**
 
-All community leaders are obligated to respect the privacy and security of the
-reporter of any incident.
+- Reviewing and moderating contributions, issues, and discussions
+- Ensuring security and privacy standards are maintained
+- Making decisions about project direction and technical standards
+- Enforcing this Code of Conduct fairly and consistently
+- Protecting sensitive information related to library operations
 
-## Enforcement Guidelines
+---
 
-Community leaders will follow these Community Impact Guidelines in determining
-the consequences for any action they deem in violation of this Code of Conduct:
+## 🌍 Scope of Application
 
-### 1. Correction
+This Code of Conduct applies within all LitGrid community spaces and when an individual is officially representing the project in public spaces.
 
-**Community Impact**: Use of inappropriate language or other behavior deemed
-unprofessional or unwelcome in the community.
+**Community Spaces Include:**
 
-**Consequence**: A private, written warning from community leaders, providing
-clarity around the nature of the violation and an explanation of why the
-behavior was inappropriate. A public apology may be requested.
+- GitHub repository (issues, pull requests, discussions, wiki)
+- Project documentation and websites
+- Community forums and chat channels
+- Email communications related to the project
+- Social media accounts and posts about LitGrid
 
-### 2. Warning
+**Public Representation:**
 
-**Community Impact**: A violation through a single incident or series
-of actions.
+- Using official project email addresses
+- Posting via official social media accounts
+- Acting as a representative at conferences, meetups, or educational events
+- Speaking about LitGrid at library science or technical conferences
+- Demonstrating the system to educational institutions
 
-**Consequence**: A warning with consequences for continued behavior. No
-interaction with the people involved, including unsolicited interaction with
-those enforcing the Code of Conduct, for a specified period of time. This
-includes avoiding interactions in community spaces as well as external channels
-like social media. Violating these terms may lead to a temporary or
-permanent ban.
+**Special Considerations for Library Context:**
 
-### 3. Temporary Ban
+- When discussing the project in educational or library professional settings
+- During implementation or deployment discussions with institutions
+- When handling data privacy or security matters related to library operations
 
-**Community Impact**: A serious violation of community standards, including
-sustained inappropriate behavior.
+---
 
-**Consequence**: A temporary ban from any sort of interaction or public
-communication with the community for a specified period of time. No public or
-private interaction with the people involved, including unsolicited interaction
-with those enforcing the Code of Conduct, is allowed during this period.
-Violating these terms may lead to a permanent ban.
+## 🚨 Reporting & Enforcement
 
-### 4. Permanent Ban
+### How to Report Issues
 
-**Community Impact**: Demonstrating a pattern of violation of community
-standards, including sustained inappropriate behavior,  harassment of an
-individual, or aggression toward or disparagement of classes of individuals.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement:
 
-**Consequence**: A permanent ban from any sort of public interaction within
-the community.
+**Primary Contact:**
+- **Email:** [labib-x@protonmail.com](mailto:labib-x@protonmail.com)
+- **GitHub Issues:** For technical violations or public discussion appropriate issues
+- **Security Issues:** Please see our [Security Policy](SECURITY.md) for vulnerability reporting
 
-## Attribution
+**What to Include in Your Report:**
 
-This Code of Conduct is adapted from the [Contributor Covenant][homepage],
-version 2.0, available at
-https://www.contributor-covenant.org/version/2/0/code_of_conduct.html.
+- Date and time of the incident
+- Description of the behavior or issue
+- Screenshots or evidence if applicable (redact personal information)
+- Impact on you or the community
+- Any previous related incidents
 
-Community Impact Guidelines were inspired by [Mozilla's code of conduct
-enforcement ladder](https://github.com/mozilla/diversity).
+**Response Timeline:**
 
-[homepage]: https://www.contributor-covenant.org
+- **Acknowledgment:** Within 48 hours
+- **Initial Review:** Within 72 hours
+- **Resolution:** Within 7 days for most issues
 
-For answers to common questions about this code of conduct, see the FAQ at
-https://www.contributor-covenant.org/faq. Translations are available at
-https://www.contributor-covenant.org/translations.
+All complaints will be reviewed and investigated promptly, fairly, and confidentially. Community leaders are obligated to respect the privacy and security of incident reporters.
 
-## Project Documentation
+### Enforcement Guidelines
 
-<div style="display: flex; gap: 10px; margin: 15px 0; align-items: center; flex-wrap: wrap;">
+The LitGrid community leadership will follow these Impact Guidelines when determining consequences for Code of Conduct violations:
 
-[![License](https://img.shields.io/badge/License-See_FILE-007EC7?style=for-the-badge&logo=creativecommons)](LICENSE)
-[![Security](https://img.shields.io/badge/Security-Policy_%7C_Reporting-FF6D00?style=for-the-badge&logo=owasp)](SECURITY.md)
+#### 1. 📝 Correction
+
+**Community Impact:** Use of inappropriate language, unprofessional behavior, or minor security oversights.
+
+**Consequence:**
+
+- Private written warning from maintainers
+- Explanation of the violation and why it was inappropriate
+- Request for public apology if the incident was public
+- Guidance on proper procedures or alternatives
+
+#### 2. ⚠️ Warning
+
+**Community Impact:** A violation through a single incident or series of actions, including security-related issues.
+
+**Consequence:**
+
+- Formal warning with specified behavioral expectations
+- No interaction with involved parties for specified period (typically 30 days)
+- Includes avoiding interactions in community spaces and external channels
+- Mandatory review of project documentation and guidelines
+- Supervised contributions for specified period
+
+#### 3. ⏸️ Temporary Ban
+
+**Community Impact:** Serious violation of community standards, including sustained inappropriate behavior or significant security violations.
+
+**Consequence:**
+
+- Temporary ban from all community interaction (typically 3-6 months)
+- No public or private interaction with community members
+- No contributions during ban period
+- Required completion of security training if violation involved security issues
+- Formal review process before reinstatement
+
+#### 4. 🚫 Permanent Ban
+
+**Community Impact:** Pattern of violations, sustained harassment, malicious security violations, or deliberate harm to library data/systems.
+
+**Consequence:**
+
+- Permanent ban from all community interaction
+- Removal of all contributor access and privileges
+- Public record of the violation (without personal details)
+- Legal action may be pursued for serious security violations
+
+### Appeal Process
+
+Community members may appeal enforcement decisions by:
+
+1. Emailing the project maintainers within 30 days
+2. Providing new evidence or context
+3. Demonstrating corrective actions taken
+4. Requesting mediation from neutral third parties
+
+---
+
+## 🏛️ Special Considerations for Library Context
+
+### Data Privacy & Security
+
+Contributors working with LitGrid must understand that this software handles sensitive library and patron data. Extra care must be taken to:
+
+- Never expose real patron information in testing or demonstrations
+- Follow institutional data protection policies
+- Report security vulnerabilities responsibly
+- Respect the confidentiality of library operations
+
+### Educational Responsibility
+
+As contributors to educational technology, we commit to:
+
+- Ensuring accessibility for users with disabilities
+- Supporting diverse institutional needs
+- Maintaining documentation that serves both technical and non-technical users
+- Promoting best practices in library science and information management
+
+---
+
+## 📚 Resources & Support
+
+### Learning Resources
+
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Project Documentation](README.md)
+- [Library Management Best Practices](docs/best-practices.md)
+
+### Community Support
+
+- **New Contributors:** Welcome! Please read our contributing guide and don't hesitate to ask questions
+- **Library Professionals:** We value your domain expertise and institutional perspective
+- **Students & Educators:** Ideal learning opportunity for real-world software development
+- **Security Researchers:** Please follow responsible disclosure practices
+
+---
+
+## 📜 Attribution & Acknowledgments
+
+This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1, with specific adaptations for library management software and educational technology contexts.
+
+**Special Thanks:**
+
+- Library science professionals who provide domain expertise
+- Educational institutions using and supporting LitGrid
+- Security researchers who help keep library data safe
+- Open source community members who make this project possible
+
+**Version:** 1.0  
+**Last Updated:** October 2025  
+**Next Review:** April 2026
+
+---
+
+## 📄 Related Documentation
+
+[![License](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![Security](https://img.shields.io/badge/Security-Policy-red.svg)](SECURITY.md)
+[![Contributing](https://img.shields.io/badge/Contributing-Guidelines-green.svg)](CONTRIBUTING.md)
 [![Contributing](https://img.shields.io/badge/Contributing-Guidelines-2E8B57?style=for-the-badge&logo=git)](CONTRIBUTING.md)
 [![Code of Conduct](https://img.shields.io/badge/Code_of_Conduct-Community_Standards-FF0000?style=for-the-badge&logo=opensourceinitiative)](CODE_OF_CONDUCT.md)
 
