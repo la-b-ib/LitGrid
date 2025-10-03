@@ -1,4 +1,4 @@
-## LitGrid 
+## LitGrid  <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/book.gif"></a>
 
 **LitGrid** is a comprehensive, modern library management system designed for educational institutions, public libraries, and private collections. Built with **Python**, **Streamlit**, and **SQLite**, it offers a complete solution for managing books, users, borrowing activities, and administrative tasks.
 
@@ -44,7 +44,7 @@
 <hr>
 
 
-## Project Goals
+## Project Goals <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/solar-system.gif"></a>
 
 - **Complete Library Management**: From book cataloging to user management
 - **User-Friendly Interface**: Intuitive web-based dashboard for all user types  
@@ -54,7 +54,7 @@
 
 <hr>
 
-##  What Makes LitGrid Special
+##  What Makes LitGrid Special <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/process.gif"></a>
 
 - **All-in-One Solution**: Single file deployment with 7900+ lines of Python code
 - **Advanced PDF Library**: Personal and community PDF sharing system
