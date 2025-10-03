@@ -477,11 +477,9 @@ docker run -p 8501:8501 litgrid
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
-### ⚙️ Environment Variables
-
-Create a `.env` file in the project root:
+### ⚙️ Environment Variables : Create a `.env` file in the project root:
 
 ```env
 # Database Configuration
@@ -563,11 +561,9 @@ gatherUsageStats = false
 
 ---
 
-## 📚 User Guide
+## User Roles & Permissions
 
-### 👤 User Roles & Permissions
-
-#### 🎭 **Member Role**
+### 🎭 **Member Role**
 - Browse and search book catalog
 - Request book checkouts and returns
 - Manage personal profile and privacy settings
@@ -575,7 +571,9 @@ gatherUsageStats = false
 - Rate and review books
 - View personal reading statistics
 
-#### 📋 **Librarian Role**  
+<hr>
+
+### 📋 **Librarian Role**  
 - All member permissions plus:
 - Add, edit, and delete books
 - Manage book inventory and copies
@@ -584,7 +582,9 @@ gatherUsageStats = false
 - Generate reports and analytics
 - Manage fines and payments
 
-#### 👨‍💼 **Administrator Role**
+<hr>
+
+### 👨‍💼 **Administrator Role**
 - All librarian permissions plus:
 - User management (add, edit, delete users)
 - System configuration and settings
@@ -593,9 +593,11 @@ gatherUsageStats = false
 - Security management and audit logs
 - System monitoring and maintenance
 
-### 🔐 Authentication System
+<hr>
 
-#### Standard Login
+## Authentication System
+
+
 ```mermaid
 sequenceDiagram
     participant U as User
@@ -617,12 +619,15 @@ sequenceDiagram
     S-->>A: Session valid
     A-->>U: Access granted
 ```
+<hr>
 
-#### Admin Security
+### 🔒 Admin Security
 - **Primary Login**: Standard username/password
 - **Security Key**: Additional password for sensitive operations
 - **Functional Admin**: Hidden admin with special privileges
 - **Session Management**: Automatic timeout and renewal
+
+<hr>
 
 ### 📖 Book Management Workflow
 
@@ -661,10 +666,11 @@ flowchart TD
     class B,I,Q decision
     class D action
 ```
+<hr>
 
 ### 🔄 Borrowing Process
 
-The borrowing system supports the complete lifecycle from checkout to return:
+**The borrowing system supports the complete lifecycle from checkout to return:**
 
 ```mermaid
 stateDiagram-v2
@@ -689,13 +695,11 @@ stateDiagram-v2
 
 ---
 
-## 👨‍💻 Developer Guide
+## Code Architecture
 
-### 🏗️ Code Architecture
+**LitGrid is built as a monolithic application with clear separation of concerns:**
 
-LitGrid is built as a monolithic application with clear separation of concerns:
-
-#### 📁 **Core Classes Overview**
+### 📁 **Core Classes Overview**
 
 ```python
 # Security & Authentication
@@ -735,7 +739,7 @@ class BarcodeQRGenerator:     # Code generation utilities
 class TempFileManager:        # Temporary file cleanup
 ```
 
-#### 🔧 **Key Design Patterns**
+### 🔧 **Key Design Patterns**
 
 1. **Singleton Pattern**: Database connection management
 2. **Factory Pattern**: Report generation and export formats
@@ -743,9 +747,10 @@ class TempFileManager:        # Temporary file cleanup
 4. **Observer Pattern**: Audit logging and event tracking
 5. **Command Pattern**: Bulk operations and batch processing
 
+<hr>
+
 ### 🛠️ Development Workflow
 
-#### Adding New Features
 
 1. **Create Feature Branch**
    ```bash
@@ -787,8 +792,9 @@ class TempFileManager:        # Temporary file cleanup
    if user['role'] in ['admin', 'librarian']:
        menu.extend(["New Feature"])
    ```
+<hr>
 
-#### 🧪 Testing Guidelines
+### Testing Guidelines
 
 ```python
 # Test structure example
@@ -817,9 +823,12 @@ def test_book_management():
     Database.execute_update("DELETE FROM books WHERE book_id = ?", (book_id,))
 ```
 
-### 📊 Performance Optimization
+<hr>
 
-#### Database Query Optimization
+## Performance Optimization
+
+**Database Query Optimization**
+
 ```python
 # Use indexes for frequent queries
 CREATE INDEX idx_books_title ON books(title);
@@ -838,7 +847,8 @@ def bulk_update_books(books_data):
         conn.commit()
 ```
 
-#### Streamlit Performance
+**Streamlit Performance**
+
 ```python
 # Use caching for expensive operations
 @st.cache_data(ttl=300)  # Cache for 5 minutes
@@ -853,11 +863,9 @@ if 'data_loaded' not in st.session_state:
 
 ---
 
-## 🎯 API Reference
+## Database Operations
 
-### 🗄️ Database Operations
-
-#### Core Database Class
+### Core Database Class
 ```python
 class Database:
     """SQLite database management with connection pooling"""
@@ -890,7 +898,7 @@ class Database:
         """
 ```
 
-#### Example Database Usage
+### Example Database Usage
 ```python
 # Insert new book
 success = Database.execute_update(
@@ -910,8 +918,9 @@ books = Database.execute_query(
     "SELECT * FROM books WHERE is_active = 1 ORDER BY title"
 )
 ```
+<hr>
 
-### 🔐 Authentication API
+## Authentication API
 
 ```python
 class Auth:
