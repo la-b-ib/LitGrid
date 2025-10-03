@@ -199,14 +199,14 @@ graph TD
 
 ## Core Components
 
-### 🎨 **Presentation Layer**
+### 🎨 **Presentation Layer** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/training.gif"></a>
 - **Streamlit Web Interface**: Modern, responsive UI with custom CSS styling
 - **Authentication System**: Secure login with session management
 - **Navigation Components**: Dynamic menus based on user roles
 
 <hr>
 
-### 🔧 **Business Logic Layer**
+### 🔧 **Business Logic Layer** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/management-consulting.gif"></a>
 - **User Management**: Registration, profiles, privacy settings
 - **Book Management**: CRUD operations, search, recommendations
 - **Borrowing System**: Check-out/in, renewals, fine calculation
@@ -216,7 +216,7 @@ graph TD
 
 <hr>
 
-### 💾 **Data Layer**
+### 💾 **Data Layer**  <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/corrupted-file.gif"></a>
 - **Database Manager**: SQLite operations with connection pooling
 - **File Handler**: PDF processing, image handling, backup operations
 - **Cache Manager**: Session state and temporary data management
@@ -416,7 +416,7 @@ erDiagram
 
 <hr>
 
-## Key Relationships
+## Key Relationships  <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/interface.gif"></a>
 
 - **Users ↔ Books**: Many-to-many through borrowing and transactions
 - **Books ↔ Inventory**: One-to-many for multiple copies
@@ -428,7 +428,7 @@ erDiagram
 
 ## Installation & Setup
 
-### 📋 Prerequisites
+### 📋 Prerequisites <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/education.gif"></a>
 
 - **Python 3.13+** (recommended)
 - **pip** package manager
@@ -1330,7 +1330,7 @@ def generate_financial_report(start_date, end_date):
 ```
 
 
-#### Multi-Dimensional Analysis
+#### Multi-Dimensional Analysis <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/bar-chart.gif"></a>
 
 - **3D Scatter Plots**: Book popularity vs. rating vs. age
 - **Heatmaps**: Usage patterns by time and location
