@@ -1267,9 +1267,10 @@ graph LR
 
 <hr>
 
-### 👥 **Member Analytics**
+## **Analytics**
 
 #### User Behavior Analysis
+
 ```python
 def analyze_reading_patterns(user_id):
     """Comprehensive user reading pattern analysis"""
@@ -1284,14 +1285,15 @@ def analyze_reading_patterns(user_id):
 ```
 
 #### Leaderboards & Gamification
+
 - **Top Readers**: Most books borrowed by period
 - **Review Champions**: Most helpful reviews
 - **Genre Explorers**: Users reading across multiple genres
 - **Community Contributors**: PDF sharing and ratings
 
-### 💰 **Financial Analytics**
 
-#### Revenue Tracking
+#### Financial Analytics (Revenue Tracking)
+
 ```python
 def generate_financial_report(start_date, end_date):
     """Comprehensive financial analysis"""
@@ -1304,15 +1306,16 @@ def generate_financial_report(start_date, end_date):
     }
 ```
 
-### 📋 **Advanced Reports**
 
 #### Multi-Dimensional Analysis
+
 - **3D Scatter Plots**: Book popularity vs. rating vs. age
 - **Heatmaps**: Usage patterns by time and location
 - **Correlation Analysis**: User behavior relationships
 - **Predictive Analytics**: Future demand forecasting
 
 #### Export Capabilities
+
 ```python
 class ReportExporter:
     """Export reports in multiple formats"""
@@ -1336,11 +1339,11 @@ class ReportExporter:
 
 ---
 
-## 🌐 Deployment
+## Deployment
 
-### ☁️ **Streamlit Cloud Deployment**
 
 #### Quick Deploy to Streamlit Cloud
+
 1. **Push to GitHub**: Ensure all files are in a public repository
 2. **Connect to Streamlit Cloud**: Visit [share.streamlit.io](https://share.streamlit.io)
 3. **Configure App**: Select repository, branch, and main file (`litgrid.py`)
@@ -1362,9 +1365,8 @@ SMTP_USERNAME = "your-email@gmail.com"
 SMTP_PASSWORD = "your-app-password"
 ```
 
-### 🐳 **Docker Deployment**
+#### 🐳 **Docker Deployment**
 
-#### Production Docker Setup
 ```dockerfile
 FROM python:3.13-slim
 
@@ -1439,9 +1441,9 @@ services:
     restart: unless-stopped
 ```
 
-### 🚀 **Production Deployment**
 
 #### AWS EC2 Deployment
+
 ```bash
 # Launch EC2 instance (Ubuntu 22.04 LTS)
 # Configure security groups (ports 22, 80, 443, 8501)
@@ -1494,9 +1496,7 @@ backgroundColor = "#FFFFFF"
 
 ---
 
-## 🧪 Testing
-
-### 🔬 **Test Structure**
+## **Test Structure**
 
 ```python
 # test_litgrid.py
@@ -1609,7 +1609,7 @@ if __name__ == "__main__":
     pytest.main(["-v", "test_litgrid.py"])
 ```
 
-### 📊 **Test Coverage**
+#### **Test Coverage**
 
 ```bash
 # Install testing dependencies
@@ -1625,7 +1625,7 @@ pytest --cov=litgrid --cov-report=html
 - UI components: 70%+
 ```
 
-### 🔄 **Continuous Integration**
+#### **Continuous Integration**
 
 ```yaml
 # .github/workflows/test.yml
@@ -1664,9 +1664,8 @@ jobs:
 
 ---
 
-## 📄 License
+## License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ```
 MIT License
@@ -1694,7 +1693,7 @@ SOFTWARE.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions from the community! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on:
 
@@ -1704,7 +1703,9 @@ We welcome contributions from the community! Please read our [Contributing Guide
 - 📚 **Documentation**: Improving project documentation
 - 🧪 **Testing**: Writing and running tests
 
-### 🚀 **Quick Contribution Guide**
+<hr>
+
+## **Quick Contribution Guide**
 
 1. **Fork the Repository**
    ```bash
@@ -1733,52 +1734,12 @@ We welcome contributions from the community! Please read our [Contributing Guide
    - Reference related issues
    - Include screenshots for UI changes
 
-### 👥 **Community**
+<hr>
 
-- **Code of Conduct**: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- **Security Policy**: [SECURITY.md](SECURITY.md)
-- **Development Setup**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
----
+## **Libraries & Dependencies**
 
-## 📞 Contact
-
-<div align="center">
-
-### 👨‍💻 **Project Maintainer**
-
-**Labib Bin Shahed**  
-*Full-Stack Developer & Library Systems Specialist*
-
-[![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:labib.45x@gmail.com)
-[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/la-b-ib)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/la-b-ib/)
-[![Portfolio](https://img.shields.io/badge/Website-0A5C78?style=for-the-badge&logo=internet-explorer&logoColor=white)](https://la-b-ib.github.io/)
-[![X](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/la_b_ib_)
-
-### 📧 **Support & Questions**
-
-- **General Questions**: [labib.45x@gmail.com](mailto:labib.45x@gmail.com)
-- **Security Issues**: [labib-x@protonmail.com](mailto:labib-x@protonmail.com)
-- **Bug Reports**: [GitHub Issues](https://github.com/la-b-ib/LitGrid/issues)
-- **Feature Requests**: [GitHub Discussions](https://github.com/la-b-ib/LitGrid/discussions)
-
-</div>
-
----
-
-## 🌟 **Acknowledgments**
-
-### 🏆 **Special Thanks**
-
-- **Streamlit Team**: For the amazing framework that powers our UI
-- **SQLite Project**: For the reliable, embedded database engine
-- **Python Community**: For the incredible ecosystem of libraries
-- **Open Source Contributors**: For inspiration and best practices
-
-### 📚 **Libraries & Dependencies**
-
-This project stands on the shoulders of giants. Key dependencies include:
+**This project stands on the shoulders of giants. Key dependencies include:**
 
 | Library | Purpose | Version |
 |---------|---------|---------|
@@ -1792,7 +1753,9 @@ This project stands on the shoulders of giants. Key dependencies include:
 | `openpyxl` | Excel File Handling | 3.1.0+ |
 | `pillow` | Image Processing | 10.4.0+ |
 
-### 🎯 **Project Stats**
+<hr>
+
+## **Project Stats**
 
 <div align="center">
 
@@ -1814,9 +1777,12 @@ This project stands on the shoulders of giants. Key dependencies include:
 
 ### 🚀 **Ready to Get Started?**
 
-[📥 **Download LitGrid**](https://github.com/la-b-ib/LitGrid/archive/main.zip) | [🌟 **Star on GitHub**](https://github.com/la-b-ib/LitGrid) | [📖 **Read the Docs**](https://github.com/la-b-ib/LitGrid/wiki)
+[📥 **Download LitGrid**](https://github.com/la-b-ib/LitGrid/archive/main.zip)  
+[🌟 **Star on GitHub**](https://github.com/la-b-ib/LitGrid)  
+[📖 **Read the Docs**](https://github.com/la-b-ib/LitGrid/wiki)
 
-**Made with ❤️ by [Labib Bin Shahed](https://github.com/la-b-ib)**
+
+
 
 ---
 
