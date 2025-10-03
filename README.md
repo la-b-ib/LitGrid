@@ -18,7 +18,30 @@
 
 ---
 
+## LitGrid Preview
 
+<p align="left">
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%201.png" width="32%" />
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%202.png" width="32%" />
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%203.png" width="32%" />    
+</p>
+<p align="left">
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%204.png" width="32%" />
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%205.png" width="32%" />
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%206.png" width="32%" />    
+</p>
+<p align="left">
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%207.png" width="32%" />
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%208.png" width="32%" />
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%209.png" width="32%" />    
+</p>
+<p align="left">
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%2010.png" width="32%" />
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%2011.png" width="32%" />
+  <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%2012.png" width="32%" />    
+</p>
+
+<hr>
 
 
 ## Project Goals
