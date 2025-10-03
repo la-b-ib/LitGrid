@@ -1119,7 +1119,7 @@ PERMISSIONS = {
 ```
 <hr>
 
-### 🔒 **Data Protection**
+## **Data Protection**
 
 #### Encryption Implementation
 ```python
@@ -1148,7 +1148,7 @@ class SecurityManager:
 - **Password Reset**: Secure token-based reset mechanism
 - **Session Security**: Automatic timeout and secure session tokens
 
-### 🛡️ **Input Validation & Sanitization**
+#### **Input Validation & Sanitization**
 
 ```python
 def sanitize_input(self, text: str) -> str:
@@ -1166,9 +1166,7 @@ def validate_email(self, email: str) -> bool:
     return bool(re.match(pattern, email))
 ```
 
-### 📋 **Audit Logging**
-
-Complete activity tracking for compliance and security monitoring:
+#### **Audit Logging**
 
 ```python
 class AuditLogger:
@@ -1184,9 +1182,8 @@ class AuditLogger:
         Database.execute_update(query, (user_id, action, entity_type, entity_id, details, ip_address, 'success'))
 ```
 
-### 🚫 **Rate Limiting**
+#### **Rate Limiting (Protection against brute force attacks):**
 
-Protection against brute force attacks:
 
 ```python
 class RateLimiter:
@@ -1210,11 +1207,8 @@ class RateLimiter:
 
 ---
 
-## 📈 Analytics & Reporting
+## Analytics & Reporting
 
-LitGrid provides comprehensive analytics with 20+ visualization types and detailed reporting capabilities:
-
-### 📊 **Dashboard Analytics**
 
 #### Library Overview Metrics
 - **Real-time Statistics**: Books, users, transactions, fines
@@ -1244,9 +1238,8 @@ def generate_borrowing_trend():
     return fig
 ```
 
-### 📚 **Book Analytics**
-
 #### Popular Books Analysis
+
 ```mermaid
 graph LR
     A[Book Data] --> B[Checkout Frequency]
@@ -1271,6 +1264,8 @@ graph LR
 - **User Preferences**: Most requested genres by demographics
 - **Collection Balance**: Genre distribution analysis
 - **Seasonal Trends**: Genre popularity by time periods
+
+<hr>
 
 ### 👥 **Member Analytics**
 
