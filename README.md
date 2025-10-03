@@ -1764,6 +1764,10 @@ We welcome contributions from the community! Please read our [Contributing Guide
 ![Features](https://img.shields.io/badge/Features-50+-orange?style=for-the-badge)
 ![Classes](https://img.shields.io/badge/Classes-35+-purple?style=for-the-badge)
 
+[![Download LitGrid](https://img.shields.io/badge/📥%20Download-LitGrid-blue?style=for-the-badge)](https://github.com/la-b-ib/LitGrid/archive/main.zip)
+[![Star on GitHub](https://img.shields.io/badge/🌟%20Star-on%20GitHub-yellow?style=for-the-badge)](https://github.com/la-b-ib/LitGrid)
+[![Read the Docs](https://img.shields.io/badge/📖%20Read-the%20Docs-green?style=for-the-badge)](https://github.com/la-b-ib/LitGrid/wiki)
+
 **Total Development Time**: 200+ hours  
 **Code Quality**: Production-ready with comprehensive error handling  
 **Documentation**: Extensive inline comments and external documentation  
@@ -1772,19 +1776,3 @@ We welcome contributions from the community! Please read our [Contributing Guide
 </div>
 
 ---
-
-<div align="center">
-
-### 🚀 **Ready to Get Started?**
-
-[📥 **Download LitGrid**](https://github.com/la-b-ib/LitGrid/archive/main.zip)  
-[🌟 **Star on GitHub**](https://github.com/la-b-ib/LitGrid)  
-[📖 **Read the Docs**](https://github.com/la-b-ib/LitGrid/wiki)
-
-
-
-
----
-
-
-
