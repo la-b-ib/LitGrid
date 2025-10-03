@@ -455,7 +455,6 @@ source litgrid_env/bin/activate
 pip install -r requirements.txt
 ```
 
-#### Docker Installation (Optional)
 ```dockerfile
 FROM python:3.13-slim
 
@@ -670,7 +669,6 @@ flowchart TD
 
 ### 🔄 Borrowing Process
 
-**The borrowing system supports the complete lifecycle from checkout to return:**
 
 ```mermaid
 stateDiagram-v2
@@ -865,7 +863,8 @@ if 'data_loaded' not in st.session_state:
 
 ## Database Operations
 
-### Core Database Class
+#### Core Database Class
+
 ```python
 class Database:
     """SQLite database management with connection pooling"""
@@ -898,7 +897,8 @@ class Database:
         """
 ```
 
-### Example Database Usage
+#### Example Database Usage
+
 ```python
 # Insert new book
 success = Database.execute_update(
@@ -920,7 +920,7 @@ books = Database.execute_query(
 ```
 <hr>
 
-## Authentication API
+### 🔐 Authentication API
 
 ```python
 class Auth:
@@ -1062,13 +1062,10 @@ class AnalyticsEngine:
 
 ---
 
-## 🔐 Security Features
-
-LitGrid implements multiple layers of security to protect user data and system integrity:
-
-### 🛡️ **Authentication & Authorization**
+## **Authentication & Authorization**
 
 #### Multi-Factor Authentication Flow
+
 ```mermaid
 sequenceDiagram
     participant U as User
@@ -1120,6 +1117,7 @@ PERMISSIONS = {
     ]
 }
 ```
+<hr>
 
 ### 🔒 **Data Protection**
 
