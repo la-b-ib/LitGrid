@@ -68,7 +68,7 @@
 
 ## Key Features
 
-### 📚 **Core Library Management**
+### 📚 **Core Library Management** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/brain.gif"></a>
 - **Book Catalog Management**: Add, edit, delete, and search books with ISBN validation
 - **User Management**: Member registration, role-based access, user profiles
 - **Borrowing System**: Check-out/check-in with due date tracking and renewals
@@ -77,7 +77,7 @@
 
 <hr> 
 
-### 🔍 **Advanced Search & Discovery**
+### 🔍 **Advanced Search & Discovery** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/search.gif"></a>
 - **Fuzzy Search Engine**: Typo-tolerant search across titles, authors, genres
 - **Multi-field Filtering**: Genre, year, availability, rating-based filters
 - **Smart Recommendations**: AI-powered book suggestions based on user history
@@ -85,7 +85,7 @@
 
 <hr>
 
-### 👥 **User Experience**
+### 👥 **User Experience** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/paint-brush.gif"></a>
 - **Role-Based Dashboards**: Customized interfaces for members, librarians, admins
 - **Personal Library**: Upload and share PDFs with privacy controls
 - **Community Features**: Browse public libraries, rate books, leave reviews
@@ -93,7 +93,7 @@
 
 <hr>
 
-### 📊 **Analytics & Reporting**
+### 📊 **Analytics & Reporting** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/pie-chart.gif"></a>
 - **20+ Visualization Types**: Charts, graphs, heatmaps, 3D scatter plots
 - **Financial Reports**: Fine collection, revenue projections, payment tracking
 - **Member Analytics**: Top borrowers, inactive members, tier distribution
@@ -101,7 +101,7 @@
 
 <hr>
 
-### 🔐 **Security & Privacy**
+### 🔐 **Security & Privacy** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/data-safety.gif"></a>
 - **Multi-Factor Authentication**: Standard login + admin security keys
 - **Anonymous Mode**: Pseudonym-based browsing with privacy protection
 - **Data Encryption**: Sensitive information encrypted at rest
@@ -110,7 +110,7 @@
 
 <hr>
 
-### 🛠️ **Administrative Tools**
+### 🛠️ **Administrative Tools** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/hammer.gif"></a>
 - **System Management**: Database backup/restore, integrity checks
 - **Bulk Operations**: CSV import/export, batch user registration
 - **Smart Utilities**: Barcode/QR generation, spell checking, duplicate detection
