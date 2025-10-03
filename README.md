@@ -95,9 +95,9 @@
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
-LitGrid follows a modular, layered architecture designed for maintainability and scalability:
+**LitGrid follows a modular, layered architecture designed for maintainability and scalability:**
 
 ```mermaid
 graph TD
@@ -172,15 +172,18 @@ graph TD
     class M,N,O storage
     class P,Q,R external
 ```
+<hr>
 
-### 🧩 Core Components
+## Core Components
 
-#### 🎨 **Presentation Layer**
+### 🎨 **Presentation Layer**
 - **Streamlit Web Interface**: Modern, responsive UI with custom CSS styling
 - **Authentication System**: Secure login with session management
 - **Navigation Components**: Dynamic menus based on user roles
 
-#### 🔧 **Business Logic Layer**
+<hr>
+
+### 🔧 **Business Logic Layer**
 - **User Management**: Registration, profiles, privacy settings
 - **Book Management**: CRUD operations, search, recommendations
 - **Borrowing System**: Check-out/in, renewals, fine calculation
@@ -188,16 +191,18 @@ graph TD
 - **Security Manager**: Encryption, audit logging, access control
 - **PDF Library Manager**: File upload, sharing, community features
 
-#### 💾 **Data Layer**
+<hr>
+
+### 💾 **Data Layer**
 - **Database Manager**: SQLite operations with connection pooling
 - **File Handler**: PDF processing, image handling, backup operations
 - **Cache Manager**: Session state and temporary data management
 
 ---
 
-## 📊 Database Schema
+## Database Schema
 
-LitGrid uses a comprehensive SQLite database with 25+ tables supporting all features:
+**LitGrid uses a comprehensive SQLite database with 25+ tables supporting all features:**
 
 ```mermaid
 erDiagram
@@ -386,7 +391,9 @@ erDiagram
     BORROWING ||--o{ RENEWAL_REQUESTS : "can_be_renewed"
 ```
 
-### 🔑 Key Relationships
+<hr>
+
+## Key Relationships
 
 - **Users ↔ Books**: Many-to-many through borrowing and transactions
 - **Books ↔ Inventory**: One-to-many for multiple copies
@@ -396,7 +403,7 @@ erDiagram
 
 ---
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 ### 📋 Prerequisites
 
@@ -404,6 +411,8 @@ erDiagram
 - **pip** package manager
 - **Git** for version control
 - **SQLite3** (included with Python)
+
+<hr>
 
 ### ⚡ Quick Start (5 minutes)
 
@@ -428,9 +437,10 @@ erDiagram
    - Use demo credentials: `demo` / `demo123` (Admin)
    - Register as a new member to explore user features
 
+<hr>
+
 ### 🔧 Advanced Installation
 
-#### Virtual Environment Setup
 ```bash
 # Create virtual environment
 python -m venv litgrid_env
