@@ -1,6 +1,8 @@
-# 📚 LitGrid 
+## LitGrid 
 
 **LitGrid** is a comprehensive, modern library management system designed for educational institutions, public libraries, and private collections. Built with **Python**, **Streamlit**, and **SQLite**, it offers a complete solution for managing books, users, borrowing activities, and administrative tasks.
+
+<hr>
 
 <div align="left">
 
@@ -19,7 +21,7 @@
 
 
 
-### 🎯 Project Goals
+## Project Goals
 
 - **Complete Library Management**: From book cataloging to user management
 - **User-Friendly Interface**: Intuitive web-based dashboard for all user types  
@@ -27,7 +29,9 @@
 - **Security First**: Multi-layer authentication and data protection
 - **Open Source**: MIT licensed for community collaboration
 
-### 🚀 What Makes LitGrid Special
+<hr>
+
+##  What Makes LitGrid Special
 
 - **All-in-One Solution**: Single file deployment with 7900+ lines of Python code
 - **Advanced PDF Library**: Personal and community PDF sharing system
@@ -39,7 +43,7 @@
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 ### 📚 **Core Library Management**
 - **Book Catalog Management**: Add, edit, delete, and search books with ISBN validation
@@ -48,11 +52,15 @@
 - **Fine Management**: Automated fine calculation and payment tracking
 - **Inventory Control**: Multiple copies per book with barcode generation
 
+<hr> 
+
 ### 🔍 **Advanced Search & Discovery**
 - **Fuzzy Search Engine**: Typo-tolerant search across titles, authors, genres
 - **Multi-field Filtering**: Genre, year, availability, rating-based filters
 - **Smart Recommendations**: AI-powered book suggestions based on user history
 - **Advanced Sorting**: Popularity, rating, date added, alphabetical options
+
+<hr>
 
 ### 👥 **User Experience**
 - **Role-Based Dashboards**: Customized interfaces for members, librarians, admins
@@ -60,11 +68,15 @@
 - **Community Features**: Browse public libraries, rate books, leave reviews
 - **Reading Analytics**: Personal statistics, reading patterns, goal tracking
 
+<hr>
+
 ### 📊 **Analytics & Reporting**
 - **20+ Visualization Types**: Charts, graphs, heatmaps, 3D scatter plots
 - **Financial Reports**: Fine collection, revenue projections, payment tracking
 - **Member Analytics**: Top borrowers, inactive members, tier distribution
 - **Collection Insights**: Most popular books, genre performance, acquisition trends
+
+<hr>
 
 ### 🔐 **Security & Privacy**
 - **Multi-Factor Authentication**: Standard login + admin security keys
@@ -72,6 +84,8 @@
 - **Data Encryption**: Sensitive information encrypted at rest
 - **Audit Logging**: Complete activity tracking for compliance
 - **Rate Limiting**: Protection against brute force attacks
+
+<hr>
 
 ### 🛠️ **Administrative Tools**
 - **System Management**: Database backup/restore, integrity checks
