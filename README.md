@@ -1,18 +1,16 @@
-# 📚 LitGrid v4.0 - Advanced Library Management System
+# 📚 LitGrid 
 
+**LitGrid** is a comprehensive, modern library management system designed for educational institutions, public libraries, and private collections. Built with **Python**, **Streamlit**, and **SQLite**, it offers a complete solution for managing books, users, borrowing activities, and administrative tasks.
 
-
-**LitGrid v4.0** is a comprehensive, modern library management system designed for educational institutions, public libraries, and private collections. Built with **Python**, **Streamlit**, and **SQLite**, it offers a complete solution for managing books, users, borrowing activities, and administrative tasks.
-
-<div align="center">
+<div align="left">
 
 ![LitGrid Logo](https://img.shields.io/badge/LitGrid-v4.0-blue?style=for-the-badge&logo=library)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen?style=for-the-badge)](https://litgrid.streamlit.app/)
 
-[🚀 Live Demo](#live-demo) • [📖 Documentation](#documentation) • [💻 Installation](#installation) • [🤝 Contributing](#contributing)
 
 </div>
 
@@ -27,7 +25,6 @@
 - **User-Friendly Interface**: Intuitive web-based dashboard for all user types  
 - **Advanced Analytics**: Comprehensive reporting and data visualization
 - **Security First**: Multi-layer authentication and data protection
-- **Scalable Architecture**: Modular design supporting growth
 - **Open Source**: MIT licensed for community collaboration
 
 ### 🚀 What Makes LitGrid Special
@@ -1797,28 +1794,5 @@ This project stands on the shoulders of giants. Key dependencies include:
 
 ---
 
-*"Empowering libraries worldwide with modern, accessible technology"*
-
-**LitGrid v4.0** - The Future of Library Management is Here
-
-</div>
-
-<div align="center">
-
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-app-url.streamlit.app)
-
-**A next-generation, enterprise-grade library management system with 210+ advanced features**
-
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/streamlit-1.29.0-FF4B4B.svg)](https://streamlit.io)
-[![SQLite](https://img.shields.io/badge/database-SQLite-003B57.svg)](https://www.sqlite.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Status: Production Ready](https://img.shields.io/badge/status-production%20ready-brightgreen.svg)]()
-
-### 🎉 **NEW in v4.0: 210+ Features | 34+ Visualizations | Advanced Analytics | Cloud Ready**
-
-</div>
-
----
 
 
