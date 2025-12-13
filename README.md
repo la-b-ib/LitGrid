@@ -508,21 +508,6 @@ sequenceDiagram
 ```
 
 
-#### Password Security
-- **Bcrypt Hashing**: Industry-standard password hashing with salt
-- **Password Strength**: Minimum 6 characters with complexity validation
-- **Password Reset**: Secure token-based reset mechanism
-- **Session Security**: Automatic timeout and secure session tokens
-
-## Analytics & Reporting
-
-
-#### Library Overview Metrics
-- **Real-time Statistics**: Books, users, transactions, fines
-- **Trend Analysis**: Daily, weekly, monthly borrowing patterns
-- **Performance Indicators**: Turnover rate, popularity scores
-- **Health Metrics**: Overdue books, system status, user activity
-
 
 
 #### Popular Books Analysis
@@ -547,118 +532,30 @@ graph LR
 ```
 
 #### Genre Performance Tracking
-- **Circulation Statistics**: Borrows per genre over time
-- **User Preferences**: Most requested genres by demographics
-- **Collection Balance**: Genre distribution analysis
-- **Seasonal Trends**: Genre popularity by time periods
-
-<hr>
 
 
-
-#### Leaderboards & Gamification
-
-- **Top Readers**: Most books borrowed by period
-- **Review Champions**: Most helpful reviews
-- **Genre Explorers**: Users reading across multiple genres
-- **Community Contributors**: PDF sharing and ratings
-
-
-
-
-#### Multi-Dimensional Analysis <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/bar-chart.gif"></a>
-
-- **3D Scatter Plots**: Book popularity vs. rating vs. age
-- **Heatmaps**: Usage patterns by time and location
-- **Correlation Analysis**: User behavior relationships
-- **Predictive Analytics**: Future demand forecasting
-
+- **Library Metrics** – Real‑time stats (books, users, transactions, fines), trend analysis, performance indicators, and health monitoring.  
+- **Genre & Community Insights** – Circulation by genre, user preferences, seasonal trends, collection balance, leaderboards, reviews, and PDF contributions.  
+- **Advanced Analytics** – Multi‑dimensional visualizations (3D plots, heatmaps), correlation analysis, and predictive demand forecasting.  
+- **Password Security** – Bcrypt hashing with salt, complexity validation, token‑based reset, and secure session management.
 
 
 ---
-
-## Deployment
-
-
-#### Quick Deploy to Streamlit Cloud
-
-1. **Push to GitHub**: Ensure all files are in a public repository
-2. **Connect to Streamlit Cloud**: Visit [share.streamlit.io](https://share.streamlit.io)
-3. **Configure App**: Select repository, branch, and main file (`litgrid.py`)
-4. **Set Secrets**: Add environment variables in app settings
-
-
-
-
-## **Quick Contribution Guide**
-
-1. **Fork the Repository**
-   ```bash
-   git clone https://github.com/your-username/LitGrid.git
-   cd LitGrid
-   ```
-
-2. **Create Feature Branch**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-
-3. **Make Changes**
-   - Follow code style guidelines
-   - Add tests for new functionality
-   - Update documentation as needed
-
-4. **Test Your Changes**
-   ```bash
-   pytest tests/
-   streamlit run litgrid.py  # Manual testing
-   ```
-
-5. **Submit Pull Request**
-   - Clear description of changes
-   - Reference related issues
-   - Include screenshots for UI changes
-
-<hr>
-
 
 ## **Libraries & Dependencies**
 
-**This project stands on the shoulders of giants. Key dependencies include:**
 
-| Library | Purpose | Version |
-|---------|---------|---------|
-| `streamlit` | Web UI Framework | 1.35.0+ |
-| `pandas` | Data Analysis | 2.2.0+ |
-| `plotly` | Data Visualization | 5.20.0+ |
-| `bcrypt` | Password Hashing | 4.2.0+ |
-| `cryptography` | Data Encryption | 42.0.0+ |
-| `fuzzywuzzy` | Fuzzy String Matching | 0.18.0+ |
-| `qrcode` | QR Code Generation | 7.4.2+ |
-| `openpyxl` | Excel File Handling | 3.1.0+ |
-| `pillow` | Image Processing | 10.4.0+ |
+| Library       | Purpose              | Version  | Type            | Key Feature              | Usage Context            |
+|---------------|----------------------|----------|-----------------|--------------------------|--------------------------|
+| `streamlit`   | Web UI Framework     | 1.35.0+  | Frontend        | Responsive dashboards    | Presentation Layer       |
+| `pandas`      | Data Analysis        | 2.2.0+   | Data Handling   | Tabular data ops         | Business Logic Layer     |
+| `plotly`      | Data Visualization   | 5.20.0+  | Visualization   | Interactive charts       | Analytics Engine         |
+| `bcrypt`      | Password Hashing     | 4.2.0+   | Security        | Secure password storage  | Auth System              |
+| `cryptography`| Data Encryption      | 42.0.0+  | Security        | Encryption primitives    | Security Manager         |
+| `fuzzywuzzy`  | Fuzzy String Matching| 0.18.0+  | Search Engine   | Typo‑tolerant matching   | Smart Search             |
+| `qrcode`      | QR Code Generation   | 7.4.2+   | Utility         | QR code creation         | Admin Tools              |
+| `openpyxl`    | Excel File Handling  | 3.1.0+   | Data I/O        | XLSX read/write          | Bulk Operations          |
+| `pillow`      | Image Processing     | 10.4.0+  | Media Handling  | Image manipulation       | File Handler             |
+
 
 <hr>
-
-## **Project Stats**
-
-<div align="center">
-
-![Lines of Code](https://img.shields.io/badge/Lines_of_Code-7900+-green?style=for-the-badge)
-![Database Tables](https://img.shields.io/badge/Database_Tables-25+-blue?style=for-the-badge)
-![Features](https://img.shields.io/badge/Features-50+-orange?style=for-the-badge)
-![Classes](https://img.shields.io/badge/Classes-35+-purple?style=for-the-badge)
-
-[![Download LitGrid](https://img.shields.io/badge/📥%20Download-LitGrid-blue?style=for-the-badge)](https://github.com/la-b-ib/LitGrid/archive/main.zip)
-[![Star on GitHub](https://img.shields.io/badge/🌟%20Star-on%20GitHub-yellow?style=for-the-badge)](https://github.com/la-b-ib/LitGrid)
-[![Read the Docs](https://img.shields.io/badge/📖%20Read-the%20Docs-green?style=for-the-badge)](https://github.com/la-b-ib/LitGrid/wiki)
-
-**Total Development Time**: 200+ hours  
-**Code Quality**: Production-ready with comprehensive error handling  
-**Documentation**: Extensive inline comments and external documentation  
-**Testing**: Unit tests with 85%+ coverage target
-
-</div>
-
----
-
