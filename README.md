@@ -1,24 +1,9 @@
-## LitGrid  <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/book.gif"></a>
+## <samp>LitGrid
 
 <samp>
   
-**LitGrid** is a comprehensive, modern library management system designed for educational institutions, public libraries, and private collections. Built with **Python**, **Streamlit**, and **SQLite**, it offers a complete solution for managing books, users, borrowing activities, and administrative tasks. </samp>
+**LitGrid is a comprehensive, modern library management system designed for educational institutions, public libraries, and private collections. Built with **Python**, **Streamlit**, and SQLite, it offers a complete solution for managing books, users, borrowing activities, and administrative tasks. </samp>**
 
-<hr>
-
-<div align="left">
-
-![LitGrid Logo](https://img.shields.io/badge/LitGrid-v4.0-blue?style=for-the-badge&logo=library)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/agpl-3.0)
-[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen?style=for-the-badge)](https://litgrid.streamlit.app/)
-
-
-</div>
-
----
 ## Overview
 
 - Project Goals – Full library management (catalog, users, borrowing, fines), intuitive dashboards, advanced analytics, multi-layer security, MIT open source.
@@ -29,7 +14,9 @@
 
 - Enterprise Tools – 20+ visualizations, financial/member/collection reports, MFA, encryption, audit logs, rate limiting, DB backup/restore, bulk ops, barcode/QR utilities, JSON config manager.
 
-## LitGrid Preview
+<details>
+  
+**<summary>LitGrid Preview</summary>**
 
 <p align="left">
   <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%201.png" width="32%" />
@@ -54,7 +41,7 @@
 
 <hr>
 
-
+</details>
 
 
 ## System Architecture
@@ -540,10 +527,12 @@ graph LR
 - **Password Security** – Bcrypt hashing with salt, complexity validation, token‑based reset, and secure session management.
 
 
----
 
-## **Libraries & Dependencies**
 
+<details>
+  
+**<summary>Libraries & Dependencies</summary>**
+  
 
 | Library       | Purpose              | Version  | Type            | Key Feature              | Usage Context            |
 |---------------|----------------------|----------|-----------------|--------------------------|--------------------------|
@@ -558,4 +547,4 @@ graph LR
 | `pillow`      | Image Processing     | 10.4.0+  | Media Handling  | Image manipulation       | File Handler             |
 
 
-<hr>
+</details>
