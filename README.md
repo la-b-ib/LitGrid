@@ -50,9 +50,11 @@
 </details>
 
 
-## System Architecture
 
-**LitGrid follows a modular, layered architecture designed for maintainability and scalability:**
+<details>
+  
+**<summary>System Architecture</summary>**
+
 
 ```mermaid
 graph TD
@@ -127,7 +129,8 @@ graph TD
     class M,N,O storage
     class P,Q,R external
 ```
-<hr>
+
+</details>
 
 ## Core Components
  
@@ -162,78 +165,6 @@ graph TD
 * **Administrator** – Librarian rights + user management, system config, DB backup/restore, advanced analytics, security/audit, monitoring.  
 
 
-## Authentication System
-
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as Auth System
-    participant D as Database
-    participant S as Session Manager
-    
-    U->>A: Enter credentials
-    A->>D: Validate username/password
-    D-->>A: Return user data
-    A->>S: Create session
-    S-->>A: Session token
-    A-->>U: Login successful
-    
-    Note over U,S: Session active for 60 minutes
-    
-    U->>A: Access protected resource
-    A->>S: Validate session
-    S-->>A: Session valid
-    A-->>U: Access granted
-```
-<hr>
-
-### 🔒 Admin Security
-- **Primary Login**: Standard username/password
-- **Security Key**: Additional password for sensitive operations
-- **Functional Admin**: Hidden admin with special privileges
-- **Session Management**: Automatic timeout and renewal
-
-<hr>
-
-### 📖 Book Management Workflow
-
-```mermaid
-flowchart TD
-    A[Add Book] --> B{Validate ISBN}
-    B -->|Valid| C[Create Book Record]
-    B -->|Invalid| D[Show Error]
-    C --> E[Add to Inventory]
-    E --> F[Generate Barcode]
-    F --> G[Update Statistics]
-    
-    H[Search Books] --> I{Search Type}
-    I -->|Title/Author| J[Text Search]
-    I -->|ISBN| K[Exact Match]
-    I -->|Advanced| L[Multi-field Filter]
-    
-    J --> M[Fuzzy Matching]
-    K --> N[Direct Lookup]
-    L --> O[Apply Filters]
-    
-    M --> P[Display Results]
-    N --> P
-    O --> P
-    
-    P --> Q{User Action}
-    Q -->|View Details| R[Show Book Info]
-    Q -->|Reserve| S[Create Reservation]
-    Q -->|Review| T[Add Review/Rating]
-    
-    classDef process fill:#e3f2fd
-    classDef decision fill:#fff3e0
-    classDef action fill:#e8f5e8
-    
-    class A,C,E,F,G,H,J,K,L,M,N,O,P,R,S,T process
-    class B,I,Q decision
-    class D action
-```
-<hr>
 
 ### 🔄 Borrowing Process
 
@@ -262,66 +193,7 @@ stateDiagram-v2
 ---
 
 
-## **Authentication & Authorization**
 
-#### Multi-Factor Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as Auth System
-    participant S as Security Manager
-    participant E as Email Service
-    participant D as Database
-    
-    U->>A: Initial Login
-    A->>D: Verify Credentials
-    D-->>A: User Verified
-    
-    alt Admin User
-        A->>U: Request Security Key
-        U->>A: Provide Security Key
-        A->>S: Validate Security Key
-        S-->>A: Key Valid
-    end
-    
-    alt 2FA Enabled
-        A->>E: Send 2FA Code
-        E-->>U: Deliver Code
-        U->>A: Enter 2FA Code
-        A->>S: Verify Code
-        S-->>A: Code Valid
-    end
-    
-    A->>A: Create Session
-    A-->>U: Login Successful
-    
-    Note over U,D: Session expires after 60 minutes
-```
-
-
-
-
-#### Popular Books Analysis
-
-```mermaid
-graph LR
-    A[Book Data] --> B[Checkout Frequency]
-    A --> C[User Ratings]
-    A --> D[Review Count]
-    
-    B --> E[Popularity Score]
-    C --> E
-    D --> E
-    
-    E --> F[Top Books List]
-    E --> G[Recommendation Engine]
-    E --> H[Collection Insights]
-    
-    F --> I[Dashboard Display]
-    G --> J[User Suggestions]
-    H --> K[Acquisition Planning]
-```
 
 #### Genre Performance Tracking
 
