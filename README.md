@@ -19,6 +19,15 @@
 </div>
 
 ---
+## Overview
+
+- Project Goals – Full library management (catalog, users, borrowing, fines), intuitive dashboards, advanced analytics, multi-layer security, MIT open source.
+
+- Unique Value – Single-file Python deployment (7.9k LOC), PDF sharing system, fuzzy search, real-time analytics, privacy controls, multi-role support, offline SQLite storage.
+
+- Core Features – Catalog & user management, check-in/out with renewals, fine tracking, inventory with barcodes, AI-powered recommendations, role-based dashboards, community reviews, personal analytics.
+
+- Enterprise Tools – 20+ visualizations, financial/member/collection reports, MFA, encryption, audit logs, rate limiting, DB backup/restore, bulk ops, barcode/QR utilities, JSON config manager.
 
 ## LitGrid Preview
 
@@ -46,79 +55,7 @@
 <hr>
 
 
-## Project Goals <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/solar-system.gif"></a>
 
-- **Complete Library Management**: From book cataloging to user management
-- **User-Friendly Interface**: Intuitive web-based dashboard for all user types  
-- **Advanced Analytics**: Comprehensive reporting and data visualization
-- **Security First**: Multi-layer authentication and data protection
-- **Open Source**: MIT licensed for community collaboration
-
-<hr>
-
-##  What Makes LitGrid Special <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/process.gif"></a>
-
-- **All-in-One Solution**: Single file deployment with 7900+ lines of Python code
-- **Advanced PDF Library**: Personal and community PDF sharing system
-- **Smart Search**: Fuzzy search with typo tolerance
-- **Real-time Analytics**: Live dashboards with 20+ visualization types
-- **Privacy Controls**: Anonymous mode and granular privacy settings
-- **Multi-role Support**: Member, Librarian, and Administrator roles
-- **Offline Capable**: SQLite database for reliable local storage
-
----
-
-## Key Features
-
-### 📚 **Core Library Management** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/brain.gif"></a>
-- **Book Catalog Management**: Add, edit, delete, and search books with ISBN validation
-- **User Management**: Member registration, role-based access, user profiles
-- **Borrowing System**: Check-out/check-in with due date tracking and renewals
-- **Fine Management**: Automated fine calculation and payment tracking
-- **Inventory Control**: Multiple copies per book with barcode generation
-
-<hr> 
-
-### 🔍 **Advanced Search & Discovery** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/search.gif"></a>
-- **Fuzzy Search Engine**: Typo-tolerant search across titles, authors, genres
-- **Multi-field Filtering**: Genre, year, availability, rating-based filters
-- **Smart Recommendations**: AI-powered book suggestions based on user history
-- **Advanced Sorting**: Popularity, rating, date added, alphabetical options
-
-<hr>
-
-### 👥 **User Experience** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/paint-brush.gif"></a>
-- **Role-Based Dashboards**: Customized interfaces for members, librarians, admins
-- **Personal Library**: Upload and share PDFs with privacy controls
-- **Community Features**: Browse public libraries, rate books, leave reviews
-- **Reading Analytics**: Personal statistics, reading patterns, goal tracking
-
-<hr>
-
-### 📊 **Analytics & Reporting** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/pie-chart.gif"></a>
-- **20+ Visualization Types**: Charts, graphs, heatmaps, 3D scatter plots
-- **Financial Reports**: Fine collection, revenue projections, payment tracking
-- **Member Analytics**: Top borrowers, inactive members, tier distribution
-- **Collection Insights**: Most popular books, genre performance, acquisition trends
-
-<hr>
-
-### 🔐 **Security & Privacy** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/data-safety.gif"></a>
-- **Multi-Factor Authentication**: Standard login + admin security keys
-- **Anonymous Mode**: Pseudonym-based browsing with privacy protection
-- **Data Encryption**: Sensitive information encrypted at rest
-- **Audit Logging**: Complete activity tracking for compliance
-- **Rate Limiting**: Protection against brute force attacks
-
-<hr>
-
-### 🛠️ **Administrative Tools** <a href=""><img align="right" width="150" height="150" src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/gif/hammer.gif"></a>
-- **System Management**: Database backup/restore, integrity checks
-- **Bulk Operations**: CSV import/export, batch user registration
-- **Smart Utilities**: Barcode/QR generation, spell checking, duplicate detection
-- **Configuration Manager**: JSON-based settings with runtime updates
-
----
 
 ## System Architecture
 
