@@ -40,6 +40,60 @@
 
 
 
+
+
+<details>
+  
+**<summary>Core Components</summary>**
+
+- **Presentation Layer** – Streamlit UI with custom CSS, secure session authentication, and role‑based dynamic navigation.  
+- **Business Logic Layer** – User and book management with CRUD, fuzzy search, AI recommendations, borrowing/renewals/fines, analytics engine, encryption, audit logging, RBAC, and advanced PDF library with privacy controls.  
+- **Data Layer** – SQLite with connection pooling and integrity checks, PDF/image handling with backup/restore, and cache manager for session state and temporary data.  
+</details>
+
+
+
+
+<details>
+  
+**<summary>Quick Start</summary>**
+
+* **Prerequisites** – Requires Python 3.13+, pip, Git, and SQLite3 (bundled with Python).
+* **Setup** – `git clone https://github.com/la-b-ib/LitGrid.git && cd LitGrid` → `pip install -r requirements.txt`  
+* **Run** – `streamlit run litgrid.py` → open `http://localhost:8501`  
+* **Access** – Login with demo (`demo/demo123`) or register as new member to explore features.
+
+</details>
+
+
+
+<details>
+  
+**<summary>User Roles & Permissions</summary>**
+
+
+* **Member** – Browse/search catalog, manage profile, upload/share PDFs, request checkouts/returns, rate/review, track stats.  
+* **Librarian** – Member rights + manage books/inventory, process/approve checkouts/renewals, handle fines/payments, generate reports.  
+* **Administrator** – Librarian rights + user management, system config, DB backup/restore, advanced analytics, security/audit, monitoring.  
+
+</details>
+
+
+<details>
+  
+**<summary>Genre Performance Tracking</summary>**
+
+- **Library Metrics** – Real‑time stats (books, users, transactions, fines), trend analysis, performance indicators, and health monitoring.  
+- **Genre & Community Insights** – Circulation by genre, user preferences, seasonal trends, collection balance, leaderboards, reviews, and PDF contributions.  
+- **Advanced Analytics** – Multi‑dimensional visualizations (3D plots, heatmaps), correlation analysis, and predictive demand forecasting.  
+- **Password Security** – Bcrypt hashing with salt, complexity validation, token‑based reset, and secure session management.
+
+</details>
+
+
+
+
+
 <details>
   
 **<summary>System Architecture</summary>**
@@ -120,105 +174,6 @@ flowchart TD
 
 </details>
 
-## Core Components
- 
-
-- **Presentation Layer** – Streamlit UI with custom CSS, secure session authentication, and role‑based dynamic navigation.  
-- **Business Logic Layer** – User and book management with CRUD, fuzzy search, AI recommendations, borrowing/renewals/fines, analytics engine, encryption, audit logging, RBAC, and advanced PDF library with privacy controls.  
-- **Data Layer** – SQLite with connection pooling and integrity checks, PDF/image handling with backup/restore, and cache manager for session state and temporary data.  
-
----
 
 
-
-
-
-### ⚡ Quick Start (5 minutes)
-
-
-**Prerequisites** – Requires Python 3.13+, pip, Git, and SQLite3 (bundled with Python).
-* **Setup** – `git clone https://github.com/la-b-ib/LitGrid.git && cd LitGrid` → `pip install -r requirements.txt`  
-* **Run** – `streamlit run litgrid.py` → open `http://localhost:8501`  
-* **Access** – Login with demo (`demo/demo123`) or register as new member to explore features.  
-
-
-
-
-## User Roles & Permissions
-
-
-
-* **Member** – Browse/search catalog, manage profile, upload/share PDFs, request checkouts/returns, rate/review, track stats.  
-* **Librarian** – Member rights + manage books/inventory, process/approve checkouts/renewals, handle fines/payments, generate reports.  
-* **Administrator** – Librarian rights + user management, system config, DB backup/restore, advanced analytics, security/audit, monitoring.  
-
-
-
-### 🔄 Borrowing Process
-
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff','edgeLabelBackground':'#fff','tertiaryColor': '#f4f4f4','fontSize':'15px','fontWeight':'bold'}, 'state': {'nodeSpacing': 150, 'rankSpacing': 0}} }%%
-
-stateDiagram-v2
-    [*] --> Available
-
-    Available --> Reserved : **Member reserves**
-    Reserved --> CheckedOut : **Librarian processes**
-    Available --> CheckedOut : **Direct checkout**
-    
-    CheckedOut --> Renewed : **Renewal approved**
-    Renewed --> CheckedOut : **Continue borrowing**
-    
-    CheckedOut --> Returned : **Returned on time**
-    CheckedOut --> Overdue : **Past due date**
-    Overdue --> Returned : **Returned with fine**
-    
-    Returned --> Available : **Book back in system**
-    
-    CheckedOut --> Lost : **Reported lost**
-    Lost --> Replaced : **Replacement provided**
-    Replaced --> Available : **Back in circulation**
-
-    %% Styling must be applied after states are declared
-    classDef boldStyle stroke:#1565c0,stroke-width:4px,color:#0d47a1,rx:10,ry:10;
-    class Available,Reserved,CheckedOut,Renewed,Returned,Overdue,Lost,Replaced boldStyle
-
-
-```
-
----
-
-
-
-
-#### Genre Performance Tracking
-
-
-- **Library Metrics** – Real‑time stats (books, users, transactions, fines), trend analysis, performance indicators, and health monitoring.  
-- **Genre & Community Insights** – Circulation by genre, user preferences, seasonal trends, collection balance, leaderboards, reviews, and PDF contributions.  
-- **Advanced Analytics** – Multi‑dimensional visualizations (3D plots, heatmaps), correlation analysis, and predictive demand forecasting.  
-- **Password Security** – Bcrypt hashing with salt, complexity validation, token‑based reset, and secure session management.
-
-
-
-
-<details>
   
-**<summary>Libraries & Dependencies</summary>**
-  
-
-| Library       | Purpose              | Version  | Type            | Key Feature              | Usage Context            |
-|---------------|----------------------|----------|-----------------|--------------------------|--------------------------|
-| `streamlit`   | Web UI Framework     | 1.35.0+  | Frontend        | Responsive dashboards    | Presentation Layer       |
-| `pandas`      | Data Analysis        | 2.2.0+   | Data Handling   | Tabular data ops         | Business Logic Layer     |
-| `plotly`      | Data Visualization   | 5.20.0+  | Visualization   | Interactive charts       | Analytics Engine         |
-| `bcrypt`      | Password Hashing     | 4.2.0+   | Security        | Secure password storage  | Auth System              |
-| `cryptography`| Data Encryption      | 42.0.0+  | Security        | Encryption primitives    | Security Manager         |
-| `fuzzywuzzy`  | Fuzzy String Matching| 0.18.0+  | Search Engine   | Typo‑tolerant matching   | Smart Search             |
-| `qrcode`      | QR Code Generation   | 7.4.2+   | Utility         | QR code creation         | Admin Tools              |
-| `openpyxl`    | Excel File Handling  | 3.1.0+   | Data I/O        | XLSX read/write          | Bulk Operations          |
-| `pillow`      | Image Processing     | 10.4.0+  | Media Handling  | Image manipulation       | File Handler             |
-
-
-</details>
