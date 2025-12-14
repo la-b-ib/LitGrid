@@ -33,11 +33,15 @@
 
   <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%209.png" width="32%" />
   <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%205.png" width="32%" />
+  
+</p>
+
+<p align="left">
   <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%203.png" width="32%" /> 
   <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%2010.png" width="32%" />
   <img src="https://raw.githubusercontent.com/la-b-ib/LitGrid/main/preview/img/prev%2011.png" width="32%" />
-</p>
 
+</p>
 
 
 </details>
