@@ -7,11 +7,6 @@
 - **Security Measures** – Sanitized inputs, no persistent sensitive data, CSP headers, HTTPS enforced, dependency updates (Dependabot, manual review, pinned versions, `npm audit`).  
 - **Practices & Tools** – Input validation, output encoding, least privilege, secure headers, regular updates; recommended scans via Mozilla Observatory, Snyk, OWASP ZAP.  
 
-
-
 ## Acknowledgements
 
 **Security researchers who responsibly disclose vulnerabilities will be acknowledged here unless they prefer to remain anonymous.**
-
-
-
