@@ -23,8 +23,7 @@
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR-USERNAME/la-b-ib.github.io.git
-
+git clone https://github.com/YOUR-USERNAME/LitGrid.git
 # Navigate to project directory
 cd https://github.com/la-b-ib/LitGrid.git
 
