@@ -95,11 +95,9 @@
 </details>
 
 
-</details>
 
-## Architecture
 
-**The system architecture is organized into layered components: the Streamlit interface manages authentication and role‑based navigation, directing users into business modules for user, book, borrowing, analytics, security, and PDF management. These modules interact through a central database manager, which coordinates with SQLite, session state, file system, and cache for reliable data handling. External services such as email, backup, and export extend functionality, ensuring communication, resilience, and interoperability across the platform. This modular design enforces separation of concerns, secure data flow, and scalable integration.**  
+
 
 
 <details>
@@ -181,7 +179,7 @@ flowchart TD
 ```
 
 </details>
-
+</details>
 
 
   
