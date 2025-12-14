@@ -8,6 +8,10 @@
 
 <details>
   
+**<summary>Project Details</summary>**
+
+<details>
+  
 **<summary>LitGrid Overview</summary>**
 
 - **Project Goals – Full library management (catalog, users, borrowing, fines), intuitive dashboards, advanced analytics, multi-layer security, MIT open source.**
@@ -91,7 +95,7 @@
 </details>
 
 
-
+</details>
 
 
 <details>
