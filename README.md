@@ -4,7 +4,7 @@
   
 **LitGrid is a comprehensive, modern library management system designed for educational institutions, public libraries, and private collections. Built with **Python**, **Streamlit**, and SQLite, it offers a complete solution for managing books, users, borrowing activities, and administrative tasks. </samp>**
 
-<hr>
+
 
 <details>
   
@@ -97,10 +97,14 @@
 
 </details>
 
+## Architecture
+
+**The system architecture is organized into layered components: the Streamlit interface manages authentication and role‑based navigation, directing users into business modules for user, book, borrowing, analytics, security, and PDF management. These modules interact through a central database manager, which coordinates with SQLite, session state, file system, and cache for reliable data handling. External services such as email, backup, and export extend functionality, ensuring communication, resilience, and interoperability across the platform. This modular design enforces separation of concerns, secure data flow, and scalable integration.**  
+
 
 <details>
   
-**<summary>System Architecture</summary>**
+**<summary>System Architecture Diagram</summary>**
 
 
 ```mermaid
