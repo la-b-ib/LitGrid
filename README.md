@@ -46,15 +46,15 @@
 
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff', 'edgeLabelBackground':'#fff', 'tertiaryColor': '#f4f4f4'}, 'flowchart': {'curve': 'basis', 'nodeSpacing': 50, 'rankSpacing': 50}} }%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff', 'edgeLabelBackground':'#fff', 'tertiaryColor': '#f4f4f4', 'fontSize':'28px'}, 'flowchart': {'curve': 'basis', 'nodeSpacing': 20, 'rankSpacing': 50}} }%%
 
 flowchart TD
     %% Global Styling
-    classDef presentation stroke:#1565c0,stroke-width:6px,color:#0d47a1,rx:10,ry:10;
-    classDef business stroke:#7b1fa2,stroke-width:6px,color:#4a148c,rx:10,ry:10;
-    classDef data stroke:#2e7d32,stroke-width:6px,color:#1b5e20,rx:10,ry:10;
-    classDef storage stroke:#e65100,stroke-width:6px,color:#bf360c,rx:5,ry:5;
-    classDef external stroke:#c2185b,stroke-width:6px,color:#880e4f,rx:10,ry:10;
+    classDef presentation stroke:#1565c0,stroke-width:5px,color:#0d47a1,rx:10,ry:10;
+    classDef business stroke:#7b1fa2,stroke-width:5px,color:#4a148c,rx:10,ry:10;
+    classDef data stroke:#2e7d32,stroke-width:5px,color:#1b5e20,rx:10,ry:10;
+    classDef storage stroke:#e65100,stroke-width:5px,color:#bf360c,rx:5,ry:5;
+    classDef external stroke:#c2185b,stroke-width:5px,color:#880e4f,rx:10,ry:10;
 
     %% Nodes (no subgraph boxes)
     A[**Streamlit Web Interface**]
@@ -158,24 +158,33 @@ flowchart TD
 
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff','edgeLabelBackground':'#fff','tertiaryColor': '#f4f4f4','fontSize':'15px','fontWeight':'bold'}, 'state': {'nodeSpacing': 150, 'rankSpacing': 0}} }%%
+
 stateDiagram-v2
     [*] --> Available
-    Available --> Reserved : Member reserves
-    Reserved --> CheckedOut : Librarian processes
-    Available --> CheckedOut : Direct checkout
+
+    Available --> Reserved : **Member reserves**
+    Reserved --> CheckedOut : **Librarian processes**
+    Available --> CheckedOut : **Direct checkout**
     
-    CheckedOut --> Renewed : Renewal approved
-    Renewed --> CheckedOut : Continue borrowing
+    CheckedOut --> Renewed : **Renewal approved**
+    Renewed --> CheckedOut : **Continue borrowing**
     
-    CheckedOut --> Returned : Returned on time
-    CheckedOut --> Overdue : Past due date
-    Overdue --> Returned : Returned with fine
+    CheckedOut --> Returned : **Returned on time**
+    CheckedOut --> Overdue : **Past due date**
+    Overdue --> Returned : **Returned with fine**
     
-    Returned --> Available : Book back in system
+    Returned --> Available : **Book back in system**
     
-    CheckedOut --> Lost : Reported lost
-    Lost --> Replaced : Replacement provided
-    Replaced --> Available : Back in circulation
+    CheckedOut --> Lost : **Reported lost**
+    Lost --> Replaced : **Replacement provided**
+    Replaced --> Available : **Back in circulation**
+
+    %% Styling must be applied after states are declared
+    classDef boldStyle stroke:#1565c0,stroke-width:4px,color:#0d47a1,rx:10,ry:10;
+    class Available,Reserved,CheckedOut,Renewed,Returned,Overdue,Lost,Replaced boldStyle
+
+
 ```
 
 ---
