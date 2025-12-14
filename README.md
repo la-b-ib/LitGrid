@@ -46,77 +46,76 @@
 
 
 ```mermaid
-graph TD
-    subgraph "Presentation Layer"
-        A[Streamlit Web Interface]
-        B[User Authentication]
-        C[Role-Based Navigation]
-    end
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff', 'edgeLabelBackground':'#fff', 'tertiaryColor': '#f4f4f4'}, 'flowchart': {'curve': 'basis', 'nodeSpacing': 50, 'rankSpacing': 50}} }%%
+
+flowchart TD
+    %% Global Styling
+    classDef presentation stroke:#1565c0,stroke-width:6px,color:#0d47a1,rx:10,ry:10;
+    classDef business stroke:#7b1fa2,stroke-width:6px,color:#4a148c,rx:10,ry:10;
+    classDef data stroke:#2e7d32,stroke-width:6px,color:#1b5e20,rx:10,ry:10;
+    classDef storage stroke:#e65100,stroke-width:6px,color:#bf360c,rx:5,ry:5;
+    classDef external stroke:#c2185b,stroke-width:6px,color:#880e4f,rx:10,ry:10;
+
+    %% Nodes (no subgraph boxes)
+    A[**Streamlit Web Interface**]
+    B[**User Authentication**]
+    C[**Role-Based Navigation**]
+
+    D[**User Management**]
+    E[**Book Management**]
+    F[**Borrowing System**]
+    G[**Analytics Engine**]
+    H[**Security Manager**]
+    I[**PDF Library Manager**]
+
+    J[**Database Manager**]
+    K[**File Handler**]
+    L[**Cache Manager**]
+
+    M[(**SQLite Database**)]
+    N[(**File System Storage**)]
+    O[(**Session State**)]
+
+    P[**Email Service**]
+    Q[**Backup System**]
+    R[**Export Services**]
+
+    %% Connections (all solid and bold)
+    A ==> B
+    A ==> C
     
-    subgraph "Business Logic Layer"
-        D[User Management]
-        E[Book Management] 
-        F[Borrowing System]
-        G[Analytics Engine]
-        H[Security Manager]
-        I[PDF Library Manager]
-    end
+    B ==> H
     
-    subgraph "Data Access Layer"
-        J[Database Manager]
-        K[File Handler]
-        L[Cache Manager]
-    end
+    C ==> D
+    C ==> E
+    C ==> F
+    C ==> G
+    C ==> I
+
+    D ==> J
+    E ==> J
+    F ==> J
+    G ==> J
+    H ==> J
+    I ==> J
+    I ==> K
     
-    subgraph "Data Storage Layer"
-        M[(SQLite Database)]
-        N[File System Storage]
-        O[Session State]
-    end
+    J ==> M
+    J ==> O
+    K ==> N
     
-    subgraph "External Services"
-        P[Email Service]
-        Q[Backup System]
-        R[Export Services]
-    end
-    
-    A --> B
-    A --> C
-    B --> H
-    C --> D
-    C --> E
-    C --> F
-    C --> G
-    C --> I
-    
-    D --> J
-    E --> J
-    F --> J
-    G --> J
-    I --> J
-    I --> K
-    H --> J
-    
-    J --> M
-    K --> N
-    J --> O
-    
-    G --> P
-    F --> P
-    J --> Q
-    G --> R
-    
-    classDef presentation fill:#e1f5fe
-    classDef business fill:#f3e5f5
-    classDef data fill:#e8f5e8
-    classDef storage fill:#fff3e0
-    classDef external fill:#fce4ec
-    
+    G ==> P
+    F ==> P
+    J ==> Q
+    G ==> R
+
+    %% Assign Classes
     class A,B,C presentation
     class D,E,F,G,H,I business
     class J,K,L data
     class M,N,O storage
     class P,Q,R external
+
 ```
 
 </details>
