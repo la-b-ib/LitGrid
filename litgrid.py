@@ -97,10 +97,17 @@ class SecurityManager:
         if CRYPTO_AVAILABLE:
             key_env = os.getenv("ENCRYPTION_KEY")
             if key_env:
-                self.encryption_key = key_env.encode()
-            else:
-                key_file = os.path.expanduser("~/.litgrid/.encryption_key")
-                key_dir = os.path.dirname(key_file)
+                try:
+                    self.encryption_key = key_env.encode() if isinstance(key_env, str) else key_env
+                    self.cipher = Fernet(self.encryption_key)
+                    return
+                except (ValueError, AttributeError):
+                    pass
+
+            key_file = os.path.expanduser("~/.litgrid/.encryption_key")
+            key_dir = os.path.dirname(key_file)
+
+            try:
                 if not os.path.exists(key_dir):
                     os.makedirs(key_dir, mode=0o700)
 
@@ -113,7 +120,10 @@ class SecurityManager:
                         f.write(self.encryption_key)
                     os.chmod(key_file, 0o600)
 
-            self.cipher = Fernet(self.encryption_key)
+                self.cipher = Fernet(self.encryption_key)
+            except (OSError, PermissionError):
+                self.encryption_key = Fernet.generate_key()
+                self.cipher = Fernet(self.encryption_key)
         else:
             self.cipher = None
             self.encryption_key = None
