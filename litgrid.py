@@ -93,17 +93,26 @@ class SecurityManager:
         self._init_encryption_key()
     
     def _init_encryption_key(self):
-        """Initialize or load encryption key"""
+        """Initialize or load encryption key from environment or secure location"""
         if CRYPTO_AVAILABLE:
-            key_file = ".encryption_key"
-            if os.path.exists(key_file):
-                with open(key_file, 'rb') as f:
-                    self.encryption_key = f.read()
+            key_env = os.getenv("ENCRYPTION_KEY")
+            if key_env:
+                self.encryption_key = key_env.encode()
             else:
-                self.encryption_key = Fernet.generate_key()
-                with open(key_file, 'wb') as f:
-                    f.write(self.encryption_key)
-            
+                key_file = os.path.expanduser("~/.litgrid/.encryption_key")
+                key_dir = os.path.dirname(key_file)
+                if not os.path.exists(key_dir):
+                    os.makedirs(key_dir, mode=0o700)
+
+                if os.path.exists(key_file):
+                    with open(key_file, 'rb') as f:
+                        self.encryption_key = f.read()
+                else:
+                    self.encryption_key = Fernet.generate_key()
+                    with open(key_file, 'wb') as f:
+                        f.write(self.encryption_key)
+                    os.chmod(key_file, 0o600)
+
             self.cipher = Fernet(self.encryption_key)
         else:
             self.cipher = None
@@ -280,8 +289,19 @@ class FileHandler:
         """Save uploaded file and return path"""
         if not os.path.exists(folder):
             os.makedirs(folder)
-        
-        file_path = os.path.join(folder, uploaded_file.name)
+
+        safe_filename = os.path.basename(uploaded_file.name)
+        safe_filename = re.sub(r'[^a-zA-Z0-9._-]', '', safe_filename)
+        if not safe_filename:
+            safe_filename = "upload_" + secrets.token_hex(8)
+
+        file_path = os.path.join(folder, safe_filename)
+        file_path = os.path.abspath(file_path)
+        folder_abs = os.path.abspath(folder)
+
+        if not file_path.startswith(folder_abs):
+            raise ValueError("Invalid file path")
+
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         return file_path
@@ -1071,6 +1091,8 @@ class EnhancedSearchFilter:
     def sort_by_date_added(order='DESC'):
         """Sort books by date added"""
         try:
+            if order.upper() not in ('ASC', 'DESC'):
+                order = 'DESC'
             return Database.execute_query(f"""
                 SELECT b.book_id, b.title, b.created_at as date_added
                 FROM books b
@@ -1078,7 +1100,8 @@ class EnhancedSearchFilter:
                 ORDER BY b.created_at {order}
                 LIMIT 100
             """)
-        except:
+        except Exception as e:
+            print(f"Error in sort_by_date_added: {e}")
             return []
     
     @staticmethod
@@ -3459,18 +3482,25 @@ def get_member_statistics(user_id):
 # ================================================================
 
 def load_css():
-    """Load custom CSS"""
+    """Load custom CSS with JetBrains Mono font"""
     css = """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+
+    * {
+        font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+    }
+
     .main {
         padding: 2rem;
     }
     .custom-header {
         color: #1E88E5;
         font-size: 2.5rem;
-        font-weight: 700;
+        font-weight: 800;
         text-align: center;
         margin-bottom: 1rem;
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
     .stat-card {
         background: linear-gradient(135deg, #1E88E5 0%, #FFA726 100%);
@@ -3479,14 +3509,17 @@ def load_css():
         color: white;
         text-align: center;
         margin: 0.5rem;
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
     .stat-number {
         font-size: 2.5rem;
-        font-weight: 700;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
     .stat-label {
         font-size: 1rem;
         opacity: 0.9;
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
     .book-card {
         background: white;
@@ -3494,6 +3527,7 @@ def load_css():
         padding: 1rem;
         margin: 0.5rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
     </style>
     """
@@ -3718,7 +3752,8 @@ def show_dashboard():
     user = Auth.get_user()
     
     st.markdown(f'<h1 class="custom-header">🧭 Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align: center; color: #666;'>Welcome back, {user['full_name']}!</p>", unsafe_allow_html=True)
+    sanitized_name = security_manager.sanitize_input(user['full_name'])
+    st.markdown(f"<p style='text-align: center; color: #666;'>Welcome back, {sanitized_name}!</p>", unsafe_allow_html=True)
     
     if user['role'] in ['admin', 'librarian']:
         # Admin/Librarian Dashboard
