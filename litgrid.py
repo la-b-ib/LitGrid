@@ -3630,11 +3630,53 @@ def show_login_page():
                 horizontal=True,
                 label_visibility="collapsed"
             )
-            
+
             mode = 'member' if '' in login_mode else 'admin'
-            
+
             st.markdown("<br>", unsafe_allow_html=True)
-            
+
+            # Demo mode quick access buttons
+            st.markdown("**Quick Demo Access**")
+            demo_col1, demo_col2 = st.columns(2, gap="small")
+
+            with demo_col1:
+                if st.button("Enter as Demo Member", use_container_width=True, key="demo_member_btn"):
+                    # Create demo member session
+                    demo_user = {
+                        'user_id': 'demo_member_001',
+                        'username': 'demo_member',
+                        'full_name': 'Demo Member',
+                        'email': 'demo.member@litgrid.local',
+                        'role': 'member',
+                        'is_active': True,
+                        'is_demo': True,
+                        'membership_tier': 'standard'
+                    }
+                    Auth.set_user(demo_user)
+                    st.info("Demo Member Mode - View Only Access")
+                    time.sleep(0.5)
+                    st.rerun()
+
+            with demo_col2:
+                if st.button("Enter as Demo Admin", use_container_width=True, key="demo_admin_btn"):
+                    # Create demo admin session
+                    demo_user = {
+                        'user_id': 'demo_admin_001',
+                        'username': 'demo_admin',
+                        'full_name': 'Demo Administrator',
+                        'email': 'demo.admin@litgrid.local',
+                        'role': 'admin',
+                        'is_active': True,
+                        'is_demo': True
+                    }
+                    Auth.set_user(demo_user)
+                    st.info("Demo Admin Mode - Limited Write Access")
+                    time.sleep(0.5)
+                    st.rerun()
+
+            st.divider()
+            st.markdown("**Or Login with Credentials**")
+
             with st.form("login_form"):
                 username = st.text_input("Username or Email")
                 password = st.text_input("Password", type="password")
@@ -3778,10 +3820,16 @@ def show_login_page():
 def show_dashboard():
     """Dashboard page"""
     user = Auth.get_user()
-    
+
     st.markdown(f'<h1 class="litgrid-header"> Dashboard</h1>', unsafe_allow_html=True)
     sanitized_name = security_manager.sanitize_input(user['full_name'])
     st.markdown(f"<p style='text-align: center; color: #666;'>Welcome back, {sanitized_name}!</p>", unsafe_allow_html=True)
+
+    # Show demo mode banner if applicable
+    if user.get('is_demo'):
+        role_text = "Member" if user['role'] == 'member' else "Administrator"
+        st.warning(f"Demo Mode - {role_text} ({user.get('username', 'demo')}): This is a demonstration account with read-only access to explore features.")
+        st.divider()
 
     if user['role'] in ['admin', 'librarian']:
         # Admin/Librarian Dashboard
@@ -8427,7 +8475,15 @@ def main():
             st.divider()
             st.markdown(f"###  {user['full_name']}")
             st.caption(f"{user['role'].title()} | {user['member_tier'].title()}")
-            
+
+            # Show demo mode indicator
+            if user.get('is_demo'):
+                st.info("Demo Mode Active - Read-Only Access")
+                if st.button("Exit Demo Mode", use_container_width=True, key="exit_demo_btn"):
+                    Auth.logout()
+                    st.rerun()
+                st.divider()
+
             if user['fine_balance'] > 0:
                 st.warning(f" Fine: {format_currency(user['fine_balance'])}")
             
