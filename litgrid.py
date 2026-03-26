@@ -3782,12 +3782,15 @@ def show_dashboard():
     st.markdown(f'<h1 class="litgrid-header">🧭 Dashboard</h1>', unsafe_allow_html=True)
     sanitized_name = security_manager.sanitize_input(user['full_name'])
     st.markdown(f"<p style='text-align: center; color: #666;'>Welcome back, {sanitized_name}!</p>", unsafe_allow_html=True)
-    
+
     if user['role'] in ['admin', 'librarian']:
         # Admin/Librarian Dashboard
         st.markdown("### 📈 Library Overview")
-        
-        # Statistics
+
+        # ============ EXECUTIVE SUMMARY - KEY METRICS ============
+        st.markdown("#### 🎯 Executive Summary")
+
+        # Core statistics
         total_books = Database.execute_query(
             "SELECT COUNT(*) as count FROM books WHERE is_available = 1",
             fetch_one=True
@@ -3804,17 +3807,60 @@ def show_dashboard():
             "SELECT COUNT(*) as count FROM borrowing WHERE return_date IS NULL AND due_date < date('now')",
             fetch_one=True
         )
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
+
+        # Calculate additional metrics
+        total_inventory = Database.execute_query(
+            "SELECT COUNT(*) as count FROM book_inventory",
+            fetch_one=True
+        )
+        inventory_available = Database.execute_query(
+            "SELECT COUNT(*) as count FROM book_inventory WHERE is_available = 1",
+            fetch_one=True
+        )
+
+        # Circulation metrics
+        total_authors = Database.execute_query(
+            "SELECT COUNT(DISTINCT author) as count FROM books WHERE author IS NOT NULL",
+            fetch_one=True
+        )
+        total_genres = Database.execute_query(
+            "SELECT COUNT(DISTINCT genre) as count FROM books WHERE genre IS NOT NULL",
+            fetch_one=True
+        )
+
+        # Performance metrics
+        circulation_rate = 0
+        if inventory_total and inventory_total['count'] > 0 and active_borrowings:
+            circulation_rate = (active_borrowings['count'] / inventory_total['count']) * 100
+
+        availability_rate = 0
+        if total_inventory and total_inventory['count'] > 0:
+            availability_rate = (inventory_available['count'] / total_inventory['count']) * 100
+
+        overdue_rate = 0
+        if active_borrowings and active_borrowings['count'] > 0:
+            overdue_rate = (overdue_books['count'] / active_borrowings['count']) * 100
+
+        # Member engagement
+        active_members_7d = Database.execute_query(
+            "SELECT COUNT(DISTINCT user_id) as count FROM borrowing WHERE checkout_date >= date('now', '-7 days')",
+            fetch_one=True
+        )
+        active_members_30d = Database.execute_query(
+            "SELECT COUNT(DISTINCT user_id) as count FROM borrowing WHERE checkout_date >= date('now', '-30 days')",
+            fetch_one=True
+        )
+
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
+
         with col1:
             st.markdown(f"""
             <div class="litgrid-stat-card">
                 <div class="litgrid-stat-number">{total_books['count'] if total_books else 0}</div>
-                <div class="litgrid-stat-label">Total Books</div>
+                <div class="litgrid-stat-label">Available Books</div>
             </div>
             """, unsafe_allow_html=True)
-        
+
         with col2:
             st.markdown(f"""
             <div class="litgrid-stat-card">
@@ -3822,15 +3868,15 @@ def show_dashboard():
                 <div class="litgrid-stat-label">Active Members</div>
             </div>
             """, unsafe_allow_html=True)
-        
+
         with col3:
             st.markdown(f"""
             <div class="litgrid-stat-card">
                 <div class="litgrid-stat-number">{active_borrowings['count'] if active_borrowings else 0}</div>
-                <div class="litgrid-stat-label">Checked Out</div>
+                <div class="litgrid-stat-label">In Circulation</div>
             </div>
             """, unsafe_allow_html=True)
-        
+
         with col4:
             st.markdown(f"""
             <div class="litgrid-stat-card">
@@ -3838,157 +3884,666 @@ def show_dashboard():
                 <div class="litgrid-stat-label">Overdue</div>
             </div>
             """, unsafe_allow_html=True)
-        
+
+        with col5:
+            st.markdown(f"""
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{total_authors['count'] if total_authors else 0}</div>
+                <div class="litgrid-stat-label">Authors</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col6:
+            st.markdown(f"""
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{total_genres['count'] if total_genres else 0}</div>
+                <div class="litgrid-stat-label">Genres</div>
+            </div>
+            """, unsafe_allow_html=True)
+
         st.markdown("---")
-        
-        # Additional metrics row
-        col1, col2, col3, col4 = st.columns(4)
-        
-        borrowed_today = Database.execute_query(
-            "SELECT COUNT(*) as count FROM borrowing WHERE date(checkout_date) = date('now')",
-            fetch_one=True
-        )
-        
-        inventory_total = Database.execute_query(
-            "SELECT COUNT(*) as count FROM book_inventory",
-            fetch_one=True
-        )
-        
-        inventory_available = Database.execute_query(
-            "SELECT COUNT(*) as count FROM book_inventory WHERE is_available = 1",
-            fetch_one=True
-        )
-        
-        # Calculate turnover rate: (borrowed / total inventory) * 100
-        turnover_rate = 0
-        if inventory_total and inventory_total['count'] > 0 and active_borrowings:
-            turnover_rate = (active_borrowings['count'] / inventory_total['count']) * 100
-        
+
+        # ============ PERFORMANCE INDICATORS ============
+        st.markdown("#### 📊 Performance Indicators")
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+
         with col1:
-            st.metric("📚 Borrowed Today", borrowed_today['count'] if borrowed_today else 0)
-        
+            st.metric(
+                "📦 Availability Rate",
+                f"{availability_rate:.1f}%",
+                delta=f"{inventory_available['count'] if inventory_available else 0} of {total_inventory['count'] if total_inventory else 0}",
+                delta_color="normal"
+            )
+
         with col2:
-            st.metric("📦 Total Inventory", inventory_total['count'] if inventory_total else 0)
-        
+            st.metric(
+                "🔄 Circulation Rate",
+                f"{circulation_rate:.1f}%",
+                delta=f"{active_borrowings['count'] if active_borrowings else 0} active",
+                delta_color="normal"
+            )
+
         with col3:
-            st.metric("✅ Available Copies", inventory_available['count'] if inventory_available else 0)
-        
+            st.metric(
+                "⏰ Overdue Rate",
+                f"{overdue_rate:.1f}%",
+                delta=f"{overdue_books['count'] if overdue_books else 0} items",
+                delta_color="inverse"
+            )
+
         with col4:
-            st.metric("📊 Turnover Rate", f"{turnover_rate:.1f}%")
-        
+            member_engagement = 0
+            if total_members and total_members['count'] > 0:
+                member_engagement = (active_members_30d['count'] / total_members['count']) * 100
+            st.metric(
+                "👥 Member Engagement",
+                f"{member_engagement:.1f}%",
+                delta=f"{active_members_30d['count'] if active_members_30d else 0} active (30d)",
+                delta_color="normal"
+            )
+
+        with col5:
+            books_per_member = 0
+            if total_members and total_members['count'] > 0:
+                books_per_member = (total_books['count'] if total_books else 0) / (total_members['count'] if total_members else 1)
+            st.metric(
+                "📚 Collection Ratio",
+                f"{books_per_member:.1f}x",
+                delta="books per member",
+                delta_color="normal"
+            )
+
         st.markdown("---")
-        
-        # Charts
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("📊 Borrowing Trend (Last 30 Days)")
-            data = Database.execute_query("""
-                SELECT date(checkout_date) as date, COUNT(*) as count
-                FROM borrowing
-                WHERE checkout_date >= date('now', '-30 days')
-                GROUP BY date(checkout_date)
-                ORDER BY date
-            """)
-            
-            if data:
-                dates = [row['date'] for row in data]
-                counts = [row['count'] for row in data]
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=dates, y=counts, mode='lines+markers', 
-                                        line=dict(color='#1E88E5', width=3)))
-                fig.update_layout(xaxis_title="Date", yaxis_title="Books Borrowed", height=300)
+
+        # ============ ADVANCED ANALYTICS - TABS ============
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Trends", "🎭 Collection", "👥 Members", "📊 Analysis", "🎯 Health"])
+
+        with tab1:
+            st.subheader("Circulation & Borrowing Trends")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Daily Borrowing Activity (Last 30 Days)**")
+                daily_data = Database.execute_query("""
+                    SELECT date(checkout_date) as date,
+                           COUNT(*) as borrows,
+                           COUNT(DISTINCT user_id) as unique_members
+                    FROM borrowing
+                    WHERE checkout_date >= date('now', '-30 days')
+                    GROUP BY date(checkout_date)
+                    ORDER BY date
+                """)
+
+                if daily_data:
+                    dates = [row['date'] for row in daily_data]
+                    borrows = [row['borrows'] for row in daily_data]
+                    members = [row['unique_members'] for row in daily_data]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=dates, y=borrows, mode='lines+markers',
+                                           name='Borrows', line=dict(color='#1E88E5', width=3)))
+                    fig.add_trace(go.Scatter(x=dates, y=members, mode='lines+markers',
+                                           name='Unique Members', line=dict(color='#66BB6A', width=2, dash='dash')))
+                    fig.update_layout(hovermode='x unified', height=350, showlegend=True)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No data available")
+
+            with col2:
+                st.write("**Monthly Borrowing Comparison (12 Months)**")
+                monthly_data = Database.execute_query("""
+                    SELECT strftime('%Y-%m', checkout_date) as month,
+                           COUNT(*) as borrows,
+                           COUNT(DISTINCT user_id) as members
+                    FROM borrowing
+                    WHERE checkout_date >= date('now', '-12 months')
+                    GROUP BY month
+                    ORDER BY month
+                """)
+
+                if monthly_data:
+                    months = [row['month'] for row in monthly_data]
+                    borrows = [row['borrows'] for row in monthly_data]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(x=months, y=borrows, name='Borrows',
+                                        marker=dict(color='#FFA726')))
+                    fig.update_layout(height=350, showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No data available")
+
+            st.write("**Returns & Overdue Analysis**")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                return_data = Database.execute_query("""
+                    SELECT
+                        CASE
+                            WHEN return_date IS NULL THEN 'Active'
+                            WHEN return_date <= due_date THEN 'On-Time'
+                            ELSE 'Late'
+                        END as status,
+                        COUNT(*) as count
+                    FROM borrowing
+                    WHERE checkout_date >= date('now', '-90 days')
+                    GROUP BY status
+                """)
+
+                if return_data:
+                    statuses = [row['status'] for row in return_data]
+                    counts = [row['count'] for row in return_data]
+                    colors = {'Active': '#2196F3', 'On-Time': '#4CAF50', 'Late': '#F44336'}
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Pie(labels=statuses, values=counts,
+                                        marker=dict(colors=[colors.get(s, '#999') for s in statuses])))
+                    fig.update_layout(height=300)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No data available")
+
+            with col2:
+                overdue_trend = Database.execute_query("""
+                    SELECT strftime('%Y-%m', due_date) as month,
+                           COUNT(*) as overdue_count
+                    FROM borrowing
+                    WHERE return_date IS NULL AND due_date < date('now')
+                    AND due_date >= date('now', '-12 months')
+                    GROUP BY month
+                    ORDER BY month
+                """)
+
+                if overdue_trend:
+                    months = [row['month'] for row in overdue_trend]
+                    counts = [row['overdue_count'] for row in overdue_trend]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=months, y=counts, mode='lines+markers',
+                                           fill='tozeroy', line=dict(color='#F44336', width=3)))
+                    fig.update_layout(height=300, hovermode='x')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No overdue data available")
+
+        with tab2:
+            st.subheader("Collection Analysis")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Genre Popularity (Last 90 Days)**")
+                genre_data = Database.execute_query("""
+                    SELECT b.genre,
+                           COUNT(DISTINCT br.borrowing_id) as borrow_count,
+                           COUNT(DISTINCT br.user_id) as unique_members
+                    FROM books b
+                    LEFT JOIN borrowing br ON b.book_id = br.book_id
+                           AND br.checkout_date >= date('now', '-90 days')
+                    WHERE b.genre IS NOT NULL
+                    GROUP BY b.genre
+                    ORDER BY borrow_count DESC
+                    LIMIT 15
+                """)
+
+                if genre_data:
+                    genres = [row['genre'] for row in genre_data]
+                    borrows = [row['borrow_count'] for row in genre_data]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(y=genres, x=borrows, orientation='h',
+                                        marker=dict(color=borrows, colorscale='Viridis')))
+                    fig.update_layout(xaxis_title="Borrows", height=400, showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No genre data available")
+
+            with col2:
+                st.write("**Collection Age Distribution**")
+                age_data = Database.execute_query("""
+                    SELECT
+                        CASE
+                            WHEN publication_year >= strftime('%Y', 'now') - 1 THEN 'New (< 1y)'
+                            WHEN publication_year >= strftime('%Y', 'now') - 3 THEN 'Recent (1-3y)'
+                            WHEN publication_year >= strftime('%Y', 'now') - 7 THEN 'Moderate (3-7y)'
+                            WHEN publication_year >= strftime('%Y', 'now') - 15 THEN 'Mature (7-15y)'
+                            ELSE 'Classic (15y+)'
+                        END as age_group,
+                        COUNT(*) as count
+                    FROM books
+                    WHERE is_available = 1 AND publication_year IS NOT NULL
+                    GROUP BY age_group
+                    ORDER BY
+                        CASE age_group
+                            WHEN 'New (< 1y)' THEN 1
+                            WHEN 'Recent (1-3y)' THEN 2
+                            WHEN 'Moderate (3-7y)' THEN 3
+                            WHEN 'Mature (7-15y)' THEN 4
+                            ELSE 5
+                        END
+                """)
+
+                if age_data:
+                    labels = [row['age_group'] for row in age_data]
+                    values = [row['count'] for row in age_data]
+                    colors_list = ['#4CAF50', '#2196F3', '#FFC107', '#FF9800', '#F44336']
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Pie(labels=labels, values=values,
+                                        marker=dict(colors=colors_list[:len(labels)])))
+                    fig.update_layout(height=400)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No collection data available")
+
+            st.write("**Top Authors & Publishers**")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Most Borrowed Authors**")
+                author_data = Database.execute_query("""
+                    SELECT b.author,
+                           COUNT(DISTINCT br.borrowing_id) as borrow_count,
+                           COUNT(DISTINCT b.book_id) as book_count
+                    FROM books b
+                    LEFT JOIN borrowing br ON b.book_id = br.book_id
+                           AND br.checkout_date >= date('now', '-90 days')
+                    WHERE b.author IS NOT NULL
+                    GROUP BY b.author
+                    ORDER BY borrow_count DESC
+                    LIMIT 10
+                """)
+
+                if author_data:
+                    authors = [f"{row['author']} ({row['book_count']})" for row in author_data]
+                    borrows = [row['borrow_count'] for row in author_data]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(y=authors, x=borrows, orientation='h',
+                                        marker=dict(color='#9C27B0')))
+                    fig.update_layout(xaxis_title="Borrows (90d)", height=350, showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No author data available")
+
+            with col2:
+                st.write("**Collection Statistics**")
+                stats_data = Database.execute_query("""
+                    SELECT
+                        COUNT(*) as total_books,
+                        COUNT(DISTINCT author) as unique_authors,
+                        COUNT(DISTINCT genre) as unique_genres,
+                        AVG(CAST(publication_year AS REAL)) as avg_pub_year,
+                        COUNT(CASE WHEN is_available = 1 THEN 1 END) as available_count
+                    FROM books
+                    WHERE is_available = 1
+                """)
+
+                if stats_data:
+                    stat = stats_data[0]
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.metric("📚 Total Books", stat['total_books'] or 0)
+                        st.metric("✍️ Unique Authors", stat['unique_authors'] or 0)
+                    with col_b:
+                        st.metric("🎭 Unique Genres", stat['unique_genres'] or 0)
+                        avg_year = int(stat['avg_pub_year']) if stat['avg_pub_year'] else 0
+                        st.metric("📅 Avg Pub Year", avg_year)
+
+        with tab3:
+            st.subheader("Member Analytics")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Member Activity Heatmap (7-Day Window)**")
+                activity_data = Database.execute_query("""
+                    SELECT
+                        strftime('%w', checkout_date) as day_of_week,
+                        strftime('%H', checkout_date) as hour,
+                        COUNT(*) as activity_count
+                    FROM borrowing
+                    WHERE checkout_date >= date('now', '-7 days')
+                    GROUP BY day_of_week, hour
+                """)
+
+                if activity_data:
+                    day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                    pivot_data = {}
+                    for row in activity_data:
+                        day = day_names[int(row['day_of_week'])]
+                        hour = row['hour']
+                        count = row['activity_count']
+                        if day not in pivot_data:
+                            pivot_data[day] = {}
+                        pivot_data[day][hour] = count
+
+                    # Create heatmap
+                    z_data = []
+                    y_labels = day_names
+                    x_labels = [f"{i:02d}:00" for i in range(24)]
+
+                    for day in day_names:
+                        row = [pivot_data.get(day, {}).get(f"{i:02d}", 0) for i in range(24)]
+                        z_data.append(row)
+
+                    fig = go.Figure(data=go.Heatmap(
+                        z=z_data, x=x_labels, y=y_labels,
+                        colorscale='Viridis', hovertemplate='%{y} %{x}: %{z} activities<extra></extra>'
+                    ))
+                    fig.update_layout(height=300, title_x=0.5)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No activity data available")
+
+            with col2:
+                st.write("**Member Engagement Tiers**")
+                engagement_data = Database.execute_query("""
+                    SELECT
+                        CASE
+                            WHEN borrow_count >= 20 THEN 'Power Users (20+)'
+                            WHEN borrow_count >= 10 THEN 'Active (10-19)'
+                            WHEN borrow_count >= 5 THEN 'Regular (5-9)'
+                            ELSE 'Occasional (1-4)'
+                        END as tier,
+                        COUNT(DISTINCT user_id) as member_count
+                    FROM (
+                        SELECT user_id, COUNT(*) as borrow_count
+                        FROM borrowing
+                        WHERE checkout_date >= date('now', '-90 days')
+                        GROUP BY user_id
+                    )
+                    GROUP BY tier
+                    ORDER BY member_count DESC
+                """)
+
+                if engagement_data:
+                    tiers = [row['tier'] for row in engagement_data]
+                    counts = [row['member_count'] for row in engagement_data]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(x=tiers, y=counts,
+                                        marker=dict(color=counts, colorscale='Teal')))
+                    fig.update_layout(xaxis_title="Member Tier", yaxis_title="Count", height=350, showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No engagement data available")
+
+            st.write("**Member Growth & Retention**")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**New Members (Last 12 Months)**")
+                new_members = Database.execute_query("""
+                    SELECT strftime('%Y-%m', registration_date) as month,
+                           COUNT(*) as new_members
+                    FROM users
+                    WHERE role = 'member' AND registration_date >= date('now', '-12 months')
+                    GROUP BY month
+                    ORDER BY month
+                """)
+
+                if new_members:
+                    months = [row['month'] for row in new_members]
+                    counts = [row['new_members'] for row in new_members]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(x=months, y=counts,
+                                        marker=dict(color='#4CAF50')))
+                    fig.update_layout(xaxis_title="Month", yaxis_title="New Members", height=300)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No new member data available")
+
+            with col2:
+                st.write("**Member Activity Status**")
+                status_data = Database.execute_query("""
+                    SELECT
+                        CASE
+                            WHEN last_activity_date >= date('now', '-30 days') THEN 'Active (30d)'
+                            WHEN last_activity_date >= date('now', '-90 days') THEN 'Inactive (90d)'
+                            ELSE 'Dormant (90d+)'
+                        END as status,
+                        COUNT(*) as member_count
+                    FROM (
+                        SELECT user_id, MAX(checkout_date) as last_activity_date
+                        FROM borrowing
+                        WHERE user_id IN (SELECT user_id FROM users WHERE role = 'member' AND is_active = 1)
+                        GROUP BY user_id
+                        UNION ALL
+                        SELECT user_id, NULL as last_activity_date
+                        FROM users
+                        WHERE role = 'member' AND is_active = 1
+                        AND user_id NOT IN (SELECT DISTINCT user_id FROM borrowing)
+                    )
+                    GROUP BY status
+                """)
+
+                if status_data:
+                    statuses = [row['status'] for row in status_data]
+                    counts = [row['member_count'] for row in status_data]
+                    colors_map = {'Active (30d)': '#4CAF50', 'Inactive (90d)': '#FFC107', 'Dormant (90d+)': '#F44336'}
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Pie(labels=statuses, values=counts,
+                                        marker=dict(colors=[colors_map.get(s, '#999') for s in statuses])))
+                    fig.update_layout(height=300)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No status data available")
+
+        with tab4:
+            st.subheader("Deep Analytics")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Borrowing Duration Analysis**")
+                duration_data = Database.execute_query("""
+                    SELECT
+                        CASE
+                            WHEN days_borrowed = 0 THEN '0 days'
+                            WHEN days_borrowed <= 7 THEN '1-7 days'
+                            WHEN days_borrowed <= 14 THEN '8-14 days'
+                            WHEN days_borrowed <= 30 THEN '15-30 days'
+                            ELSE '30+ days'
+                        END as duration_bucket,
+                        COUNT(*) as count,
+                        ROUND(AVG(days_borrowed), 1) as avg_days
+                    FROM (
+                        SELECT
+                            CASE
+                                WHEN return_date IS NOT NULL THEN julianday(return_date) - julianday(checkout_date)
+                                ELSE julianday('now') - julianday(checkout_date)
+                            END as days_borrowed
+                        FROM borrowing
+                        WHERE checkout_date >= date('now', '-90 days')
+                    )
+                    GROUP BY duration_bucket
+                """)
+
+                if duration_data:
+                    durations = [row['duration_bucket'] for row in duration_data]
+                    counts = [row['count'] for row in duration_data]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(x=durations, y=counts,
+                                        marker=dict(color='#2196F3')))
+                    fig.update_layout(xaxis_title="Duration", yaxis_title="Count", height=350)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No duration data available")
+
+            with col2:
+                st.write("**Demand vs Supply Analysis**")
+                demand_data = Database.execute_query("""
+                    SELECT
+                        b.genre,
+                        COUNT(b.book_id) as available_copies,
+                        COUNT(br.borrowing_id) as demand_count,
+                        ROUND(CAST(COUNT(br.borrowing_id) AS REAL) / COUNT(b.book_id), 2) as demand_ratio
+                    FROM books b
+                    LEFT JOIN borrowing br ON b.book_id = br.book_id
+                           AND br.checkout_date >= date('now', '-30 days')
+                    WHERE b.genre IS NOT NULL
+                    GROUP BY b.genre
+                    HAVING COUNT(b.book_id) > 0
+                    ORDER BY demand_ratio DESC
+                    LIMIT 10
+                """)
+
+                if demand_data:
+                    genres = [row['genre'] for row in demand_data]
+                    ratios = [row['demand_ratio'] for row in demand_data]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(y=genres, x=ratios, orientation='h',
+                                        marker=dict(color=ratios, colorscale='RdYlGn_r')))
+                    fig.update_layout(xaxis_title="Demand/Supply Ratio", height=350)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No demand data available")
+
+            st.write("**Performance Scorecard**")
+
+            # Calculate advanced metrics
+            total_checkouts = Database.execute_query(
+                "SELECT COUNT(*) as count FROM borrowing",
+                fetch_one=True
+            )
+            on_time_returns = Database.execute_query(
+                "SELECT COUNT(*) as count FROM borrowing WHERE return_date IS NOT NULL AND return_date <= due_date",
+                fetch_one=True
+            )
+            total_fines = Database.execute_query(
+                "SELECT COALESCE(SUM(amount), 0) as total FROM fines WHERE status = 'paid'",
+                fetch_one=True
+            )
+
+            on_time_pct = 0
+            if total_checkouts and total_checkouts['count'] > 0 and on_time_returns:
+                on_time_pct = (on_time_returns['count'] / total_checkouts['count']) * 100
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric("✅ On-Time Return Rate", f"{on_time_pct:.1f}%")
+
+            with col2:
+                st.metric("📊 Total Checkouts", total_checkouts['count'] if total_checkouts else 0)
+
+            with col3:
+                st.metric("💰 Total Fines Collected", f"${total_fines['total']:.2f}" if total_fines else "$0.00")
+
+            with col4:
+                avg_checkout = 0
+                if total_members and total_members['count'] > 0:
+                    avg_checkout = (total_checkouts['count'] if total_checkouts else 0) / (total_members['count'] if total_members else 1)
+                st.metric("📈 Avg Checkouts/Member", f"{avg_checkout:.1f}")
+
+        with tab5:
+            st.subheader("📊 Library Health Dashboard")
+
+            # Build comprehensive health score
+            health_scores = {}
+
+            # 1. Collection Health
+            total_collection = Database.execute_query(
+                "SELECT COUNT(*) as count FROM books",
+                fetch_one=True
+            )
+            diverse_genres = Database.execute_query(
+                "SELECT COUNT(DISTINCT genre) as count FROM books WHERE genre IS NOT NULL",
+                fetch_one=True
+            )
+            collection_health = (diverse_genres['count'] / 20) * 100 if diverse_genres and diverse_genres['count'] > 0 else 0
+            collection_health = min(100, collection_health)
+            health_scores['Collection Diversity'] = collection_health
+
+            # 2. Circulation Health
+            active_rate = (active_borrowings['count'] if active_borrowings else 0) / (total_books['count'] if total_books else 1) * 100
+            active_rate = min(100, active_rate)
+            health_scores['Circulation Velocity'] = active_rate
+
+            # 3. Member Health
+            member_health = (active_members_30d['count'] if active_members_30d else 0) / (total_members['count'] if total_members else 1) * 100 if total_members and total_members['count'] > 0 else 0
+            health_scores['Member Engagement'] = member_health
+
+            # 4. Inventory Health
+            health_scores['Inventory Availability'] = availability_rate
+
+            # 5. Return Performance
+            health_scores['Return Performance'] = 100 - overdue_rate
+
+            # Display health metrics
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Health Metrics**")
+                health_data = []
+                for metric, score in health_scores.items():
+                    health_data.append({'Metric': metric, 'Score': score})
+
+                for item in health_data:
+                    col_a, col_b = st.columns([3, 1])
+                    with col_a:
+                        st.progress(item['Score'] / 100, text=item['Metric'])
+                    with col_b:
+                        st.metric("", f"{item['Score']:.1f}%")
+
+            with col2:
+                st.write("**Overall Library Health**")
+                avg_health = sum(health_scores.values()) / len(health_scores)
+
+                fig = go.Figure(go.Indicator(
+                    mode="gauge+number+delta",
+                    value=avg_health,
+                    title={'text': "Health Score"},
+                    delta={'reference': 75},
+                    gauge={
+                        'axis': {'range': [0, 100]},
+                        'bar': {'color': "darkblue"},
+                        'steps': [
+                            {'range': [0, 25], 'color': "lightgray"},
+                            {'range': [25, 50], 'color': "gray"}
+                        ],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 4},
+                            'thickness': 0.75,
+                            'value': 90
+                        }
+                    }
+                ))
+                fig.update_layout(height=350)
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No borrowing data available")
-        
-        with col2:
-            st.subheader("🎭 Genre Popularity")
-            genre_data = Database.execute_query("""
-                SELECT b.genre as genre, COUNT(DISTINCT br.borrowing_id) as borrow_count
-                FROM books b
-                JOIN borrowing br ON b.book_id = br.book_id
-                WHERE br.checkout_date >= date('now', '-90 days')
-                AND b.genre IS NOT NULL
-                GROUP BY b.genre
-                ORDER BY borrow_count DESC
-                LIMIT 10
-            """)
-            
-            if genre_data:
-                genres = [row['genre'] for row in genre_data]
-                counts = [row['borrow_count'] for row in genre_data]
-                fig = go.Figure()
-                fig.add_trace(go.Bar(y=genres, x=counts, orientation='h',
-                                    marker=dict(color='#66BB6A')))
-                fig.update_layout(xaxis_title="Borrows (Last 90 Days)", height=300)
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No genre data available")
-        
+
+            st.write("**Health Radar Chart**")
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatterpolar(
+                r=list(health_scores.values()),
+                theta=list(health_scores.keys()),
+                fill='toself',
+                name='Current'
+            ))
+            fig.add_trace(go.Scatterpolar(
+                r=[75] * len(health_scores),
+                theta=list(health_scores.keys()),
+                fill='toself',
+                name='Target'
+            ))
+            fig.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+                showlegend=True,
+                height=400
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
         st.markdown("---")
-        
-        # Additional charts row
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("📅 Monthly Borrowing Chart")
-            monthly_data = Database.execute_query("""
-                SELECT strftime('%Y-%m', checkout_date) as month, COUNT(*) as count
-                FROM borrowing
-                WHERE checkout_date >= date('now', '-12 months')
-                GROUP BY strftime('%Y-%m', checkout_date)
-                ORDER BY month
-            """)
-            
-            if monthly_data:
-                months = [row['month'] for row in monthly_data]
-                counts = [row['count'] for row in monthly_data]
-                fig = go.Figure()
-                fig.add_trace(go.Bar(x=months, y=counts,
-                                    marker=dict(color='#FFA726')))
-                fig.update_layout(xaxis_title="Month", yaxis_title="Books Borrowed", height=300)
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No monthly data available")
-        
-        with col2:
-            st.subheader("📚 Book Aging Report")
-            aging_data = Database.execute_query("""
-                SELECT 
-                    CASE 
-                        WHEN publication_year >= strftime('%Y', 'now') - 1 THEN 'New (< 1 year)'
-                        WHEN publication_year >= strftime('%Y', 'now') - 5 THEN 'Recent (1-5 years)'
-                        WHEN publication_year >= strftime('%Y', 'now') - 10 THEN 'Moderate (5-10 years)'
-                        ELSE 'Old (> 10 years)'
-                    END as age_group,
-                    COUNT(*) as count
-                FROM books
-                WHERE is_available = 1 AND publication_year IS NOT NULL
-                GROUP BY age_group
-                ORDER BY 
-                    CASE age_group
-                        WHEN 'New (< 1 year)' THEN 1
-                        WHEN 'Recent (1-5 years)' THEN 2
-                        WHEN 'Moderate (5-10 years)' THEN 3
-                        ELSE 4
-                    END
-            """)
-            
-            if aging_data:
-                labels = [row['age_group'] for row in aging_data]
-                values = [row['count'] for row in aging_data]
-                fig = go.Figure()
-                fig.add_trace(go.Pie(labels=labels, values=values,
-                                    marker=dict(colors=['#4CAF50', '#2196F3', '#FFC107', '#F44336'])))
-                fig.update_layout(height=300)
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No aging data available")
-        
-        st.markdown("---")
-        
-        # Top readers leaderboard
+
+        # ============ TOP READERS LEADERBOARD ============
         st.subheader("🏆 Top Readers Leaderboard")
         
         col1, col2 = st.columns([2, 1])
