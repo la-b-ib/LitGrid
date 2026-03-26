@@ -3492,19 +3492,25 @@ def get_member_statistics(user_id):
 # ================================================================
 
 def load_css():
-    """Load custom CSS with JetBrains Mono font"""
+    """Load custom CSS with JetBrains Mono font - non-intrusive styling"""
     css = """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
 
-    * {
-        font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+    /* Only apply font to markdown content, not Streamlit widgets */
+    .stMarkdown p,
+    .stMarkdown h1,
+    .stMarkdown h2,
+    .stMarkdown h3,
+    .stMarkdown h4,
+    .stMarkdown h5,
+    .stMarkdown h6,
+    .stMarkdown li {
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
 
-    .main {
-        padding: 2rem;
-    }
-    .custom-header {
+    /* Custom LitGrid classes - namespaced to avoid conflicts */
+    .litgrid-header {
         color: #1E88E5;
         font-size: 2.5rem;
         font-weight: 800;
@@ -3512,7 +3518,8 @@ def load_css():
         margin-bottom: 1rem;
         font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
-    .stat-card {
+
+    .litgrid-stat-card {
         background: linear-gradient(135deg, #1E88E5 0%, #FFA726 100%);
         padding: 1.5rem;
         border-radius: 10px;
@@ -3521,23 +3528,34 @@ def load_css():
         margin: 0.5rem;
         font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
-    .stat-number {
+
+    .litgrid-stat-number {
         font-size: 2.5rem;
         font-weight: 800;
         font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
-    .stat-label {
+
+    .litgrid-stat-label {
         font-size: 1rem;
         opacity: 0.9;
         font-family: 'JetBrains Mono', 'Courier New', monospace;
     }
-    .book-card {
+
+    .litgrid-book-card {
         background: white;
         border-radius: 8px;
         padding: 1rem;
         margin: 0.5rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         font-family: 'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    /* Preserve Streamlit defaults */
+    .stButton > button,
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > select,
+    .stTextArea > div > div > textarea {
+        font-family: inherit;
     }
     </style>
     """
@@ -3761,7 +3779,7 @@ def show_dashboard():
     """Dashboard page"""
     user = Auth.get_user()
     
-    st.markdown(f'<h1 class="custom-header">🧭 Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="litgrid-header">🧭 Dashboard</h1>', unsafe_allow_html=True)
     sanitized_name = security_manager.sanitize_input(user['full_name'])
     st.markdown(f"<p style='text-align: center; color: #666;'>Welcome back, {sanitized_name}!</p>", unsafe_allow_html=True)
     
@@ -3791,33 +3809,33 @@ def show_dashboard():
         
         with col1:
             st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-number">{total_books['count'] if total_books else 0}</div>
-                <div class="stat-label">Total Books</div>
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{total_books['count'] if total_books else 0}</div>
+                <div class="litgrid-stat-label">Total Books</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-number">{total_members['count'] if total_members else 0}</div>
-                <div class="stat-label">Active Members</div>
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{total_members['count'] if total_members else 0}</div>
+                <div class="litgrid-stat-label">Active Members</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-number">{active_borrowings['count'] if active_borrowings else 0}</div>
-                <div class="stat-label">Checked Out</div>
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{active_borrowings['count'] if active_borrowings else 0}</div>
+                <div class="litgrid-stat-label">Checked Out</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col4:
             st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-number">{overdue_books['count'] if overdue_books else 0}</div>
-                <div class="stat-label">Overdue</div>
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{overdue_books['count'] if overdue_books else 0}</div>
+                <div class="litgrid-stat-label">Overdue</div>
             </div>
             """, unsafe_allow_html=True)
         
@@ -4060,25 +4078,25 @@ def show_dashboard():
         
         with col1:
             st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-number">{borrowed['count'] if borrowed else 0}</div>
-                <div class="stat-label">Currently Borrowed</div>
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{borrowed['count'] if borrowed else 0}</div>
+                <div class="litgrid-stat-label">Currently Borrowed</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-number">{books_read['count'] if books_read else 0}</div>
-                <div class="stat-label">Read This Year</div>
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{books_read['count'] if books_read else 0}</div>
+                <div class="litgrid-stat-label">Read This Year</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-number">{reservations['count'] if reservations else 0}</div>
-                <div class="stat-label">Active Reservations</div>
+            <div class="litgrid-stat-card">
+                <div class="litgrid-stat-number">{reservations['count'] if reservations else 0}</div>
+                <div class="litgrid-stat-label">Active Reservations</div>
             </div>
             """, unsafe_allow_html=True)
         
@@ -4113,7 +4131,7 @@ def show_dashboard():
 
 def show_books():
     """Enhanced Books browsing page with advanced search and filters"""
-    st.markdown('<h1 class="custom-header">🧿 Browse Books</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header">🧿 Browse Books</h1>', unsafe_allow_html=True)
     
     # Advanced Search & Filter Section
     with st.expander("🔍 Advanced Search & Filters", expanded=True):
@@ -4310,7 +4328,7 @@ def show_account():
     """Enhanced Account page with password change and statistics"""
     user = Auth.get_user()
     
-    st.markdown('<h1 class="custom-header">🗿 My Account</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header">🗿 My Account</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3 = st.tabs(["📋 Profile", "🔐 Security", "📊 My Statistics"])
     
@@ -4469,7 +4487,7 @@ def show_account():
 
 def show_manage_books():
     """Book management page"""
-    st.markdown('<h1 class="custom-header">🛠️ Manage Books</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header">🛠️ Manage Books</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4 = st.tabs(["📖 All Books", "➕ Add Book", "⚒️ Bulk Import", "📊 Statistics"])
     
@@ -4734,7 +4752,7 @@ def show_manage_books():
 
 def show_manage_members():
     """Member management page"""
-    st.markdown('<h1 class="custom-header">👨🏻‍🌾 Manage Members</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header">👨🏻‍🌾 Manage Members</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4 = st.tabs(["👥 All Members", "➕ Register User", "📝 Edit/Delete", "📊 Statistics"])
     
@@ -5016,7 +5034,7 @@ def show_manage_members():
 
 def show_borrowing_returns():
     """Borrowing and returns page"""
-    st.markdown('<h1 class="custom-header">⏳ Borrowing & Returns</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header">⏳ Borrowing & Returns</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📤 Checkout", "📥 Return", "📋 Active Borrowings", "🔄 Renewals", "📊 Trends"])
     
@@ -5456,7 +5474,7 @@ def show_borrowing_returns():
 
 def show_reports():
     """Advanced Reports page with 20+ visualizations"""
-    st.markdown('<h1 class="custom-header">📊 Advanced Reports & Analytics</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header">📊 Advanced Reports & Analytics</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📈 Overview Dashboard", 
