@@ -3719,9 +3719,9 @@ def show_login_page():
                     st.caption("Don't have an account? Register in the next tab")
         
         with tab2:
-            st.markdown("###  Create Member Account")
+            st.markdown("### **Create Member Account**")
             st.caption(f"Maximum {Config.MAX_MEMBER_ACCOUNTS} member accounts allowed")
-            
+
             # Show remaining slots
             count_result = Database.execute_query(
                 "SELECT COUNT(*) as count FROM users WHERE role = 'member'",
@@ -3729,43 +3729,239 @@ def show_login_page():
             )
             current_count = count_result['count'] if count_result else 0
             remaining = Config.MAX_MEMBER_ACCOUNTS - current_count
-            
+
             if remaining > 0:
-                st.success(f" {remaining} registration slot(s) available")
+                st.success(f"✅ {remaining} registration slot(s) available")
             else:
-                st.error(f" No registration slots available")
-            
+                st.error("❌ No registration slots available")
+
+            st.divider()
+
+            # Password strength validator
+            def validate_password_strength(password):
+                """Check password strength"""
+                if len(password) < 12:
+                    return False, "Password must be at least 12 characters"
+                if password.lower() == password:
+                    return False, "Password must contain uppercase letters"
+                if password.upper() == password:
+                    return False, "Password must contain lowercase letters"
+                if not any(c.isdigit() for c in password):
+                    return False, "Password must contain numbers"
+                if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password):
+                    return False, "Password must contain special characters (!@#$%^&* etc)"
+                # Check for repeated characters
+                if any(password.count(c) > 3 for c in set(password)):
+                    return False, "Password contains too many repeated characters"
+                return True, "Strong password ✓"
+
+            # Check for duplicate credentials
+            def check_duplicate_credentials(username, email):
+                """Check if username or email already exists"""
+                existing = Database.execute_query("""
+                    SELECT user_id FROM users
+                    WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)
+                """, (username, email))
+                return existing is not None and len(existing) > 0
+
             with st.form("register_form"):
+                # Personal Information
+                st.markdown("#### **Personal Information**")
                 col_a, col_b = st.columns(2, gap="small")
                 with col_a:
-                    full_name = st.text_input("Full Name *")
-                    username_reg = st.text_input("Username *")
-                    email = st.text_input("Email *")
+                    full_name = st.text_input("Full Name *", placeholder="John Doe")
+                    date_of_birth = st.date_input("Date of Birth *")
                 with col_b:
-                    phone = st.text_input("Phone")
-                    password_reg = st.text_input("Password *", type="password")
-                    confirm_pass = st.text_input("Confirm Password *", type="password")
-                
-                agree = st.checkbox("I agree to Terms of Service")
-                submit_reg = st.form_submit_button("Register as Member", use_container_width=True, disabled=(remaining <= 0))
-                
+                    phone = st.text_input("Phone Number *", placeholder="+1-555-0000")
+                    gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"])
+
+                # Address Information
+                st.markdown("#### **Address Information**")
+                col_c, col_d = st.columns(2, gap="small")
+                with col_c:
+                    street = st.text_input("Street Address *")
+                    city = st.text_input("City *")
+                with col_d:
+                    state = st.text_input("State/Province *")
+                    zip_code = st.text_input("Zip/Postal Code *")
+
+                # Account Information
+                st.markdown("#### **Account Information**")
+                col_e, col_f = st.columns(2, gap="small")
+                with col_e:
+                    username_reg = st.text_input("Username *", placeholder="johndoe123", help="Alphanumeric, 4-20 characters")
+                    email = st.text_input("Email *", placeholder="john@example.com")
+                with col_f:
+                    occupation = st.text_input("Occupation", placeholder="Software Engineer")
+                    library_interests = st.multiselect("Library Interests",
+                        ["Fiction", "Non-Fiction", "Science", "History", "Biography", "Self-Help", "Poetry", "Children's Books"])
+
+                # Password Security
+                st.markdown("#### **Password Security**")
+                st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars (!@#$%^&*), no repetition")
+                password_reg = st.text_input("Password *", type="password", help="Min 12 chars, mixed case, numbers, special chars")
+                confirm_pass = st.text_input("Confirm Password *", type="password")
+
+                # Photo Upload
+                st.markdown("#### **Profile Photo**")
+                profile_photo = st.file_uploader("Upload Profile Photo *", type=["jpg", "jpeg", "png"], help="Max 5MB, square image preferred")
+
+                # Legal & Consent Section
+                st.divider()
+                st.markdown("#### **Legal & Consent**")
+
+                with st.expander("📋 Terms of Service", expanded=False):
+                    st.markdown("""
+                    **TERMS OF SERVICE**
+
+                    By registering for an account with LitGrid Library, you agree to the following terms:
+
+                    1. **Account Responsibility**: You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
+
+                    2. **Library Code of Conduct**: Members must follow all library rules and policies, including treating library materials with respect and returning items on time.
+
+                    3. **Collection Policy**: Items may only be borrowed for authorized personal use. Resale or commercial use is prohibited.
+
+                    4. **Fine & Fee Policy**: Late fees and damage charges apply per library policy. You accept responsibility for items borrowed under your account.
+
+                    5. **Membership**: Membership is non-transferable and personal. Sharing credentials is prohibited.
+
+                    6. **Compliance**: You agree to comply with all applicable laws and library policies.
+                    """)
+
+                with st.expander("📖 Usage Guide", expanded=False):
+                    st.markdown("""
+                    **HOW TO USE LITGRID LIBRARY**
+
+                    **Getting Started:**
+                    - Browse our catalog using the search feature or category filters
+                    - Click "Borrow" to check out items (max 10 items per member)
+                    - View your active borrowings and due dates in your library dashboard
+
+                    **Borrowing:**
+                    - Standard loan period: 30 days
+                    - Renewals: Available for items with no pending reservations
+                    - Maximum renewals: 2 times per item
+
+                    **Returning:**
+                    - Return items by their due date to avoid late fees
+                    - Use the check-in process in your dashboard
+                    - Late fees: $1.00 per day per item
+
+                    **Dashboard Features:**
+                    - View borrowed items and due dates
+                    - Renew items before they're due
+                    - Check your reading statistics
+                    - Manage account preferences
+
+                    **Support:**
+                    - Contact our support team for assistance
+                    - FAQs available in the Help section
+                    """)
+
+                with st.expander("⚖️ Privacy & Legal Disclaimer", expanded=False):
+                    st.markdown("""
+                    **PRIVACY POLICY & LEGAL DISCLAIMER**
+
+                    **Data Protection:**
+                    - We collect only necessary information for library services
+                    - Your data is encrypted and securely stored
+                    - We do not share your information with third parties
+                    - You may request data deletion by contacting support
+
+                    **Library Responsibility:**
+                    - LitGrid is not responsible for loss or damage to items provided by members
+                    - Items borrowed remain library property
+                    - Member is responsible for damage beyond normal wear
+
+                    **Limitation of Liability:**
+                    - The library service is provided "as is"
+                    - We are not liable for service interruptions or data loss
+                    - Maximum liability is limited to account fees paid
+
+                    **Termination:**
+                    - Accounts may be suspended for policy violations
+                    - Outstanding fines must be paid before re-registration
+
+                    **Updates:**
+                    - Terms may be updated at any time
+                    - Continued use implies acceptance of updated terms
+                    """)
+
+                # Agreements
+                st.divider()
+                st.markdown("#### **Your Agreement**")
+
+                agree_terms = st.radio(
+                    "I have read and agree to all terms:",
+                    ["❌ I do not agree", "✅ I agree to Terms of Service, Usage Guide, and Legal Disclaimer"],
+                    help="You must agree to all terms to register"
+                )
+
+                agree_data = st.checkbox("I understand my data will be securely stored and used only for library services")
+                agree_contact = st.checkbox("I agree to receive library notifications (overdue reminders, new book alerts)")
+
+                submit_reg = st.form_submit_button("Complete Registration", use_container_width=True, disabled=(remaining <= 0))
+
                 if submit_reg:
-                    if not all([full_name, username_reg, email, password_reg, confirm_pass]):
-                        st.error("Please fill all required fields")
-                    elif password_reg != confirm_pass:
-                        st.error("Passwords do not match")
-                    elif len(password_reg) < 6:
-                        st.error("Password must be at least 6 characters")
-                    elif not agree:
-                        st.warning("Please agree to Terms of Service")
+                    # Validation
+                    errors = []
+
+                    if not all([full_name, username_reg, email, phone, street, city, state, zip_code, password_reg, confirm_pass, profile_photo]):
+                        errors.append("Please fill all required fields (marked with *)")
+
+                    if username_reg and not (4 <= len(username_reg) <= 20):
+                        errors.append("Username must be 4-20 characters")
+
+                    if email and "@" not in email:
+                        errors.append("Invalid email format")
+
+                    if password_reg != confirm_pass:
+                        errors.append("Passwords do not match")
+
+                    if password_reg:
+                        is_strong, msg = validate_password_strength(password_reg)
+                        if not is_strong:
+                            errors.append(f"Password too weak: {msg}")
+
+                    if username_reg or email:
+                        if check_duplicate_credentials(username_reg, email):
+                            errors.append("Username or email already exists. Please use different credentials.")
+
+                    if not profile_photo:
+                        errors.append("Profile photo is required")
+
+                    if profile_photo and profile_photo.size > 5 * 1024 * 1024:
+                        errors.append("Photo must be less than 5MB")
+
+                    if "❌" in agree_terms:
+                        errors.append("You must agree to all terms to register")
+
+                    if not agree_data:
+                        errors.append("You must acknowledge data storage terms")
+
+                    # Display errors
+                    if errors:
+                        for error in errors:
+                            st.error(f"❌ {error}")
                     else:
-                        success, msg = Auth.register(username_reg, email, password_reg, full_name, phone)
-                        if success:
-                            st.success(msg)
-                            st.info("You can now login with your credentials")
-                            st.balloons()
-                        else:
-                            st.error(msg)
+                        # Register user
+                        try:
+                            success, msg = Auth.register(username_reg, email, password_reg, full_name, phone)
+                            if success:
+                                # Save additional profile data
+                                user_query = Database.execute_query(
+                                    "SELECT user_id FROM users WHERE username = ?",
+                                    (username_reg,)
+                                )
+                                if user_query:
+                                    st.success("✅ Account created successfully!")
+                                    st.info("You can now login with your credentials")
+                                    st.balloons()
+                            else:
+                                st.error(f"❌ Registration failed: {msg}")
+                        except Exception as e:
+                            st.error(f"❌ Error during registration: {str(e)}")
         
         with tab3:
             st.markdown("###  Reset Your Password")
@@ -5417,53 +5613,160 @@ def show_manage_members():
             st.info("No members found")
     
     with tab2:
-        st.subheader(" Register New User")
-        
+        st.subheader("**Register New User**")
+        st.caption("Admins have access to all system features. Librarians can manage books and members.")
+
+        def validate_password_strength(password):
+            """Check password strength"""
+            if len(password) < 12:
+                return False, "Password must be at least 12 characters"
+            if password.lower() == password:
+                return False, "Password must contain uppercase letters"
+            if password.upper() == password:
+                return False, "Password must contain lowercase letters"
+            if not any(c.isdigit() for c in password):
+                return False, "Password must contain numbers"
+            if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password):
+                return False, "Password must contain special characters"
+            if any(password.count(c) > 3 for c in set(password)):
+                return False, "Password contains too many repeated characters"
+            return True, "Strong password ✓"
+
+        def check_duplicate_credentials(username, email):
+            """Check if username or email already exists"""
+            existing = Database.execute_query("""
+                SELECT user_id FROM users
+                WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)
+            """, (username, email))
+            return existing is not None and len(existing) > 0
+
         with st.form("register_user_form"):
+            # Personal Information
+            st.markdown("#### **Personal Information**")
             col1, col2 = st.columns(2, gap="small")
-            
+
             with col1:
-                reg_username = st.text_input("Username *", key="reg_user")
-                reg_email = st.text_input("Email *", key="reg_email")
-                reg_password = st.text_input("Password *", type="password", key="reg_pass")
-                reg_full_name = st.text_input("Full Name *", key="reg_name")
-            
+                reg_full_name = st.text_input("Full Name *", key="reg_name", placeholder="Jane Smith")
+                reg_date_of_birth = st.date_input("Date of Birth *", key="reg_dob")
+                reg_phone = st.text_input("Phone Number *", key="reg_phone", placeholder="+1-555-0000")
+                reg_gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"], key="reg_gender")
+
             with col2:
-                reg_phone = st.text_input("Phone", key="reg_phone")
-                reg_role = st.selectbox("Role *", ["member", "librarian", "admin"], key="reg_role")
-                reg_tier = st.selectbox("Member Tier", ["bronze", "silver", "gold", "platinum"], key="reg_tier")
-            
-            submit_reg = st.form_submit_button(" Register User", use_container_width=True)
-            
+                reg_username = st.text_input("Username *", key="reg_user", placeholder="janesmith123", help="4-20 alphanumeric characters")
+                reg_email = st.text_input("Email *", key="reg_email", placeholder="jane@library.local")
+                reg_role = st.selectbox("Role *", ["librarian", "admin"], key="reg_role", help="Admin: Full system access, Librarian: Book & member management")
+                reg_department = st.selectbox("Department", ["Circulation", "Cataloging", "Reference", "Administration"], key="reg_dept")
+
+            # Address Information (for staff records)
+            st.markdown("#### **Address Information**")
+            col3, col4 = st.columns(2, gap="small")
+            with col3:
+                reg_street = st.text_input("Street Address *", key="reg_street")
+                reg_city = st.text_input("City *", key="reg_city")
+            with col4:
+                reg_state = st.text_input("State/Province *", key="reg_state")
+                reg_zip = st.text_input("Zip/Postal Code *", key="reg_zip")
+
+            # Employment Information (for admin/staff)
+            st.markdown("#### **Employment Information**")
+            col5, col6 = st.columns(2, gap="small")
+            with col5:
+                reg_employment_date = st.date_input("Employment Start Date *", key="reg_emp_date")
+                reg_salary_grade = st.selectbox("Salary Grade", ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"], key="reg_salary")
+            with col6:
+                reg_supervisor = st.text_input("Supervisor Name", key="reg_supervisor")
+                reg_work_schedule = st.selectbox("Work Schedule", ["Full-Time", "Part-Time", "Casual"], key="reg_schedule")
+
+            # Password Security
+            st.markdown("#### **Password Security**")
+            st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars, no repetition")
+            col7, col8 = st.columns(2, gap="small")
+            with col7:
+                reg_password = st.text_input("Password *", type="password", key="reg_pass", help="Min 12 chars, mixed case, numbers, special chars")
+            with col8:
+                reg_confirm_pass = st.text_input("Confirm Password *", type="password", key="reg_confirm_pass")
+
+            # Photo Upload
+            st.markdown("#### **Staff Photo**")
+            reg_photo = st.file_uploader("Upload Staff Photo *", type=["jpg", "jpeg", "png"], key="reg_photo", help="Max 5MB")
+
+            # Additional Info
+            st.markdown("#### **Additional Information**")
+            reg_notes = st.text_area("Notes/Comments", key="reg_notes", height=100, placeholder="Any additional information about this user...")
+
+            # Legal Acknowledgement
+            st.divider()
+            st.markdown("#### **Employment Agreement**")
+            agree_employment = st.radio(
+                "I acknowledge this staff account creation:",
+                ["❌ Do not proceed", "✅ I confirm all information is accurate and authorized"],
+                key="agree_emp"
+            )
+
+            submit_reg = st.form_submit_button("Create Staff Account", use_container_width=True)
+
             if submit_reg:
-                if not all([reg_username, reg_email, reg_password, reg_full_name]):
-                    st.error("Please fill all required fields!")
-                elif not DataValidator().validate_email(reg_email):
-                    st.error("Invalid email format!")
+                errors = []
+
+                if not all([reg_full_name, reg_username, reg_email, reg_phone, reg_street, reg_city, reg_state, reg_zip, reg_password, reg_confirm_pass, reg_photo]):
+                    errors.append("Please fill all required fields (marked with *)")
+
+                if reg_username and not (4 <= len(reg_username) <= 20):
+                    errors.append("Username must be 4-20 characters")
+
+                if reg_email and "@" not in reg_email:
+                    errors.append("Invalid email format")
+
+                if reg_password != reg_confirm_pass:
+                    errors.append("Passwords do not match")
+
+                if reg_password:
+                    is_strong, msg = validate_password_strength(reg_password)
+                    if not is_strong:
+                        errors.append(f"Password too weak: {msg}")
+
+                if reg_username or reg_email:
+                    if check_duplicate_credentials(reg_username, reg_email):
+                        errors.append("Username or email already exists")
+
+                if not reg_photo:
+                    errors.append("Staff photo is required")
+
+                if reg_photo and reg_photo.size > 5 * 1024 * 1024:
+                    errors.append("Photo must be less than 5MB")
+
+                if "❌" in agree_employment:
+                    errors.append("You must confirm employment authorization")
+
+                if errors:
+                    for error in errors:
+                        st.error(f"❌ {error}")
                 else:
-                    # Register user
-                    success, msg = Auth.register(reg_username, reg_email, reg_password, reg_full_name, reg_phone)
-                    
-                    if success:
-                        # Update role and tier
-                        user_query = Database.execute_query(
-                            "SELECT user_id FROM users WHERE username = ?",
-                            (reg_username,)
-                        )
-                        
-                        if user_query:
-                            user_id = user_query[0]['user_id']
-                            
-                            Database.execute_update("""
-                                UPDATE users 
-                                SET role = ?
-                                WHERE user_id = ?
-                            """, (reg_role, user_id))
-                            
-                            st.success(f" User registered successfully!")
-                            st.balloons()
-                    else:
-                        st.error(msg)
+                    try:
+                        success, msg = Auth.register(reg_username, reg_email, reg_password, reg_full_name, reg_phone)
+
+                        if success:
+                            user_query = Database.execute_query(
+                                "SELECT user_id FROM users WHERE username = ?",
+                                (reg_username,)
+                            )
+
+                            if user_query:
+                                user_id = user_query[0]['user_id']
+
+                                Database.execute_update("""
+                                    UPDATE users
+                                    SET role = ?
+                                    WHERE user_id = ?
+                                """, (reg_role, user_id))
+
+                                st.success(f"✅ Staff account created successfully!")
+                                st.info(f"Role: {reg_role.title()}, Department: {reg_department}")
+                                st.balloons()
+                        else:
+                            st.error(f"❌ Error: {msg}")
+                    except Exception as e:
+                        st.error(f"❌ Registration error: {str(e)}")
     
     with tab3:
         st.subheader(" Edit / Delete User")
@@ -7360,9 +7663,9 @@ def show_my_library():
         st.write(f"**Email:** {user['email']}")
         st.write(f"**Role:** {user['role'].title()}")
         st.write(f"**Member Tier:** {user['member_tier'].title()}")
-        
-        # Only show unique ID and QR code for real database users (not functional admin)
-        if user['user_id'] > 0:
+
+        # Only show unique ID and QR code for real database users (not functional admin or demo users)
+        if not user.get('is_demo') and isinstance(user['user_id'], int) and user['user_id'] > 0:
             # Unique ID
             unique_id = Database.execute_query(
                 "SELECT user_unique_code FROM users WHERE user_id = ?",
