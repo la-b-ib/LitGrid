@@ -3785,10 +3785,10 @@ def show_dashboard():
 
     if user['role'] in ['admin', 'librarian']:
         # Admin/Librarian Dashboard
-        st.markdown("### 📈 Library Overview")
+        st.markdown("### **Library Overview**")
 
         # ============ EXECUTIVE SUMMARY - KEY METRICS ============
-        st.markdown("#### 🎯 Executive Summary")
+        st.markdown("#### **Executive Summary**")
 
         # Core statistics
         total_books = Database.execute_query(
@@ -3851,66 +3851,42 @@ def show_dashboard():
             fetch_one=True
         )
 
-        col1, col2, col3, col4, col5, col6 = st.columns(6)
+        col1, col2, col3, col4, col5, col6 = st.columns(6, gap="small")
 
         with col1:
-            st.markdown(f"""
-            <div class="litgrid-stat-card">
-                <div class="litgrid-stat-number">{total_books['count'] if total_books else 0}</div>
-                <div class="litgrid-stat-label">Available Books</div>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(f"<div style='text-align:center'><h3 style='margin:0;font-weight:700'>{total_books['count'] if total_books else 0}</h3><p style='margin:5px 0 0 0;font-size:0.9em;font-weight:500;opacity:0.8'>Available Books</p></div>", unsafe_allow_html=True)
 
         with col2:
-            st.markdown(f"""
-            <div class="litgrid-stat-card">
-                <div class="litgrid-stat-number">{total_members['count'] if total_members else 0}</div>
-                <div class="litgrid-stat-label">Active Members</div>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(f"<div style='text-align:center'><h3 style='margin:0;font-weight:700'>{total_members['count'] if total_members else 0}</h3><p style='margin:5px 0 0 0;font-size:0.9em;font-weight:500;opacity:0.8'>Active Members</p></div>", unsafe_allow_html=True)
 
         with col3:
-            st.markdown(f"""
-            <div class="litgrid-stat-card">
-                <div class="litgrid-stat-number">{active_borrowings['count'] if active_borrowings else 0}</div>
-                <div class="litgrid-stat-label">In Circulation</div>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(f"<div style='text-align:center'><h3 style='margin:0;font-weight:700'>{active_borrowings['count'] if active_borrowings else 0}</h3><p style='margin:5px 0 0 0;font-size:0.9em;font-weight:500;opacity:0.8'>In Circulation</p></div>", unsafe_allow_html=True)
 
         with col4:
-            st.markdown(f"""
-            <div class="litgrid-stat-card">
-                <div class="litgrid-stat-number">{overdue_books['count'] if overdue_books else 0}</div>
-                <div class="litgrid-stat-label">Overdue</div>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(f"<div style='text-align:center'><h3 style='margin:0;font-weight:700'>{overdue_books['count'] if overdue_books else 0}</h3><p style='margin:5px 0 0 0;font-size:0.9em;font-weight:500;opacity:0.8'>Overdue</p></div>", unsafe_allow_html=True)
 
         with col5:
-            st.markdown(f"""
-            <div class="litgrid-stat-card">
-                <div class="litgrid-stat-number">{total_authors['count'] if total_authors else 0}</div>
-                <div class="litgrid-stat-label">Authors</div>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(f"<div style='text-align:center'><h3 style='margin:0;font-weight:700'>{total_authors['count'] if total_authors else 0}</h3><p style='margin:5px 0 0 0;font-size:0.9em;font-weight:500;opacity:0.8'>Authors</p></div>", unsafe_allow_html=True)
 
         with col6:
-            st.markdown(f"""
-            <div class="litgrid-stat-card">
-                <div class="litgrid-stat-number">{total_genres['count'] if total_genres else 0}</div>
-                <div class="litgrid-stat-label">Genres</div>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(f"<div style='text-align:center'><h3 style='margin:0;font-weight:700'>{total_genres['count'] if total_genres else 0}</h3><p style='margin:5px 0 0 0;font-size:0.9em;font-weight:500;opacity:0.8'>Genres</p></div>", unsafe_allow_html=True)
 
-        st.markdown("---")
+        st.divider()
 
         # ============ PERFORMANCE INDICATORS ============
-        st.markdown("#### 📊 Performance Indicators")
+        st.markdown("#### **Performance Indicators**")
 
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4, col5 = st.columns(5, gap="small")
 
         with col1:
             st.metric(
-                "📦 Availability Rate",
+                "Availability Rate",
                 f"{availability_rate:.1f}%",
                 delta=f"{inventory_available['count'] if inventory_available else 0} of {total_inventory['count'] if total_inventory else 0}",
                 delta_color="normal"
@@ -3918,7 +3894,7 @@ def show_dashboard():
 
         with col2:
             st.metric(
-                "🔄 Circulation Rate",
+                "Circulation Rate",
                 f"{circulation_rate:.1f}%",
                 delta=f"{active_borrowings['count'] if active_borrowings else 0} active",
                 delta_color="normal"
@@ -3926,7 +3902,7 @@ def show_dashboard():
 
         with col3:
             st.metric(
-                "⏰ Overdue Rate",
+                "Overdue Rate",
                 f"{overdue_rate:.1f}%",
                 delta=f"{overdue_books['count'] if overdue_books else 0} items",
                 delta_color="inverse"
@@ -3937,7 +3913,7 @@ def show_dashboard():
             if total_members and total_members['count'] > 0:
                 member_engagement = (active_members_30d['count'] / total_members['count']) * 100
             st.metric(
-                "👥 Member Engagement",
+                "Member Engagement",
                 f"{member_engagement:.1f}%",
                 delta=f"{active_members_30d['count'] if active_members_30d else 0} active (30d)",
                 delta_color="normal"
@@ -3948,19 +3924,19 @@ def show_dashboard():
             if total_members and total_members['count'] > 0:
                 books_per_member = (total_books['count'] if total_books and total_books['count'] > 0 else 0) / total_members['count']
             st.metric(
-                "📚 Collection Ratio",
+                "Collection Ratio",
                 f"{books_per_member:.1f}x",
                 delta="books per member",
                 delta_color="normal"
             )
 
-        st.markdown("---")
+        st.divider()
 
         # ============ ADVANCED ANALYTICS - TABS ============
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Trends", "🎭 Collection", "👥 Members", "📊 Analysis", "🎯 Health"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Trends", "Collection", "Members", "Analysis", "Health"])
 
         with tab1:
-            st.subheader("Circulation & Borrowing Trends")
+            st.subheader("**Circulation & Borrowing Trends**")
 
             col1, col2 = st.columns(2)
 
@@ -4069,7 +4045,7 @@ def show_dashboard():
                     st.info("No overdue data available")
 
         with tab2:
-            st.subheader("Collection Analysis")
+            st.subheader("**Collection Analysis**")
 
             col1, col2 = st.columns(2)
 
@@ -4193,7 +4169,7 @@ def show_dashboard():
                         st.metric("📅 Avg Pub Year", avg_year)
 
         with tab3:
-            st.subheader("Member Analytics")
+            st.subheader("**Member Analytics**")
 
             col1, col2 = st.columns(2)
 
@@ -4335,7 +4311,7 @@ def show_dashboard():
                     st.info("No status data available")
 
         with tab4:
-            st.subheader("Deep Analytics")
+            st.subheader("**Deep Analytics**")
 
             col1, col2 = st.columns(2)
 
@@ -4444,7 +4420,7 @@ def show_dashboard():
                 st.metric("📈 Avg Checkouts/Member", f"{avg_checkout:.1f}")
 
         with tab5:
-            st.subheader("📊 Library Health Dashboard")
+            st.subheader("**Library Health Dashboard**")
 
             # Build comprehensive health score
             health_scores = {}
@@ -4544,7 +4520,7 @@ def show_dashboard():
         st.markdown("---")
 
         # ============ TOP READERS LEADERBOARD ============
-        st.subheader("🏆 Top Readers Leaderboard")
+        st.subheader("**Top Readers Leaderboard**")
         
         col1, col2 = st.columns([2, 1])
         
