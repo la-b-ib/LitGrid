@@ -3650,7 +3650,8 @@ def show_login_page():
                         'role': 'member',
                         'is_active': True,
                         'is_demo': True,
-                        'membership_tier': 'standard'
+                        'member_tier': 'standard',
+                        'fine_balance': 0.0
                     }
                     Auth.set_user(demo_user)
                     st.info("Demo Member Mode - View Only Access")
@@ -3667,7 +3668,9 @@ def show_login_page():
                         'email': 'demo.admin@litgrid.local',
                         'role': 'admin',
                         'is_active': True,
-                        'is_demo': True
+                        'is_demo': True,
+                        'member_tier': 'administrator',
+                        'fine_balance': 0.0
                     }
                     Auth.set_user(demo_user)
                     st.info("Demo Admin Mode - Limited Write Access")
