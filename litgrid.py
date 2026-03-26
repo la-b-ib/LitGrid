@@ -3104,52 +3104,55 @@ class Auth:
         return None
     
     @staticmethod
-    def register(username, email, password, full_name, phone=None):
-        """Register new member (limited to 10 accounts)"""
-        # Count existing member accounts (role = 'member')
-        count_result = Database.execute_query(
-            "SELECT COUNT(*) as count FROM users WHERE role = 'member'",
-            fetch_one=True
-        )
-        
-        if count_result and count_result['count'] >= Config.MAX_MEMBER_ACCOUNTS:
-            return False, "Maximum member accounts (10) reached. Contact administrator."
-        
-        # Check if exists
+    def register(username, email, password, full_name, phone=None, role='member'):
+        """Register new user with specified role (member, librarian, admin)"""
+
+        # Member role has account limit
+        if role == 'member':
+            count_result = Database.execute_query(
+                "SELECT COUNT(*) as count FROM users WHERE role = 'member'",
+                fetch_one=True
+            )
+
+            if count_result and count_result['count'] >= Config.MAX_MEMBER_ACCOUNTS:
+                return False, "Maximum member accounts reached. Contact administrator."
+
+        # Check if credentials already exist (prevents dual registration with same username/email)
         check = Database.execute_query(
-            "SELECT user_id FROM users WHERE username = %s OR email = %s",
+            "SELECT user_id, role FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)",
             (username, email),
             fetch_one=True
         )
         if check:
-            return False, "Username or email already exists"
-        
+            existing_role = check.get('role', 'unknown')
+            return False, f"Credentials already registered as {existing_role}. Cannot have multiple account types with same credentials."
+
         # Hash password
         password_hash = Auth.hash_password(password)
-        
-        # Insert user (role = 'member' for members)
+
+        # Insert user with specified role
         query = """
-            INSERT INTO users (username, email, password_hash, full_name, phone, role)
-            VALUES (?, ?, ?, ?, ?, 'member')
+            INSERT INTO users (username, email, password_hash, full_name, phone, role, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
         """
-        success = Database.execute_update(query, (username, email, password_hash, full_name, phone))
-        
+        success = Database.execute_update(query, (username, email, password_hash, full_name, phone, role))
+
         if success:
             # Get the newly created user_id
             new_user = Database.execute_query(
-                "SELECT user_id FROM users WHERE username = %s",
+                "SELECT user_id FROM users WHERE LOWER(username) = LOWER(?)",
                 (username,),
                 fetch_one=True
             )
-            
-            # Initialize privacy settings for new user
-            if new_user:
+
+            # Initialize privacy settings for new user (members only)
+            if new_user and role == 'member':
                 try:
                     PrivacyManager.initialize_privacy_settings(new_user['user_id'])
                 except:
                     pass  # Privacy settings will be created on first access
-            
-            return True, "Registration successful"
+
+            return True, f"Registration successful as {role.title()}"
         return False, "Registration failed"
     
     @staticmethod
@@ -3945,9 +3948,9 @@ def show_login_page():
                         for error in errors:
                             st.error(f"❌ {error}")
                     else:
-                        # Register user
+                        # Register user as member
                         try:
-                            success, msg = Auth.register(username_reg, email, password_reg, full_name, phone)
+                            success, msg = Auth.register(username_reg, email, password_reg, full_name, phone, role='member')
                             if success:
                                 # Save additional profile data
                                 user_query = Database.execute_query(
@@ -5743,26 +5746,13 @@ def show_manage_members():
                         st.error(f"❌ {error}")
                 else:
                     try:
-                        success, msg = Auth.register(reg_username, reg_email, reg_password, reg_full_name, reg_phone)
+                        # Register user with specified role (admin or librarian)
+                        success, msg = Auth.register(reg_username, reg_email, reg_password, reg_full_name, reg_phone, role=reg_role)
 
                         if success:
-                            user_query = Database.execute_query(
-                                "SELECT user_id FROM users WHERE username = ?",
-                                (reg_username,)
-                            )
-
-                            if user_query:
-                                user_id = user_query[0]['user_id']
-
-                                Database.execute_update("""
-                                    UPDATE users
-                                    SET role = ?
-                                    WHERE user_id = ?
-                                """, (reg_role, user_id))
-
-                                st.success(f"✅ Staff account created successfully!")
-                                st.info(f"Role: {reg_role.title()}, Department: {reg_department}")
-                                st.balloons()
+                            st.success(f"✅ Staff account created successfully!")
+                            st.info(f"Role: {reg_role.title()}, Department: {reg_department}")
+                            st.balloons()
                         else:
                             st.error(f"❌ Error: {msg}")
                     except Exception as e:
