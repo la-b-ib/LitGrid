@@ -3946,7 +3946,7 @@ def show_dashboard():
         with col5:
             books_per_member = 0
             if total_members and total_members['count'] > 0:
-                books_per_member = (total_books['count'] if total_books else 0) / (total_members['count'] if total_members else 1)
+                books_per_member = (total_books['count'] if total_books and total_books['count'] > 0 else 0) / total_members['count']
             st.metric(
                 "📚 Collection Ratio",
                 f"{books_per_member:.1f}x",
@@ -4440,7 +4440,7 @@ def show_dashboard():
             with col4:
                 avg_checkout = 0
                 if total_members and total_members['count'] > 0:
-                    avg_checkout = (total_checkouts['count'] if total_checkouts else 0) / (total_members['count'] if total_members else 1)
+                    avg_checkout = (total_checkouts['count'] if total_checkouts and total_checkouts['count'] > 0 else 0) / total_members['count']
                 st.metric("📈 Avg Checkouts/Member", f"{avg_checkout:.1f}")
 
         with tab5:
@@ -4463,7 +4463,7 @@ def show_dashboard():
             health_scores['Collection Diversity'] = collection_health
 
             # 2. Circulation Health
-            active_rate = (active_borrowings['count'] if active_borrowings else 0) / (total_books['count'] if total_books else 1) * 100
+            active_rate = (active_borrowings['count'] if active_borrowings else 0) / (total_books['count'] if total_books and total_books['count'] > 0 else 1) * 100
             active_rate = min(100, active_rate)
             health_scores['Circulation Velocity'] = active_rate
 
