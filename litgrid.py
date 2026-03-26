@@ -2219,13 +2219,13 @@ class EmailService:
             st.session_state.notifications = []
         
         if days_until_due < 0:
-            subject = f"⚠️ Overdue Book: {book_title}"
+            subject = f" Overdue Book: {book_title}"
             message = f"Dear {full_name},\n\nYour borrowed book '{book_title}' was due on {format_date(due_date)}.\nIt is now {abs(days_until_due)} days overdue.\n\nPlease return it as soon as possible to avoid additional fines.\n\nThank you,\nLitGrid Library"
         elif days_until_due == 0:
-            subject = f"📅 Book Due Today: {book_title}"
+            subject = f" Book Due Today: {book_title}"
             message = f"Dear {full_name},\n\nReminder: Your borrowed book '{book_title}' is due today.\n\nPlease return it to avoid late fees.\n\nThank you,\nLitGrid Library"
         else:
-            subject = f"⏰ Book Due Soon: {book_title}"
+            subject = f"Book Due Soon: {book_title}"
             message = f"Dear {full_name},\n\nReminder: Your borrowed book '{book_title}' is due in {days_until_due} days (Due: {format_date(due_date)}).\n\nPlease plan to return it on time.\n\nThank you,\nLitGrid Library"
         
         st.session_state.notifications.append({
@@ -3282,7 +3282,7 @@ class Auth:
         if not user:
             return False
         if user.get('is_demo'):
-            st.warning("⚠️ Demo admin cannot perform write operations")
+            st.warning(" Demo admin cannot perform write operations")
             return False
         return user.get('role') in ['admin', 'librarian']
     
@@ -3332,8 +3332,8 @@ def format_date(date_obj):
 def format_currency(amount):
     """Format currency"""
     if amount is None:
-        return '৳0.00'
-    return f'৳{amount:,.2f}'
+        return '$0.00'
+    return f'${amount:,.2f}'
 
 def format_datetime(dt_obj):
     """Format datetime"""
@@ -3567,13 +3567,13 @@ def load_css():
 
 def show_login_page():
     """Login/Registration page with mode selection and 2FA"""
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 2, 1], gap="small")
     
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("""
         <div style='text-align: center;'>
-            <h1 style='color: #1E88E5; font-size: 3rem;'>📚 LitGrid</h1>
+            <h1 style='color: #1E88E5; font-size: 3rem;'> LitGrid</h1>
             <p style='color: #666; font-size: 1.2rem;'>Advanced Library Management System</p>
         </div>
         """, unsafe_allow_html=True)
@@ -3588,7 +3588,7 @@ def show_login_page():
         
         # Show second password verification if pending
         if st.session_state.second_password_pending:
-            st.markdown("### 🔐 Security Verification")
+            st.markdown("###  Security Verification")
             st.info("Please enter your security password to complete login")
             
             with st.form("second_password_form"):
@@ -3610,28 +3610,28 @@ def show_login_page():
                         Auth.set_user(user)
                         st.session_state.second_password_pending = False
                         st.session_state.second_password_username = None
-                        st.success("✅ Authentication successful!")
+                        st.success(" Authentication successful!")
                         st.balloons()
                         time.sleep(1)
                         st.rerun()
                     else:
-                        st.error("❌ Invalid security password")
+                        st.error(" Invalid security password")
             return
         
         # Normal login/register page
-        tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Register", "🔑 Reset Password"])
+        tab1, tab2, tab3 = st.tabs([" Login", " Register", " Reset Password"])
         
         with tab1:
             # Mode selection
             st.markdown("### Select Login Mode")
             login_mode = st.radio(
                 "I am logging in as:",
-                ["👤 Member", "🔑 Administrator"],
+                [" Member", " Administrator"],
                 horizontal=True,
                 label_visibility="collapsed"
             )
             
-            mode = 'member' if '👤' in login_mode else 'admin'
+            mode = 'member' if '' in login_mode else 'admin'
             
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -3654,7 +3654,7 @@ def show_login_page():
                         elif user:
                             Auth.set_user(user)
                             if user.get('is_demo'):
-                                st.warning("⚠️ Demo Admin Mode - View Only Access")
+                                st.warning(" Demo Admin Mode - View Only Access")
                             st.success(f"Welcome, {user['full_name']}!")
                             time.sleep(1)
                             st.rerun()
@@ -3665,16 +3665,16 @@ def show_login_page():
             
             # Show hints based on mode
             if mode == 'admin':
-                with st.expander("ℹ️ Admin Access"):
+                with st.expander("Admin Access"):
                     st.info("**Demo Admin:** username: `demo` | password: `demo123`")
                     st.caption("Demo admin has view-only access")
             else:
-                with st.expander("ℹ️ Member Login"):
+                with st.expander("Member Login"):
                     st.info("Login with your member credentials")
                     st.caption("Don't have an account? Register in the next tab")
         
         with tab2:
-            st.markdown("### 👤 Create Member Account")
+            st.markdown("###  Create Member Account")
             st.caption(f"Maximum {Config.MAX_MEMBER_ACCOUNTS} member accounts allowed")
             
             # Show remaining slots
@@ -3686,12 +3686,12 @@ def show_login_page():
             remaining = Config.MAX_MEMBER_ACCOUNTS - current_count
             
             if remaining > 0:
-                st.success(f"✅ {remaining} registration slot(s) available")
+                st.success(f" {remaining} registration slot(s) available")
             else:
-                st.error(f"❌ No registration slots available")
+                st.error(f" No registration slots available")
             
             with st.form("register_form"):
-                col_a, col_b = st.columns(2)
+                col_a, col_b = st.columns(2, gap="small")
                 with col_a:
                     full_name = st.text_input("Full Name *")
                     username_reg = st.text_input("Username *")
@@ -3723,7 +3723,7 @@ def show_login_page():
                             st.error(msg)
         
         with tab3:
-            st.markdown("### 🔑 Reset Your Password")
+            st.markdown("###  Reset Your Password")
             
             if 'reset_token' not in st.session_state:
                 st.session_state.reset_token = None
@@ -3739,8 +3739,8 @@ def show_login_page():
                             token = Auth.generate_reset_token(reset_email)
                             if token:
                                 st.session_state.reset_token = token
-                                st.success("✅ Reset token generated! Enter your new password below.")
-                                st.info(f"🔗 Your reset token: `{token[:16]}...`")
+                                st.success(" Reset token generated! Enter your new password below.")
+                                st.info(f" Your reset token: `{token[:16]}...`")
                                 st.rerun()
                             else:
                                 st.error("Email not found or account is inactive")
@@ -3779,7 +3779,7 @@ def show_dashboard():
     """Dashboard page"""
     user = Auth.get_user()
     
-    st.markdown(f'<h1 class="litgrid-header">🧭 Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="litgrid-header"> Dashboard</h1>', unsafe_allow_html=True)
     sanitized_name = security_manager.sanitize_input(user['full_name'])
     st.markdown(f"<p style='text-align: center; color: #666;'>Welcome back, {sanitized_name}!</p>", unsafe_allow_html=True)
 
@@ -3938,7 +3938,7 @@ def show_dashboard():
         with tab1:
             st.subheader("**Circulation & Borrowing Trends**")
 
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
 
             with col1:
                 st.write("**Daily Borrowing Activity (Last 30 Days)**")
@@ -3958,7 +3958,7 @@ def show_dashboard():
                     members = [row['unique_members'] for row in daily_data]
 
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=dates, y=borrows, mode='lines+markers',
+                    fig.add_trace(go.Scatter(x=dates, y=borrows, hovertemplate="%{x|%B %d}<br>Borrows: %{y}<extra></extra>", mode='lines+markers',
                                            name='Borrows', line=dict(color='#1E88E5', width=3)))
                     fig.add_trace(go.Scatter(x=dates, y=members, mode='lines+markers',
                                            name='Unique Members', line=dict(color='#66BB6A', width=2, dash='dash')))
@@ -3986,13 +3986,13 @@ def show_dashboard():
                     fig = go.Figure()
                     fig.add_trace(go.Bar(x=months, y=borrows, name='Borrows',
                                         marker=dict(color='#FFA726')))
-                    fig.update_layout(height=350, showlegend=False)
+                    fig.update_layout(hovermode='x unified', height=350, showlegend=False)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No data available")
 
             st.write("**Returns & Overdue Analysis**")
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
 
             with col1:
                 return_data = Database.execute_query("""
@@ -4014,9 +4014,9 @@ def show_dashboard():
                     colors = {'Active': '#2196F3', 'On-Time': '#4CAF50', 'Late': '#F44336'}
 
                     fig = go.Figure()
-                    fig.add_trace(go.Pie(labels=statuses, values=counts,
+                    fig.add_trace(go.Pie(labels=statuses, values=counts, hovertemplate="<b>%{label}</b><br>Count: %{value}<extra></extra>",
                                         marker=dict(colors=[colors.get(s, '#999') for s in statuses])))
-                    fig.update_layout(height=300)
+                    fig.update_layout(hovermode='x unified', height=300)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No data available")
@@ -4047,7 +4047,7 @@ def show_dashboard():
         with tab2:
             st.subheader("**Collection Analysis**")
 
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
 
             with col1:
                 st.write("**Genre Popularity (Last 90 Days)**")
@@ -4071,7 +4071,7 @@ def show_dashboard():
                     fig = go.Figure()
                     fig.add_trace(go.Bar(y=genres, x=borrows, orientation='h',
                                         marker=dict(color=borrows, colorscale='Viridis')))
-                    fig.update_layout(xaxis_title="Borrows", height=400, showlegend=False)
+                    fig.update_layout(hovermode='x unified', xaxis_title="Borrows", height=400, showlegend=False)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No genre data available")
@@ -4107,15 +4107,15 @@ def show_dashboard():
                     colors_list = ['#4CAF50', '#2196F3', '#FFC107', '#FF9800', '#F44336']
 
                     fig = go.Figure()
-                    fig.add_trace(go.Pie(labels=labels, values=values,
+                    fig.add_trace(go.Pie(labels=labels, values=values, hovertemplate="<b>%{label}</b><br>Count: %{value}<extra></extra>",
                                         marker=dict(colors=colors_list[:len(labels)])))
-                    fig.update_layout(height=400)
+                    fig.update_layout(hovermode='x unified', height=400)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No collection data available")
 
             st.write("**Top Authors & Publishers**")
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
 
             with col1:
                 st.write("**Most Borrowed Authors**")
@@ -4139,7 +4139,7 @@ def show_dashboard():
                     fig = go.Figure()
                     fig.add_trace(go.Bar(y=authors, x=borrows, orientation='h',
                                         marker=dict(color='#9C27B0')))
-                    fig.update_layout(xaxis_title="Borrows (90d)", height=350, showlegend=False)
+                    fig.update_layout(hovermode='x unified', xaxis_title="Borrows (90d)", height=350, showlegend=False)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No author data available")
@@ -4159,19 +4159,19 @@ def show_dashboard():
 
                 if stats_data:
                     stat = stats_data[0]
-                    col_a, col_b = st.columns(2)
+                    col_a, col_b = st.columns(2, gap="small")
                     with col_a:
-                        st.metric("📚 Total Books", stat['total_books'] or 0)
-                        st.metric("✍️ Unique Authors", stat['unique_authors'] or 0)
+                        st.metric(" Total Books", stat['total_books'] or 0)
+                        st.metric(" Unique Authors", stat['unique_authors'] or 0)
                     with col_b:
-                        st.metric("🎭 Unique Genres", stat['unique_genres'] or 0)
+                        st.metric(" Unique Genres", stat['unique_genres'] or 0)
                         avg_year = int(stat['avg_pub_year']) if stat['avg_pub_year'] else 0
-                        st.metric("📅 Avg Pub Year", avg_year)
+                        st.metric(" Avg Pub Year", avg_year)
 
         with tab3:
             st.subheader("**Member Analytics**")
 
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
 
             with col1:
                 st.write("**Member Activity Heatmap (7-Day Window)**")
@@ -4209,7 +4209,7 @@ def show_dashboard():
                         z=z_data, x=x_labels, y=y_labels,
                         colorscale='Viridis', hovertemplate='%{y} %{x}: %{z} activities<extra></extra>'
                     ))
-                    fig.update_layout(height=300, title_x=0.5)
+                    fig.update_layout(hovermode='x unified', height=300, title_x=0.5)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No activity data available")
@@ -4242,13 +4242,13 @@ def show_dashboard():
                     fig = go.Figure()
                     fig.add_trace(go.Bar(x=tiers, y=counts,
                                         marker=dict(color=counts, colorscale='Teal')))
-                    fig.update_layout(xaxis_title="Member Tier", yaxis_title="Count", height=350, showlegend=False)
+                    fig.update_layout(hovermode='x unified', xaxis_title="Member Tier", yaxis_title="Count", height=350, showlegend=False)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No engagement data available")
 
             st.write("**Member Growth & Retention**")
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
 
             with col1:
                 st.write("**New Members (Last 12 Months)**")
@@ -4266,9 +4266,9 @@ def show_dashboard():
                     counts = [row['new_members'] for row in new_members]
 
                     fig = go.Figure()
-                    fig.add_trace(go.Bar(x=months, y=counts,
+                    fig.add_trace(go.Bar(x=months, y=counts, hovertemplate="%{x}<br>Checkouts: %{y}<extra></extra>",
                                         marker=dict(color='#4CAF50')))
-                    fig.update_layout(xaxis_title="Month", yaxis_title="New Members", height=300)
+                    fig.update_layout(hovermode='x unified', xaxis_title="Month", yaxis_title="New Members", height=300)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No new member data available")
@@ -4303,9 +4303,9 @@ def show_dashboard():
                     colors_map = {'Active (30d)': '#4CAF50', 'Inactive (90d)': '#FFC107', 'Dormant (90d+)': '#F44336'}
 
                     fig = go.Figure()
-                    fig.add_trace(go.Pie(labels=statuses, values=counts,
+                    fig.add_trace(go.Pie(labels=statuses, values=counts, hovertemplate="<b>%{label}</b><br>Count: %{value}<extra></extra>",
                                         marker=dict(colors=[colors_map.get(s, '#999') for s in statuses])))
-                    fig.update_layout(height=300)
+                    fig.update_layout(hovermode='x unified', height=300)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No status data available")
@@ -4313,7 +4313,7 @@ def show_dashboard():
         with tab4:
             st.subheader("**Deep Analytics**")
 
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
 
             with col1:
                 st.write("**Borrowing Duration Analysis**")
@@ -4347,7 +4347,7 @@ def show_dashboard():
                     fig = go.Figure()
                     fig.add_trace(go.Bar(x=durations, y=counts,
                                         marker=dict(color='#2196F3')))
-                    fig.update_layout(xaxis_title="Duration", yaxis_title="Count", height=350)
+                    fig.update_layout(hovermode='x unified', xaxis_title="Duration", yaxis_title="Count", height=350)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No duration data available")
@@ -4377,7 +4377,7 @@ def show_dashboard():
                     fig = go.Figure()
                     fig.add_trace(go.Bar(y=genres, x=ratios, orientation='h',
                                         marker=dict(color=ratios, colorscale='RdYlGn_r')))
-                    fig.update_layout(xaxis_title="Demand/Supply Ratio", height=350)
+                    fig.update_layout(hovermode='x unified', xaxis_title="Demand/Supply Ratio", height=350)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No demand data available")
@@ -4402,22 +4402,22 @@ def show_dashboard():
             if total_checkouts and total_checkouts['count'] > 0 and on_time_returns:
                 on_time_pct = (on_time_returns['count'] / total_checkouts['count']) * 100
 
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4 = st.columns(4, gap="small")
 
             with col1:
-                st.metric("✅ On-Time Return Rate", f"{on_time_pct:.1f}%")
+                st.metric(" On-Time Return Rate", f"{on_time_pct:.1f}%")
 
             with col2:
-                st.metric("📊 Total Checkouts", total_checkouts['count'] if total_checkouts else 0)
+                st.metric(" Total Checkouts", total_checkouts['count'] if total_checkouts else 0)
 
             with col3:
-                st.metric("💰 Total Fines Collected", f"${total_fines['total']:.2f}" if total_fines else "$0.00")
+                st.metric(" Total Fines Collected", f"${total_fines['total']:.2f}" if total_fines else "$0.00")
 
             with col4:
                 avg_checkout = 0
                 if total_members and total_members['count'] > 0:
                     avg_checkout = (total_checkouts['count'] if total_checkouts and total_checkouts['count'] > 0 else 0) / total_members['count']
-                st.metric("📈 Avg Checkouts/Member", f"{avg_checkout:.1f}")
+                st.metric(" Avg Checkouts/Member", f"{avg_checkout:.1f}")
 
         with tab5:
             st.subheader("**Library Health Dashboard**")
@@ -4454,7 +4454,7 @@ def show_dashboard():
             health_scores['Return Performance'] = 100 - overdue_rate
 
             # Display health metrics
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
 
             with col1:
                 st.write("**Health Metrics**")
@@ -4463,15 +4463,16 @@ def show_dashboard():
                     health_data.append({'Metric': metric, 'Score': score})
 
                 for item in health_data:
-                    col_a, col_b = st.columns([3, 1])
+                    col_a, col_b = st.columns([3, 1], gap="small")
                     with col_a:
-                        st.progress(item['Score'] / 100, text=item['Metric'])
+                        score_normalized = min(100, max(0, item['Score'])) / 100
+                        st.progress(score_normalized, text=item['Metric'])
                     with col_b:
-                        st.metric("", f"{item['Score']:.1f}%")
+                        st.metric("", f"{min(100, item['Score']):.1f}%")
 
             with col2:
                 st.write("**Overall Library Health**")
-                avg_health = sum(health_scores.values()) / len(health_scores)
+                avg_health = sum(health_scores.values()) / len(health_scores) if len(health_scores) > 0 else 0
 
                 fig = go.Figure(go.Indicator(
                     mode="gauge+number+delta",
@@ -4492,7 +4493,7 @@ def show_dashboard():
                         }
                     }
                 ))
-                fig.update_layout(height=350)
+                fig.update_layout(hovermode='x unified', height=350)
                 st.plotly_chart(fig, use_container_width=True)
 
             st.write("**Health Radar Chart**")
@@ -4510,19 +4511,19 @@ def show_dashboard():
                 fill='toself',
                 name='Target'
             ))
-            fig.update_layout(
+            fig.update_layout(hovermode='x unified', 
                 polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
                 showlegend=True,
                 height=400
             )
             st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("---")
+        st.divider()
 
         # ============ TOP READERS LEADERBOARD ============
         st.subheader("**Top Readers Leaderboard**")
         
-        col1, col2 = st.columns([2, 1])
+        col1, col2 = st.columns([2, 1], gap="small")
         
         with col1:
             leaderboard_period = st.selectbox("Period", ["This Month", "Last 30 Days", "This Year", "All Time"])
@@ -4548,10 +4549,10 @@ def show_dashboard():
         
         if leaderboard:
             for idx, reader in enumerate(leaderboard, 1):
-                medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
-                tier_emoji = {"bronze": "🥉", "silver": "🥈", "gold": "🥇", "platinum": "💎"}.get(reader['member_tier'], "")
+                medal = "" if idx == 1 else "" if idx == 2 else "" if idx == 3 else f"{idx}."
+                tier_emoji = {"bronze": "", "silver": "", "gold": "", "platinum": ""}.get(reader['member_tier'], "")
                 
-                col_a, col_b, col_c = st.columns([1, 3, 2])
+                col_a, col_b, col_c = st.columns([1, 3, 2], gap="small")
                 with col_a:
                     st.markdown(f"### {medal}")
                 with col_b:
@@ -4561,14 +4562,14 @@ def show_dashboard():
                     st.metric("Books Borrowed", reader['books_borrowed'])
                     st.caption(f"Returned: {reader['books_returned']}")
                 
-                st.markdown("---")
+                st.divider()
         else:
             st.info("No borrowing activity yet")
         
-        st.markdown("---")
+        st.divider()
         if overdue_books and overdue_books['count'] > 0:
-            st.markdown("---")
-            st.subheader("⚠️ Overdue Books")
+            st.divider()
+            st.subheader(" Overdue Books")
             overdue = Database.execute_query("""
                 SELECT b.title, u.full_name, u.email, br.due_date,
                        julianday('now') - julianday(br.due_date) as days_overdue
@@ -4583,9 +4584,9 @@ def show_dashboard():
     
     else:
         # Member Dashboard
-        st.markdown("### 📖 My Library")
+        st.markdown("###  My Library")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(3, gap="small")
         
         borrowed = Database.execute_query(
             "SELECT COUNT(*) as count FROM borrowing WHERE user_id = ? AND return_date IS NULL",
@@ -4631,8 +4632,8 @@ def show_dashboard():
             </div>
             """, unsafe_allow_html=True)
         
-        st.markdown("---")
-        st.subheader("📖 My Borrowed Books")
+        st.divider()
+        st.subheader(" My Borrowed Books")
         
         my_books = Database.execute_query("""
             SELECT b.title, br.checkout_date, br.due_date,
@@ -4645,49 +4646,49 @@ def show_dashboard():
         
         if my_books:
             for book in my_books:
-                col1, col2 = st.columns([3, 1])
+                col1, col2 = st.columns([3, 1], gap="small")
                 with col1:
                     st.markdown(f"**{book['title']}**")
                     st.caption(f"Checked out: {format_date(book['checkout_date'])}")
                 with col2:
                     days = book['days_remaining']
                     if days < 0:
-                        st.error(f"⚠️ Overdue by {abs(days)} days")
+                        st.error(f" Overdue by {abs(days)} days")
                     elif days <= 2:
-                        st.warning(f"⏰ Due in {days} days")
+                        st.warning(f"Due in {days} days")
                     else:
-                        st.info(f"📅 Due in {days} days")
+                        st.info(f" Due in {days} days")
         else:
             st.info("You don't have any borrowed books")
 
 def show_books():
     """Enhanced Books browsing page with advanced search and filters"""
-    st.markdown('<h1 class="litgrid-header">🧿 Browse Books</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header"> Browse Books</h1>', unsafe_allow_html=True)
     
     # Advanced Search & Filter Section
-    with st.expander("🔍 Advanced Search & Filters", expanded=True):
-        col1, col2, col3 = st.columns(3)
+    with st.expander(" Advanced Search & Filters", expanded=True):
+        col1, col2, col3 = st.columns(3, gap="small")
         
         with col1:
-            search = st.text_input("🔍 Search (Title, Author, ISBN, Keywords)")
-            use_fuzzy = st.checkbox("🔤 Fuzzy Search (Tolerate Typos)")
+            search = st.text_input(" Search (Title, Author, ISBN, Keywords)")
+            use_fuzzy = st.checkbox(" Fuzzy Search (Tolerate Typos)")
         
         with col2:
             # Get genres for filter from books table
             genres = Database.execute_query("SELECT DISTINCT genre FROM books WHERE genre IS NOT NULL ORDER BY genre")
             genre_options = ["All Genres"] + [g['genre'] for g in genres] if genres else ["All Genres"]
-            selected_genre = st.selectbox("📚 Genre Filter", genre_options)
+            selected_genre = st.selectbox(" Genre Filter", genre_options)
             
             # Availability filter
-            availability_filter = st.selectbox("📦 Availability", ["All", "Available Only", "Checked Out"])
+            availability_filter = st.selectbox(" Availability", ["All", "Available Only", "Checked Out"])
         
         with col3:
             # Publication year range
-            year_from = st.number_input("📅 Year From", min_value=1800, max_value=2025, value=1800, step=1)
-            year_to = st.number_input("📅 Year To", min_value=1800, max_value=2025, value=2025, step=1)
+            year_from = st.number_input(" Year From", min_value=1800, max_value=2025, value=1800, step=1)
+            year_to = st.number_input(" Year To", min_value=1800, max_value=2025, value=2025, step=1)
             
             # Sort options
-            sort_by = st.selectbox("📊 Sort By", [
+            sort_by = st.selectbox(" Sort By", [
                 "Title (A-Z)", 
                 "Title (Z-A)", 
                 "Popularity (High to Low)", 
@@ -4767,7 +4768,7 @@ def show_books():
     
     if books:
         # Show count and filters applied
-        st.success(f"📖 Found **{len(books)}** books")
+        st.success(f" Found **{len(books)}** books")
         
         # Display summary of active filters
         active_filters = []
@@ -4781,47 +4782,47 @@ def show_books():
             active_filters.append(f"Year: {year_from}-{year_to}")
         
         if active_filters:
-            st.info(f"🔍 Active Filters: {' | '.join(active_filters)}")
+            st.info(f" Active Filters: {' | '.join(active_filters)}")
         
         # Display books
         for book in books:
             with st.container():
-                col1, col2, col3 = st.columns([3, 1, 1])
+                col1, col2, col3 = st.columns([3, 1, 1], gap="small")
                 
                 with col1:
                     # Title with popularity indicator
                     popularity_badge = ""
                     if book.get('popularity_score') and book['popularity_score'] > 80:
-                        popularity_badge = "🔥 "
+                        popularity_badge = " "
                     elif book.get('popularity_score') and book['popularity_score'] > 50:
-                        popularity_badge = "⭐ "
+                        popularity_badge = " "
                     
                     st.markdown(f"### {popularity_badge}{book['title']}")
                     
                     # Author(s)
                     if book.get('authors'):
-                        st.caption(f"👤 **By:** {book['authors']}")
+                        st.caption(f" **By:** {book['authors']}")
                     
                     # ISBN and Year
-                    st.caption(f"📚 **ISBN:** {book['isbn']} | **Year:** {book['publication_year'] or 'N/A'}")
+                    st.caption(f" **ISBN:** {book['isbn']} | **Year:** {book['publication_year'] or 'N/A'}")
                     
                     # Publisher
                     if book.get('publisher'):
-                        st.caption(f"🏢 **Publisher:** {book['publisher']}")
+                        st.caption(f" **Publisher:** {book['publisher']}")
                     
                     # Genres
                     if book.get('genres'):
-                        st.caption(f"🏷️ **Genres:** {book['genres']}")
+                        st.caption(f" **Genres:** {book['genres']}")
                     
                     # Keywords
                     if book.get('keywords'):
                         keywords_short = book['keywords'][:80] + '...' if len(book['keywords']) > 80 else book['keywords']
-                        st.caption(f"🔖 **Keywords:** {keywords_short}")
+                        st.caption(f" **Keywords:** {keywords_short}")
                     
                     # Rating
                     if book.get('average_rating'):
                         rating = book['average_rating']
-                        stars = "⭐" * int(rating)
+                        stars = "" * int(rating)
                         st.caption(f"**Rating:** {stars} {rating:.1f}/5.0")
                 
                 with col2:
@@ -4830,10 +4831,10 @@ def show_books():
                     total = book.get('total_copies', 0)
                     
                     if available and available > 0:
-                        st.success(f"✅ Available")
+                        st.success(f" Available")
                         st.metric("Copies", f"{available}/{total}")
                     else:
-                        st.error(f"❌ Checked Out")
+                        st.error(f" Checked Out")
                         st.metric("Copies", f"0/{total}")
                     
                     # Popularity score
@@ -4842,32 +4843,32 @@ def show_books():
                 
                 with col3:
                     # Action buttons
-                    if st.button("📖 View Details", key=f"view_{book['book_id']}", use_container_width=True):
+                    if st.button(" View Details", key=f"view_{book['book_id']}", use_container_width=True):
                         st.session_state[f'book_details_{book["book_id"]}'] = True
                     
                     # Reserve button (for members)
                     user = Auth.get_user()
                     if user['role'] == 'member' and available and available > 0:
-                        if st.button("📥 Reserve", key=f"reserve_{book['book_id']}", use_container_width=True):
+                        if st.button(" Reserve", key=f"reserve_{book['book_id']}", use_container_width=True):
                             st.info("Reservation feature coming soon!")
                 
-                st.markdown("---")
+                st.divider()
     else:
-        st.warning("📚 No books found matching your criteria. Try adjusting the filters.")
+        st.warning(" No books found matching your criteria. Try adjusting the filters.")
 
 def show_account():
     """Enhanced Account page with password change and statistics"""
     user = Auth.get_user()
     
-    st.markdown('<h1 class="litgrid-header">🗿 My Account</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header"> My Account</h1>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3 = st.tabs(["📋 Profile", "🔐 Security", "📊 My Statistics"])
+    tab1, tab2, tab3 = st.tabs([" Profile", " Security", " My Statistics"])
     
     with tab1:
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="small")
         
         with col1:
-            st.subheader("📇 Personal Information")
+            st.subheader(" Personal Information")
             st.write(f"**Full Name:** {user['full_name']}")
             st.write(f"**Username:** {user['username']}")
             st.write(f"**Email:** {user['email']}")
@@ -4876,23 +4877,23 @@ def show_account():
             st.write(f"**Last Login:** {format_datetime(user.get('last_login', 'N/A'))}")
         
         with col2:
-            st.subheader("🎫 Account Status")
+            st.subheader(" Account Status")
             st.write(f"**Role:** {user['role'].title()}")
             st.write(f"**Member Tier:** {user['member_tier'].title()}")
             st.write(f"**Max Books Allowed:** {user['max_books_allowed']}")
             st.write(f"**Borrowing Days:** {user['borrowing_days']}")
-            st.write(f"**Status:** {'🟢 Active' if user['is_active'] else '🔴 Inactive'}")
+            st.write(f"**Status:** {' Active' if user['is_active'] else ' Inactive'}")
             
             # Fine balance
-            st.markdown("---")
+            st.divider()
             if user['fine_balance'] > 0:
-                st.error(f"⚠️ **Outstanding Fine:** {format_currency(user['fine_balance'])}")
+                st.error(f" **Outstanding Fine:** {format_currency(user['fine_balance'])}")
                 st.caption("Please clear your fines to continue borrowing books")
             else:
-                st.success("✅ **No Outstanding Fines**")
+                st.success(" **No Outstanding Fines**")
     
     with tab2:
-        st.subheader("🔐 Security Settings")
+        st.subheader(" Security Settings")
         
         # Check if functional admin
         if user.get('is_functional_admin'):
@@ -4921,14 +4922,14 @@ def show_account():
                         if current_security_key == stored_key:
                             # Update security key
                             if Auth.update_admin_security_key(new_security_key):
-                                st.success("✅ Security password changed successfully!")
+                                st.success(" Security password changed successfully!")
                                 st.balloons()
                             else:
                                 st.error("Failed to update security password")
                         else:
-                            st.error("❌ Current security password is incorrect")
+                            st.error(" Current security password is incorrect")
             
-            st.markdown("---")
+            st.divider()
         
         st.markdown("### Change Password")
         with st.form("change_password_form"):
@@ -4953,8 +4954,8 @@ def show_account():
                     else:
                         st.error(msg)
         
-        st.markdown("---")
-        st.markdown("### 🛡️ Security Tips")
+        st.divider()
+        st.markdown("###  Security Tips")
         st.info("""
         - Use a strong password with letters, numbers, and symbols
         - Never share your password with anyone
@@ -4963,27 +4964,27 @@ def show_account():
         """)
     
     with tab3:
-        st.subheader("📊 My Reading Statistics")
+        st.subheader(" My Reading Statistics")
         
         # Get user statistics
         stats = get_member_statistics(user['user_id'])
         
         # Display stats in cards
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4, gap="small")
         
         with col1:
-            st.metric("📚 Books Read", stats.get('total_read', 0))
+            st.metric(" Books Read", stats.get('total_read', 0))
         with col2:
-            st.metric("📖 Currently Borrowed", stats.get('currently_borrowed', 0))
+            st.metric(" Currently Borrowed", stats.get('currently_borrowed', 0))
         with col3:
-            st.metric("📅 Reading Days", stats.get('total_reading_days', 0))
+            st.metric(" Reading Days", stats.get('total_reading_days', 0))
         with col4:
-            st.metric("⭐ Favorite Genre", stats.get('favorite_genre', 'N/A'))
+            st.metric(" Favorite Genre", stats.get('favorite_genre', 'N/A'))
         
-        st.markdown("---")
+        st.divider()
         
         # Reading history
-        st.subheader("📖 Recent Reading History")
+        st.subheader(" Recent Reading History")
         history = Database.execute_query("""
             SELECT b.title, b.isbn, br.checkout_date, br.return_date, 
                    julianday(COALESCE(br.return_date, date('now'))) - julianday(br.checkout_date) as days_borrowed
@@ -5004,7 +5005,7 @@ def show_account():
             
             # Visualize reading pattern
             if len(df) > 0:
-                st.subheader("📈 Reading Trend")
+                st.subheader(" Reading Trend")
                 df_complete = df[df['return_date'] != 'Not Returned'].copy()
                 if len(df_complete) > 0:
                     fig = px.bar(df_complete, x='title', y='days_borrowed', 
@@ -5018,24 +5019,24 @@ def show_account():
 
 def show_manage_books():
     """Book management page"""
-    st.markdown('<h1 class="litgrid-header">🛠️ Manage Books</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header"> Manage Books</h1>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3, tab4 = st.tabs(["📖 All Books", "➕ Add Book", "⚒️ Bulk Import", "📊 Statistics"])
+    tab1, tab2, tab3, tab4 = st.tabs([" All Books", " Add Book", " Bulk Import", " Statistics"])
     
     with tab1:
-        st.subheader("Book Catalog")
+        st.subheader("**Book Catalog**")
         
         # Enhanced search with fuzzy option
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4, gap="small")
         with col1:
-            search = st.text_input("🔍 Search by title or ISBN")
+            search = st.text_input(" Search by title or ISBN")
         with col2:
             use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos")
         with col3:
             status_filter = st.selectbox("Status", ["All", "Active", "Inactive"])
         with col4:
             st.write("")
-            if st.button("🔄 Refresh", use_container_width=True):
+            if st.button(" Refresh", use_container_width=True):
                 st.rerun()
         
         # Get books
@@ -5071,17 +5072,17 @@ def show_manage_books():
             
             for book in books:
                 with st.container():
-                    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+                    col1, col2, col3, col4 = st.columns([3, 1, 1, 1], gap="small")
                     
                     with col1:
-                        status_icon = "✅" if book['is_available'] else "❌"
+                        status_icon = "" if book['is_available'] else ""
                         st.markdown(f"**{status_icon} {book['title']}**")
                         
                         isbn_display = book.get('isbn', 'N/A')
                         st.caption(f"ISBN: {isbn_display} | Year: {book['publication_year'] or 'N/A'}")
                         
                         if book.get('keywords'):
-                            st.caption(f"📌 {book['keywords'][:50]}...")
+                            st.caption(f" {book['keywords'][:50]}...")
                     
                     with col2:
                         st.metric("Available", f"{book['available_copies'] or 0}/{book['total_copies'] or 0}")
@@ -5097,13 +5098,13 @@ def show_manage_books():
                             st.image(cover, width=50)
                     
                     with col4:
-                        if st.button("✏️ Edit", key=f"edit_{book['book_id']}", use_container_width=True):
+                        if st.button(" Edit", key=f"edit_{book['book_id']}", use_container_width=True):
                             st.session_state[f'edit_book_{book["book_id"]}'] = True
                         
-                        if st.button("📊 Details", key=f"details_{book['book_id']}", use_container_width=True):
+                        if st.button(" Details", key=f"details_{book['book_id']}", use_container_width=True):
                             # Show recommendations, reviews, condition
                             with st.expander(f"Details: {book['title']}", expanded=True):
-                                dtab1, dtab2, dtab3 = st.tabs(["📚 Recommendations", "⭐ Reviews", "📋 Condition"])
+                                dtab1, dtab2, dtab3 = st.tabs([" Recommendations", " Reviews", " Condition"])
                                 
                                 with dtab1:
                                     recs = SmartUtilities.get_book_recommendations(book['book_id'])
@@ -5117,7 +5118,7 @@ def show_manage_books():
                                     reviews = ReviewsManager.get_book_reviews(book['book_id'])
                                     if reviews:
                                         for review in reviews:
-                                            st.write(f"⭐ {review['rating']}/5 - {review['full_name']}")
+                                            st.write(f" {review['rating']}/5 - {review['full_name']}")
                                             st.caption(review['comment'])
                                     else:
                                         st.info("No reviews yet")
@@ -5133,7 +5134,7 @@ def show_manage_books():
                                         st.info("No condition records")
                         
                         action = "Deactivate" if book['is_available'] else "Activate"
-                        if st.button(f"🔄 {action}", key=f"toggle_{book['book_id']}", use_container_width=True):
+                        if st.button(f" {action}", key=f"toggle_{book['book_id']}", use_container_width=True):
                             new_status = not book['is_available']
                             if Database.execute_update(
                                 "UPDATE books SET is_available = ? WHERE book_id = ?",
@@ -5142,15 +5143,15 @@ def show_manage_books():
                                 st.success(f"Book {action.lower()}d successfully!")
                                 st.rerun()
                     
-                    st.markdown("---")
+                    st.divider()
         else:
             st.info("No books found")
     
     with tab2:
-        st.subheader("Add New Book")
+        st.subheader("**Add New Book**")
         
         with st.form("add_book_form"):
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
             
             with col1:
                 isbn = st.text_input("ISBN * (will be validated)", placeholder="978-0-123456-78-9")
@@ -5180,12 +5181,12 @@ def show_manage_books():
             description = st.text_area("Description")
             copies = st.number_input("Number of Copies", min_value=1, value=1)
             
-            submit = st.form_submit_button("➕ Add Book", use_container_width=True)
+            submit = st.form_submit_button(" Add Book", use_container_width=True)
             
             if submit:
                 # Validation
                 if not isbn or not title or not author or not genre:
-                    st.error("❌ ISBN, Title, Author, and Genre are required!")
+                    st.error(" ISBN, Title, Author, and Genre are required!")
                 else:
                     # Insert book
                     book_query = """
@@ -5214,14 +5215,14 @@ def show_manage_books():
                                     (book_id, f"{isbn}-{i+1}")
                                 )
                             
-                            st.success(f"✅ Book added successfully with {copies} copies!")
-                            st.success(f"✅ ISBN validated: {isbn}")
+                            st.success(f" Book added successfully with {copies} copies!")
+                            st.success(f" ISBN validated: {isbn}")
                             st.balloons()
                     else:
-                        st.error("❌ Failed to add book. ISBN may already exist.")
+                        st.error(" Failed to add book. ISBN may already exist.")
     
     with tab3:
-        st.subheader("📤 Bulk Import from CSV")
+        st.subheader(" Bulk Import from CSV")
         
         st.markdown("""
         **CSV Format Requirements:**
@@ -5233,25 +5234,25 @@ def show_manage_books():
         
         if csv_file:
             # Preview
-            st.subheader("📋 Preview")
+            st.subheader(" Preview")
             df = pd.read_csv(csv_file)
             st.dataframe(df.head(10))
             st.write(f"Total rows: {len(df)}")
             
-            if st.button("📤 Import All Books", type="primary"):
+            if st.button(" Import All Books", type="primary"):
                 with st.spinner("Importing books..."):
                     csv_file.seek(0)  # Reset file pointer
                     success, message = EnhancedBookManager.bulk_import_csv(csv_file)
                     
                     if success:
-                        st.success(f"✅ {message}")
+                        st.success(f" {message}")
                         st.balloons()
                     else:
-                        st.error(f"❌ {message}")
+                        st.error(f" {message}")
         else:
             # Show example CSV
             st.download_button(
-                "⬇️ Download CSV Template",
+                " Download CSV Template",
                 "title,author,genre,isbn,publication_year,total_copies,page_count,language,publisher,keywords\n"
                 "Sample Book,Sample Author,Fiction,978-1234567890,2024,1,300,English,Sample Publisher,fiction;sample",
                 "books_template.csv",
@@ -5261,7 +5262,7 @@ def show_manage_books():
     with tab4:
         st.subheader(" Book Statistics")
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4, gap="small")
         
         total = Database.execute_query("SELECT COUNT(*) as count FROM books WHERE is_available = 1")
         total_copies = Database.execute_query("SELECT COUNT(*) as count FROM book_inventory")
@@ -5283,17 +5284,17 @@ def show_manage_books():
 
 def show_manage_members():
     """Member management page"""
-    st.markdown('<h1 class="litgrid-header">👨🏻‍🌾 Manage Members</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header"> Manage Members</h1>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3, tab4 = st.tabs(["👥 All Members", "➕ Register User", "📝 Edit/Delete", "📊 Statistics"])
+    tab1, tab2, tab3, tab4 = st.tabs([" All Members", " Register User", " Edit/Delete", " Statistics"])
     
     with tab1:
-        st.subheader("Member List")
+        st.subheader("**Member List**")
         
         # Filters
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(3, gap="small")
         with col1:
-            search = st.text_input("🔍 Search by name or email")
+            search = st.text_input(" Search by name or email")
         with col2:
             role_filter = st.selectbox("Role", ["All", "Admin", "Librarian", "Member"])
         with col3:
@@ -5331,27 +5332,27 @@ def show_manage_members():
             
             for member in members:
                 with st.container():
-                    col1, col2, col3 = st.columns([2, 2, 1])
+                    col1, col2, col3 = st.columns([2, 2, 1], gap="small")
                     
                     with col1:
-                        status_icon = "✅" if member['is_active'] else "❌"
+                        status_icon = "" if member['is_active'] else ""
                         st.markdown(f"**{status_icon} {member['full_name']}**")
                         st.caption(f"@{member['username']} | {member['email']}")
                         if member['phone']:
-                            st.caption(f"📞 {member['phone']}")
+                            st.caption(f" {member['phone']}")
                     
                     with col2:
                         st.write(f"**Role:** {member['role'].title()}")
                         st.write(f"**Books:** {member['current_books']}")
                         if member['fine_balance'] > 0:
-                            st.warning(f"Fine: ৳{member['fine_balance']:.2f}")
+                            st.warning(f"Fine: ${member['fine_balance']:.2f}")
                     
                     with col3:
-                        if st.button("👁️ View", key=f"view_{member['user_id']}", use_container_width=True):
+                        if st.button(" View", key=f"view_{member['user_id']}", use_container_width=True):
                             st.session_state[f'view_member_{member["user_id"]}'] = True
                         
                         action = "Deactivate" if member['is_active'] else "Activate"
-                        if st.button(f"🔄 {action}", key=f"toggle_member_{member['user_id']}", use_container_width=True):
+                        if st.button(f" {action}", key=f"toggle_member_{member['user_id']}", use_container_width=True):
                             new_status = not member['is_active']
                             if Database.execute_update(
                                 "UPDATE users SET is_active = ? WHERE user_id = ?",
@@ -5360,15 +5361,15 @@ def show_manage_members():
                                 st.success(f"Member {action.lower()}d successfully!")
                                 st.rerun()
                     
-                    st.markdown("---")
+                    st.divider()
         else:
             st.info("No members found")
     
     with tab2:
-        st.subheader("➕ Register New User")
+        st.subheader(" Register New User")
         
         with st.form("register_user_form"):
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
             
             with col1:
                 reg_username = st.text_input("Username *", key="reg_user")
@@ -5381,7 +5382,7 @@ def show_manage_members():
                 reg_role = st.selectbox("Role *", ["member", "librarian", "admin"], key="reg_role")
                 reg_tier = st.selectbox("Member Tier", ["bronze", "silver", "gold", "platinum"], key="reg_tier")
             
-            submit_reg = st.form_submit_button("✅ Register User", use_container_width=True)
+            submit_reg = st.form_submit_button(" Register User", use_container_width=True)
             
             if submit_reg:
                 if not all([reg_username, reg_email, reg_password, reg_full_name]):
@@ -5408,15 +5409,15 @@ def show_manage_members():
                                 WHERE user_id = ?
                             """, (reg_role, user_id))
                             
-                            st.success(f"✅ User registered successfully!")
+                            st.success(f" User registered successfully!")
                             st.balloons()
                     else:
                         st.error(msg)
     
     with tab3:
-        st.subheader("📝 Edit / Delete User")
+        st.subheader(" Edit / Delete User")
         
-        search_user = st.text_input("🔍 Search user by username or email")
+        search_user = st.text_input(" Search user by username or email")
         
         if search_user:
             users = Database.execute_query("""
@@ -5435,9 +5436,9 @@ def show_manage_members():
                 )
                 
                 if selected_user:
-                    st.markdown("---")
+                    st.divider()
                     
-                    col1, col2 = st.columns([2, 1])
+                    col1, col2 = st.columns([2, 1], gap="small")
                     
                     with col1:
                         st.markdown("### Edit User Details")
@@ -5455,7 +5456,7 @@ def show_manage_members():
                             
                             edit_active = st.checkbox("Active", value=selected_user['is_active'])
                             
-                            submit_edit = st.form_submit_button("💾 Save Changes", use_container_width=True)
+                            submit_edit = st.form_submit_button(" Save Changes", use_container_width=True)
                             
                             if submit_edit:
                                 if Database.execute_update("""
@@ -5463,7 +5464,7 @@ def show_manage_members():
                                     SET full_name = ?, email = ?, phone = ?, role = ?, is_active = ?
                                     WHERE user_id = ?
                                 """, (edit_full_name, edit_email, edit_phone, edit_role, edit_active, selected_user['user_id'])):
-                                    st.success("✅ User updated successfully!")
+                                    st.success(" User updated successfully!")
                                     st.rerun()
                                 else:
                                     st.error("Failed to update user")
@@ -5471,17 +5472,17 @@ def show_manage_members():
                     with col2:
                         st.markdown("### Actions")
                         
-                        st.warning("⚠️ Danger Zone")
+                        st.warning(" Danger Zone")
                         
-                        if st.button("🗑️ Delete User", type="secondary", use_container_width=True):
+                        if st.button(" Delete User", type="secondary", use_container_width=True):
                             st.session_state[f'confirm_delete_{selected_user["user_id"]}'] = True
                         
                         if st.session_state.get(f'confirm_delete_{selected_user["user_id"]}', False):
                             st.error("Are you sure? This cannot be undone!")
                             
-                            col_x, col_y = st.columns(2)
+                            col_x, col_y = st.columns(2, gap="small")
                             with col_x:
-                                if st.button("✅ Yes, Delete", use_container_width=True):
+                                if st.button(" Yes, Delete", use_container_width=True):
                                     # Soft delete - set inactive
                                     if Database.execute_update(
                                         "UPDATE users SET is_active = 0 WHERE user_id = ?",
@@ -5492,14 +5493,14 @@ def show_manage_members():
                                             st.rerun()
                             
                             with col_y:
-                                if st.button("❌ Cancel", use_container_width=True):
+                                if st.button(" Cancel", use_container_width=True):
                                     del st.session_state[f'confirm_delete_{selected_user["user_id"]}']
                                     st.rerun()
                         
-                        st.markdown("---")
+                        st.divider()
                         
                         # View borrowing history
-                        if st.button("📚 View Borrowing History", use_container_width=True):
+                        if st.button(" View Borrowing History", use_container_width=True):
                             st.session_state[f'show_history_{selected_user["user_id"]}'] = True
                         
                         if st.session_state.get(f'show_history_{selected_user["user_id"]}', False):
@@ -5517,19 +5518,19 @@ def show_manage_members():
                             
                             if history:
                                 for h in history:
-                                    status_emoji = "✅" if h['status'] == 'returned' else "📖"
+                                    status_emoji = "" if h['status'] == 'returned' else ""
                                     st.write(f"{status_emoji} {h['title']}")
                                     st.caption(f"Checkout: {format_date(h['checkout_date'])} | Due: {format_date(h['due_date'])}")
                                     if h['return_date']:
                                         st.caption(f"Returned: {format_date(h['return_date'])}")
                                     if h['fine_amount'] and h['fine_amount'] > 0:
                                         st.caption(f"Fine: {format_currency(h['fine_amount'])}")
-                                    st.markdown("---")
+                                    st.divider()
                             else:
                                 st.info("No borrowing history")
                         
                         # View activity logs
-                        if st.button("📊 View Activity Logs", use_container_width=True):
+                        if st.button(" View Activity Logs", use_container_width=True):
                             logs = EnhancedUserManager.get_activity_logs(selected_user['user_id'], 20)
                             if logs:
                                 st.markdown("### Recent Activity")
@@ -5541,9 +5542,9 @@ def show_manage_members():
                 st.warning("No users found")
     
     with tab4:
-        st.subheader("Member Statistics")
+        st.subheader("**Member Statistics**")
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4, gap="small")
         
         total = Database.execute_query("SELECT COUNT(*) as count FROM users WHERE role = 'member'")
         active = Database.execute_query("SELECT COUNT(*) as count FROM users WHERE role = 'member' AND is_active = 1")
@@ -5561,19 +5562,19 @@ def show_manage_members():
         with col3:
             st.metric("Members with Fines", with_fines[0]['count'] if with_fines else 0)
         with col4:
-            st.metric("Total Fines", f"৳{total_fines[0]['total'] if total_fines and total_fines[0]['total'] else 0:.2f}")
+            st.metric("Total Fines", f"${total_fines[0]['total'] if total_fines and total_fines[0]['total'] else 0:.2f}")
 
 def show_borrowing_returns():
     """Borrowing and returns page"""
-    st.markdown('<h1 class="litgrid-header">⏳ Borrowing & Returns</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header">Borrowing & Returns</h1>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📤 Checkout", "📥 Return", "📋 Active Borrowings", "🔄 Renewals", "📊 Trends"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([" Checkout", " Return", " Active Borrowings", " Renewals", " Trends"])
     
     with tab1:
-        st.subheader("Checkout Book")
+        st.subheader("**Checkout Book**")
         
         with st.form("checkout_form"):
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2, gap="small")
             
             with col1:
                 # Search member
@@ -5615,7 +5616,7 @@ def show_borrowing_returns():
             
             checkout_days = st.number_input("Borrowing Days", min_value=1, max_value=90, value=Config.DEFAULT_BORROWING_DAYS)
             
-            submit = st.form_submit_button("📤 Checkout Book", use_container_width=True)
+            submit = st.form_submit_button(" Checkout Book", use_container_width=True)
             
             if submit:
                 if not selected_member or not selected_book:
@@ -5649,11 +5650,11 @@ def show_borrowing_returns():
                                 (inventory['inventory_id'],)
                             )
                             
-                            st.success(f"✅ Book checked out successfully! Due date: {due_date}")
+                            st.success(f" Book checked out successfully! Due date: {due_date}")
                             st.balloons()
     
     with tab2:
-        st.subheader("Return Book")
+        st.subheader("**Return Book**")
         
         with st.form("return_form"):
             # Search for active borrowings
@@ -5686,7 +5687,7 @@ def show_borrowing_returns():
             else:
                 selected_borrowing = None
             
-            submit = st.form_submit_button("📥 Return Book", use_container_width=True)
+            submit = st.form_submit_button(" Return Book", use_container_width=True)
             
             if submit:
                 if not selected_borrowing:
@@ -5722,16 +5723,16 @@ def show_borrowing_returns():
                             )
                         
                         if fine > 0:
-                            st.warning(f"⚠️ Book returned with fine: {format_currency(fine)}")
+                            st.warning(f" Book returned with fine: {format_currency(fine)}")
                         else:
-                            st.success("✅ Book returned successfully!")
+                            st.success(" Book returned successfully!")
                         st.balloons()
     
     with tab3:
-        st.subheader("Active Borrowings")
+        st.subheader("**Active Borrowings**")
         
         # Filters
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="small")
         with col1:
             filter_type = st.selectbox("Filter", ["All", "Due Soon (< 3 days)", "Overdue"])
         with col2:
@@ -5767,7 +5768,7 @@ def show_borrowing_returns():
             st.write(f"Found {len(active)} active borrowings")
             
             for bw in active:
-                col1, col2 = st.columns([3, 1])
+                col1, col2 = st.columns([3, 1], gap="small")
                 
                 with col1:
                     st.markdown(f"**{bw['title']}**")
@@ -5776,20 +5777,20 @@ def show_borrowing_returns():
                 
                 with col2:
                     if bw['days_overdue'] and bw['days_overdue'] > 0:
-                        st.error(f"⚠️ Overdue by {bw['days_overdue']} days")
+                        st.error(f" Overdue by {bw['days_overdue']} days")
                         fine = bw['days_overdue'] * Config.FINE_PER_DAY
                         st.caption(f"Fine: {format_currency(fine)}")
                     elif bw['days_remaining'] <= 3:
-                        st.warning(f"⏰ Due in {bw['days_remaining']} days")
+                        st.warning(f"Due in {bw['days_remaining']} days")
                     else:
-                        st.info(f"📅 Due in {bw['days_remaining']} days")
+                        st.info(f" Due in {bw['days_remaining']} days")
                 
-                st.markdown("---")
+                st.divider()
         else:
             st.info("No active borrowings")
     
     with tab4:
-        st.subheader("🔄 Renewal Requests")
+        st.subheader(" Renewal Requests")
         
         current_user = Auth.get_user()
         
@@ -5812,7 +5813,7 @@ def show_borrowing_returns():
             
             if pending:
                 for req in pending:
-                    col1, col2, col3 = st.columns([3, 2, 1])
+                    col1, col2, col3 = st.columns([3, 2, 1], gap="small")
                     
                     with col1:
                         st.markdown(f"**{req['title']}**")
@@ -5822,13 +5823,13 @@ def show_borrowing_returns():
                     with col2:
                         st.caption(f"Current Due: {format_date(req['due_date'])}")
                         if req['days_overdue'] and req['days_overdue'] > 0:
-                            st.error(f"⚠️ Already overdue by {req['days_overdue']} days")
+                            st.error(f" Already overdue by {req['days_overdue']} days")
                         else:
                             new_due = req['due_date'] + timedelta(days=req['requested_days'])
                             st.info(f"New Due: {format_date(new_due)}")
                     
                     with col3:
-                        if st.button("✅ Approve", key=f"approve_{req['renewal_id']}"):
+                        if st.button(" Approve", key=f"approve_{req['renewal_id']}"):
                             success, msg = EnhancedBorrowingManager.approve_renewal(
                                 req['renewal_id'], 
                                 current_user['user_id'], 
@@ -5840,7 +5841,7 @@ def show_borrowing_returns():
                             else:
                                 st.error(msg)
                         
-                        if st.button("❌ Reject", key=f"reject_{req['renewal_id']}"):
+                        if st.button(" Reject", key=f"reject_{req['renewal_id']}"):
                             success, msg = EnhancedBorrowingManager.approve_renewal(
                                 req['renewal_id'], 
                                 current_user['user_id'], 
@@ -5852,7 +5853,7 @@ def show_borrowing_returns():
                             else:
                                 st.error(msg)
                     
-                    st.markdown("---")
+                    st.divider()
             else:
                 st.info("No pending renewal requests")
         
@@ -5874,24 +5875,24 @@ def show_borrowing_returns():
             
             if my_borrowings:
                 for bw in my_borrowings:
-                    col1, col2 = st.columns([3, 1])
+                    col1, col2 = st.columns([3, 1], gap="small")
                     
                     with col1:
                         st.markdown(f"**{bw['title']}**")
                         st.caption(f"Checked out: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
                         
                         if bw['days_remaining'] < 0:
-                            st.error(f"⚠️ Overdue by {abs(bw['days_remaining'])} days")
+                            st.error(f" Overdue by {abs(bw['days_remaining'])} days")
                         elif bw['days_remaining'] <= 3:
-                            st.warning(f"⏰ Due in {bw['days_remaining']} days")
+                            st.warning(f"Due in {bw['days_remaining']} days")
                         else:
-                            st.info(f"📅 Due in {bw['days_remaining']} days")
+                            st.info(f" Due in {bw['days_remaining']} days")
                     
                     with col2:
                         if bw['has_pending'] > 0:
-                            st.caption("⏳ Renewal Pending")
+                            st.caption("Renewal Pending")
                         else:
-                            if st.button("🔄 Request Renewal", key=f"renew_{bw['borrowing_id']}"):
+                            if st.button(" Request Renewal", key=f"renew_{bw['borrowing_id']}"):
                                 # Default 14 days extension
                                 success, msg = EnhancedBorrowingManager.request_renewal(
                                     bw['borrowing_id'], 
@@ -5903,25 +5904,25 @@ def show_borrowing_returns():
                                 else:
                                     st.error(msg)
                     
-                    st.markdown("---")
+                    st.divider()
             else:
                 st.info("You don't have any active borrowings")
     
     with tab5:
-        st.subheader("📊 Borrowing Trends & Analytics")
+        st.subheader(" Borrowing Trends & Analytics")
         
         # Date range selector
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="small")
         with col1:
             start_date = st.date_input("Start Date", date.today() - timedelta(days=30))
         with col2:
             end_date = st.date_input("End Date", date.today())
         
-        if st.button("📊 Generate Trends", use_container_width=True):
-            st.markdown("---")
+        if st.button(" Generate Trends", use_container_width=True):
+            st.divider()
             
             # Daily borrowing trend
-            st.markdown("### 📈 Daily Borrowing Trend")
+            st.markdown("###  Daily Borrowing Trend")
             daily_data = Database.execute_query("""
                 SELECT DATE(checkout_date) as date, COUNT(*) as checkouts
                 FROM borrowing
@@ -5941,8 +5942,8 @@ def show_borrowing_returns():
                 st.info("No data available for selected period")
             
             # Return rate
-            st.markdown("### 📥 Return Statistics")
-            col1, col2, col3 = st.columns(3)
+            st.markdown("###  Return Statistics")
+            col1, col2, col3 = st.columns(3, gap="small")
             
             total_borrowed = Database.execute_query(
                 "SELECT COUNT(*) as count FROM borrowing WHERE checkout_date BETWEEN %s AND %s",
@@ -5961,14 +5962,14 @@ def show_borrowing_returns():
             )
             
             with col1:
-                st.metric("📤 Total Borrowed", total_borrowed['count'] if total_borrowed else 0)
+                st.metric(" Total Borrowed", total_borrowed['count'] if total_borrowed else 0)
             with col2:
-                st.metric("📥 Total Returned", total_returned['count'] if total_returned else 0)
+                st.metric(" Total Returned", total_returned['count'] if total_returned else 0)
             with col3:
-                st.metric("⚠️ Currently Overdue", overdue_count['count'] if overdue_count else 0)
+                st.metric(" Currently Overdue", overdue_count['count'] if overdue_count else 0)
             
             # Most borrowed books
-            st.markdown("### 🔥 Most Borrowed Books")
+            st.markdown("###  Most Borrowed Books")
             popular = Database.execute_query("""
                 SELECT b.title, COUNT(*) as borrow_count
                 FROM borrowing br
@@ -5991,7 +5992,7 @@ def show_borrowing_returns():
                 st.info("No borrowing data available")
             
             # Average borrowing duration
-            st.markdown("### ⏱️ Average Borrowing Duration")
+            st.markdown("### ⏱ Average Borrowing Duration")
             avg_duration = Database.execute_query("""
                 SELECT AVG(julianday(return_date) - julianday(checkout_date)) as avg_days
                 FROM borrowing
@@ -6005,30 +6006,30 @@ def show_borrowing_returns():
 
 def show_reports():
     """Advanced Reports page with 20+ visualizations"""
-    st.markdown('<h1 class="litgrid-header">📊 Advanced Reports & Analytics</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="litgrid-header"> Advanced Reports & Analytics</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📈 Overview Dashboard", 
-        "📚 Books Analytics", 
-        "👥 Members Analytics", 
-        "💰 Financial Analytics",
-        "📊 Advanced Visualizations"
+        " Overview Dashboard", 
+        " Books Analytics", 
+        " Members Analytics", 
+        " Financial Analytics",
+        " Advanced Visualizations"
     ])
     
     with tab1:
-        st.subheader("📊 Library Overview Dashboard")
+        st.subheader(" Library Overview Dashboard")
         
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="small")
         with col1:
             start_date = st.date_input("Start Date", date.today() - timedelta(days=30))
         with col2:
             end_date = st.date_input("End Date", date.today())
         
-        if st.button("📊 Generate Dashboard", use_container_width=True, key="gen_overview"):
-            st.markdown("---")
+        if st.button(" Generate Dashboard", use_container_width=True, key="gen_overview"):
+            st.divider()
             
             # Summary statistics
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4 = st.columns(4, gap="small")
             
             books_borrowed = Database.execute_query(
                 "SELECT COUNT(*) as count FROM borrowing WHERE checkout_date BETWEEN ? AND ?",
@@ -6048,18 +6049,18 @@ def show_reports():
             )
             
             with col1:
-                st.metric("📚 Books Borrowed", books_borrowed['count'] if books_borrowed else 0)
+                st.metric(" Books Borrowed", books_borrowed['count'] if books_borrowed else 0)
             with col2:
-                st.metric("📥 Books Returned", books_returned['count'] if books_returned else 0)
+                st.metric(" Books Returned", books_returned['count'] if books_returned else 0)
             with col3:
-                st.metric("👥 New Members", new_members['count'] if new_members else 0)
+                st.metric(" New Members", new_members['count'] if new_members else 0)
             with col4:
-                st.metric("💰 Fines Collected", format_currency(fines_collected['total'] if fines_collected and fines_collected['total'] else 0))
+                st.metric(" Fines Collected", format_currency(fines_collected['total'] if fines_collected and fines_collected['total'] else 0))
             
-            st.markdown("---")
+            st.divider()
             
             # Daily activity chart
-            st.subheader("📈 Daily Borrowing Activity")
+            st.subheader(" Daily Borrowing Activity")
             daily_data = Database.execute_query("""
                 SELECT DATE(checkout_date) as date,
                        COUNT(*) as checkouts
@@ -6080,7 +6081,7 @@ def show_reports():
                 st.plotly_chart(fig, use_container_width=True)
             
             # Genre distribution
-            st.subheader("📚 Books Distribution by Genre")
+            st.subheader(" Books Distribution by Genre")
             genre_data = Database.execute_query("""
                 SELECT g.genre_name, COUNT(DISTINCT b.book_id) as book_count
                 FROM genres g
@@ -6100,7 +6101,7 @@ def show_reports():
                 st.plotly_chart(fig, use_container_width=True)
     
     with tab2:
-        st.subheader("📚 Books Analytics")
+        st.subheader(" Books Analytics")
         
         report_type = st.selectbox("Select Report", [
             "Most Popular Books",
@@ -6141,7 +6142,7 @@ def show_reports():
                            labels={'total_checkouts': 'Total Checkouts', 'title': 'Book Title'},
                            color='total_checkouts',
                            color_continuous_scale='Blues')
-                fig.update_layout(yaxis={'categoryorder':'total ascending'}, height=500)
+                fig.update_layout(hovermode='x unified', yaxis={'categoryorder':'total ascending'}, height=500)
                 st.plotly_chart(fig, use_container_width=True)
                 
                 # Scatter plot: Checkouts vs Rating
@@ -6182,7 +6183,7 @@ def show_reports():
                                labels={'total_checkouts': 'Total Checkouts', 'title': 'Book Title'},
                                color='total_checkouts',
                                color_continuous_scale='Reds')
-                    fig.update_layout(yaxis={'categoryorder':'total descending'}, height=500)
+                    fig.update_layout(hovermode='x unified', yaxis={'categoryorder':'total descending'}, height=500)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning("No data available for visualization")
@@ -6226,7 +6227,7 @@ def show_reports():
                                         marker_color='lightblue'))
                     fig.add_trace(go.Bar(name='Total Borrows', x=df['genre_name'], y=df['total_borrows'],
                                         marker_color='darkblue'))
-                    fig.update_layout(barmode='group', title='Genre Performance: Books vs Borrows',
+                    fig.update_layout(hovermode='x unified', barmode='group', title='Genre Performance: Books vs Borrows',
                                     xaxis_title='Genre', yaxis_title='Count', height=500)
                     st.plotly_chart(fig, use_container_width=True)
                     
@@ -6266,7 +6267,7 @@ def show_reports():
                 df = df[df['rating_group'] > 0]
                 
                 if len(df) > 0:
-                    df['rating_label'] = df['rating_group'].astype(str) + ' - ' + (df['rating_group'] + 1).astype(str) + ' ⭐'
+                    df['rating_label'] = df['rating_group'].astype(str) + ' - ' + (df['rating_group'] + 1).astype(str) + ' '
                     
                     fig = px.bar(df, x='rating_label', y='book_count',
                                title='Book Ratings Distribution',
@@ -6316,7 +6317,7 @@ def show_reports():
                                labels={'publisher_name': 'Publisher', 'total_books': 'Number of Books'},
                                color='total_borrows',
                                color_continuous_scale='Blues')
-                    fig.update_layout(xaxis_tickangle=-45, height=500)
+                    fig.update_layout(hovermode='x unified', xaxis_tickangle=-45, height=500)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning("No data available for publisher visualization")
@@ -6382,13 +6383,13 @@ def show_reports():
                 """)
                 
                 if data:
-                    st.warning(f"📋 Found {len(data)} books that have never been borrowed")
+                    st.warning(f" Found {len(data)} books that have never been borrowed")
                     df = pd.DataFrame(data)
                     # Handle null values
                     df = df.fillna('N/A')
                     st.dataframe(df, use_container_width=True, hide_index=True)
                 else:
-                    st.success("✅ All books have been borrowed at least once!")
+                    st.success(" All books have been borrowed at least once!")
             except Exception as e:
                 st.error(f"Error generating Books Never Borrowed report: {str(e)}")
                 st.info("Please check the database connection and try again.")
@@ -6397,7 +6398,7 @@ def show_reports():
             st.info("Please select a report type to generate")
     
     with tab3:
-        st.subheader("👥 Members Analytics")
+        st.subheader(" Members Analytics")
         
         member_report = st.selectbox("Select Member Report", [
             "Top Borrowers",
@@ -6441,7 +6442,7 @@ def show_reports():
                                        labels={'total_borrowed': 'Total Books Borrowed', 'full_name': 'Member Name'},
                                        color='member_tier',
                                        color_discrete_map={'basic': '#FFA726', 'premium': '#66BB6A', 'gold': '#FFD700'})
-                            fig.update_layout(yaxis={'categoryorder':'total ascending'}, height=600)
+                            fig.update_layout(hovermode='x unified', yaxis={'categoryorder':'total ascending'}, height=600)
                             st.plotly_chart(fig, use_container_width=True)
                         except Exception as viz_error:
                             st.warning(f"Could not generate visualization: {str(viz_error)}")
@@ -6476,7 +6477,7 @@ def show_reports():
                             total = df['fine_balance'].sum()
                             avg = df['fine_balance'].mean()
                             
-                            col1, col2, col3 = st.columns(3)
+                            col1, col2, col3 = st.columns(3, gap="small")
                             with col1:
                                 st.metric("Total Outstanding", format_currency(total))
                             with col2:
@@ -6487,15 +6488,15 @@ def show_reports():
                             # Histogram of fine distribution
                             fig = px.histogram(df, x='fine_balance', nbins=min(20, len(df)),
                                              title='Fine Amount Distribution',
-                                             labels={'fine_balance': 'Fine Amount (₹)', 'count': 'Number of Members'},
+                                             labels={'fine_balance': 'Fine Amount ($)', 'count': 'Number of Members'},
                                              color_discrete_sequence=['#FF6B6B'])
                             st.plotly_chart(fig, use_container_width=True)
                         except Exception as viz_error:
                             st.warning(f"Could not generate fine statistics: {str(viz_error)}")
                     else:
-                        st.success("✅ No members have outstanding fines!")
+                        st.success(" No members have outstanding fines!")
                 else:
-                    st.success("✅ No members have outstanding fines!")
+                    st.success(" No members have outstanding fines!")
             except Exception as e:
                 st.error(f"Error generating Outstanding Fines report: {str(e)}")
                 st.info("Please check the database connection and try again.")
@@ -6604,7 +6605,7 @@ def show_reports():
                     df = df.fillna({'email': 'N/A', 'member_tier': 'basic', 'last_activity': 'Never'})
                     df['total_borrowed'] = pd.to_numeric(df['total_borrowed'], errors='coerce').fillna(0).astype(int)
                     
-                    st.warning(f"📋 Found {len(df)} inactive members (no activity for 90+ days)")
+                    st.warning(f" Found {len(df)} inactive members (no activity for 90+ days)")
                     st.dataframe(df, use_container_width=True, hide_index=True)
                     
                     # Inactive members by tier
@@ -6618,7 +6619,7 @@ def show_reports():
                     except Exception as viz_error:
                         st.warning(f"Could not generate tier distribution chart: {str(viz_error)}")
                 else:
-                    st.success("✅ All members are active!")
+                    st.success(" All members are active!")
             except Exception as e:
                 st.error(f"Error generating Inactive Members report: {str(e)}")
                 st.info("Please check the database connection and try again.")
@@ -6649,7 +6650,7 @@ def show_reports():
                     df = df[df['books_this_month'] > 0]
                     
                     if len(df) > 0:
-                        st.success(f"📋 Top {len(df)} most active members this month")
+                        st.success(f" Top {len(df)} most active members this month")
                         st.dataframe(df, use_container_width=True, hide_index=True)
                         
                         try:
@@ -6659,7 +6660,7 @@ def show_reports():
                                        labels={'full_name': 'Member Name', 'books_this_month': 'Books Borrowed'},
                                        color='member_tier',
                                        color_discrete_map={'basic': '#FFA726', 'premium': '#66BB6A', 'gold': '#FFD700'})
-                            fig.update_layout(xaxis_tickangle=-45, height=500)
+                            fig.update_layout(hovermode='x unified', xaxis_tickangle=-45, height=500)
                             st.plotly_chart(fig, use_container_width=True)
                         except Exception as viz_error:
                             st.warning(f"Could not generate activity chart: {str(viz_error)}")
@@ -6675,17 +6676,17 @@ def show_reports():
             st.info("Please select a member report type")
     
     with tab4:
-        st.subheader("💰 Financial Analytics")
+        st.subheader(" Financial Analytics")
         
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="small")
         with col1:
             fin_start = st.date_input("From Date", date.today() - timedelta(days=90), key="fin_start")
         with col2:
             fin_end = st.date_input("To Date", date.today(), key="fin_end")
         
-        if st.button("💰 Generate Financial Report", use_container_width=True):
+        if st.button(" Generate Financial Report", use_container_width=True):
             try:
-                st.markdown("---")
+                st.divider()
                 
                 # Summary metrics
                 total_fines = Database.execute_query("""
@@ -6719,18 +6720,18 @@ def show_reports():
                 if avg_fine and avg_fine.get('avg'):
                     avg_amount = float(avg_fine['avg'])
                 
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3 = st.columns(3, gap="small")
                 with col1:
-                    st.metric("💵 Fines Collected", format_currency(total_collected))
+                    st.metric(" Fines Collected", format_currency(total_collected))
                 with col2:
-                    st.metric("⚠️ Outstanding Fines", format_currency(outstanding_total))
+                    st.metric(" Outstanding Fines", format_currency(outstanding_total))
                 with col3:
-                    st.metric("📊 Average Fine", format_currency(avg_amount))
+                    st.metric(" Average Fine", format_currency(avg_amount))
             except Exception as e:
                 st.error(f"Error generating financial summary: {str(e)}")
                 st.info("Please check the database connection and try again.")
             
-                st.markdown("---")
+                st.divider()
                 
                 # Daily fines chart
                 try:
@@ -6763,12 +6764,11 @@ def show_reports():
                                     fill='tozeroy',
                                     fillcolor='rgba(76, 175, 80, 0.2)'
                                 ))
-                                fig.update_layout(
+                                fig.update_layout(hovermode='x unified',
                                     title="Daily Fines Collected",
                                     xaxis_title="Date",
-                                    yaxis_title="Amount (₹)",
-                                    height=400,
-                                    hovermode='x unified'
+                                    yaxis_title="Amount ($)",
+                                    height=400
                                 )
                                 st.plotly_chart(fig, use_container_width=True)
                                 
@@ -6790,7 +6790,7 @@ def show_reports():
                     st.error(f"Error generating daily fines analysis: {str(e)}")
             
                 # Monthly revenue projection
-                st.subheader("📈 Monthly Revenue Projection")
+                st.subheader(" Monthly Revenue Projection")
                 try:
                     monthly_fines = Database.execute_query("""
                         SELECT strftime('%Y-%m', return_date) as month,
@@ -6818,7 +6818,7 @@ def show_reports():
                             try:
                                 fig = px.line(df_monthly, x='month', y='total',
                                             title='Monthly Fine Revenue (Last 12 Months)',
-                                            labels={'month': 'Month', 'total': 'Revenue (₹)'},
+                                            labels={'month': 'Month', 'total': 'Revenue ($)'},
                                             markers=True)
                                 fig.update_traces(line_color='#2196F3', line_width=4)
                                 st.plotly_chart(fig, use_container_width=True)
@@ -6849,7 +6849,7 @@ def show_reports():
         if viz_type == "Library Health Heatmap":
             try:
                 # Create a heatmap showing various metrics
-                st.markdown("### 🌡️ Library Health Metrics")
+                st.markdown("###  Library Health Metrics")
                 
                 # Total books
                 total_books = Database.execute_query("SELECT COUNT(*) as cnt FROM books WHERE is_active=1", fetch_one=True)
@@ -6888,31 +6888,31 @@ def show_reports():
                                color='Score',
                                color_continuous_scale='RdYlGn',
                                range_y=[0, 100])
-                    fig.update_layout(height=400)
+                    fig.update_layout(hovermode='x unified', height=400)
                     st.plotly_chart(fig, use_container_width=True)
                 except Exception as viz_error:
                     st.warning(f"Could not generate health chart: {str(viz_error)}")
                     st.dataframe(health_df, use_container_width=True, hide_index=True)
                 
                 # Display raw metrics
-                col1, col2, col3, col4, col5 = st.columns(5)
+                col1, col2, col3, col4, col5 = st.columns(5, gap="small")
                 with col1:
-                    st.metric("📚 Total Books", metrics['Total Books'])
+                    st.metric(" Total Books", metrics['Total Books'])
                 with col2:
-                    st.metric("✅ Available", metrics['Available Books'])
+                    st.metric(" Available", metrics['Available Books'])
                 with col3:
-                    st.metric("👥 Active Members", metrics['Active Members'])
+                    st.metric(" Active Members", metrics['Active Members'])
                 with col4:
-                    st.metric("📖 Current Borrows", metrics['Current Borrows'])
+                    st.metric(" Current Borrows", metrics['Current Borrows'])
                 with col5:
-                    st.metric("⚠️ Overdue", metrics['Overdue Books'])
+                    st.metric(" Overdue", metrics['Overdue Books'])
             except Exception as e:
                 st.error(f"Error generating Library Health Heatmap: {str(e)}")
                 st.info("Please check the database connection and try again.")
         
         elif viz_type == "Genre Performance Radar":
             try:
-                st.markdown("### 🎯 Genre Performance Radar Chart")
+                st.markdown("###  Genre Performance Radar Chart")
                 
                 genre_perf = Database.execute_query("""
                     SELECT g.genre_name,
@@ -6972,7 +6972,7 @@ def show_reports():
                                     line_color='#FF9800'
                                 ))
                                 
-                                fig.update_layout(
+                                fig.update_layout(hovermode='x unified', 
                                     polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
                                     showlegend=True,
                                     title="Genre Performance Comparison",
@@ -6995,7 +6995,7 @@ def show_reports():
         
         elif viz_type == "Collection Growth Timeline":
             try:
-                st.markdown("### 📈 Library Collection Growth")
+                st.markdown("###  Library Collection Growth")
                 
                 growth_data = Database.execute_query("""
                     SELECT strftime('%Y-%m', created_at) as month,
@@ -7036,11 +7036,10 @@ def show_reports():
                                 mode='lines+markers'
                             ))
                             
-                            fig.update_layout(
+                            fig.update_layout(hovermode='x unified',
                                 title='Collection Growth Over Time',
                                 yaxis=dict(title='New Books per Month'),
                                 yaxis2=dict(title='Total Books', overlaying='y', side='right'),
-                                hovermode='x unified',
                                 height=500
                             )
                             st.plotly_chart(fig, use_container_width=True)
@@ -7057,7 +7056,7 @@ def show_reports():
         
         elif viz_type == "Multi-Dimensional Analysis":
             try:
-                st.markdown("### 🔬 Multi-Dimensional Book Analysis")
+                st.markdown("###  Multi-Dimensional Book Analysis")
                 
                 multi_data = Database.execute_query("""
                     SELECT b.title, b.publication_year,
@@ -7111,7 +7110,7 @@ def show_reports():
                                                   'total_checkouts': 'Total Checkouts',
                                                   'average_rating': 'Rating'
                                               })
-                            fig.update_layout(height=700)
+                            fig.update_layout(hovermode='x unified', height=700)
                             st.plotly_chart(fig, use_container_width=True)
                         except Exception as viz_error:
                             st.warning(f"Could not generate 3D scatter plot: {str(viz_error)}")
@@ -7120,7 +7119,7 @@ def show_reports():
                             # Sunburst chart - only if we have enough valid data
                             sunburst_df = df[df['genre_name'] != 'Unknown']
                             if len(sunburst_df) > 0:
-                                st.markdown("### ☀️ Collection Hierarchy")
+                                st.markdown("###  Collection Hierarchy")
                                 fig2 = px.sunburst(sunburst_df, path=['genre_name', 'title'], values='total_checkouts',
                                                   title='Book Collection by Genre (Size = Popularity)',
                                                   color='average_rating',
@@ -7132,7 +7131,7 @@ def show_reports():
                         
                         # Show data table as fallback
                         if len(df) > 0:
-                            st.markdown("### 📊 Data Table")
+                            st.markdown("###  Data Table")
                             st.dataframe(df, use_container_width=True, hide_index=True)
                     else:
                         st.info("No multi-dimensional analysis data available")
@@ -7148,38 +7147,38 @@ def show_reports():
 
 def show_my_library():
     """My Library page - User's personal PDF library"""
-    st.title("📚 My Library")
+    st.title(" My Library")
     
     user = Auth.get_user()
     
-    tabs = st.tabs(["📖 My PDFs", "📤 Upload PDF", "🔒 Privacy Settings", "👤 My Profile"])
+    tabs = st.tabs([" My PDFs", " Upload PDF", " Privacy Settings", " My Profile"])
     
     # Tab 1: My PDFs
     with tabs[0]:
-        st.subheader("My PDF Collection")
+        st.subheader("**My PDF Collection**")
         
         pdfs = PeerLibraryManager.get_user_library(user['user_id'])
         
         if pdfs:
             for pdf in pdfs:
-                with st.expander(f"📄 {pdf['title']}"):
-                    col1, col2 = st.columns([3, 1])
+                with st.expander(f" {pdf['title']}"):
+                    col1, col2 = st.columns([3, 1], gap="small")
                     
                     with col1:
                         st.write(f"**Author:** {pdf['author'] or 'Unknown'}")
                         st.write(f"**Genre:** {pdf['genre'] or 'Unknown'}")
                         st.write(f"**Description:** {pdf['description'] or 'No description'}")
-                        st.write(f"**Visibility:** {'🌐 Public' if pdf['is_public'] else '🔒 Private'}")
+                        st.write(f"**Visibility:** {' Public' if pdf['is_public'] else ' Private'}")
                         st.write(f"**Uploaded:** {pdf['upload_date']}")
                         st.write(f"**Views:** {pdf['views_count']}")
                     
                     with col2:
-                        if st.button("👁️ View", key=f"view_{pdf['pdf_id']}"):
+                        if st.button(" View", key=f"view_{pdf['pdf_id']}"):
                             pdf_data = PeerLibraryManager.get_pdf_file(pdf['pdf_id'])
                             if pdf_data:
                                 PeerLibraryManager.increment_pdf_views(pdf['pdf_id'])
                                 st.download_button(
-                                    "⬇️ Download PDF",
+                                    " Download PDF",
                                     pdf_data['pdf_file'],
                                     pdf_data['pdf_filename'],
                                     mime="application/pdf"
@@ -7203,7 +7202,7 @@ def show_my_library():
     
     # Tab 2: Upload PDF
     with tabs[1]:
-        st.subheader("📤 Upload New PDF")
+        st.subheader(" Upload New PDF")
         
         with st.form("upload_pdf_form"):
             uploaded_file = st.file_uploader("Choose PDF file", type=['pdf'])
@@ -7214,7 +7213,7 @@ def show_my_library():
             description = st.text_area("Description", max_chars=1000)
             is_public = st.checkbox("Make this PDF publicly visible")
             
-            submitted = st.form_submit_button("📤 Upload PDF")
+            submitted = st.form_submit_button(" Upload PDF")
             
             if submitted:
                 if not uploaded_file or not title:
@@ -7234,14 +7233,14 @@ def show_my_library():
     
     # Tab 3: Privacy Settings
     with tabs[2]:
-        st.subheader("🔒 Privacy & Anonymous Mode")
+        st.subheader(" Privacy & Anonymous Mode")
         
         privacy = PrivacyManager.get_privacy_settings(user['user_id'])
         
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="small")
         
         with col1:
-            st.markdown("### 👁️ Visibility Settings")
+            st.markdown("###  Visibility Settings")
             
             show_email = st.checkbox("Show Email", value=privacy.get('show_email', False))
             show_phone = st.checkbox("Show Phone", value=privacy.get('show_phone', False))
@@ -7251,7 +7250,7 @@ def show_my_library():
             show_borrowing_history = st.checkbox("Show Borrowing History", value=privacy.get('show_borrowing_history', False))
         
         with col2:
-            st.markdown("### 🕵️ Anonymous Mode")
+            st.markdown("###  Anonymous Mode")
             
             anonymous_mode = st.checkbox(
                 "Enable Anonymous Mode", 
@@ -7266,9 +7265,9 @@ def show_my_library():
                 else:
                     st.info("A pseudonym will be generated when you save")
                 
-                st.warning("⚠️ Anonymous mode hides: name, email, phone, and profile photo")
+                st.warning(" Anonymous mode hides: name, email, phone, and profile photo")
         
-        if st.button("💾 Save Privacy Settings", type="primary"):
+        if st.button(" Save Privacy Settings", type="primary"):
             settings = {
                 'show_email': show_email,
                 'show_phone': show_phone,
@@ -7286,23 +7285,23 @@ def show_my_library():
             
             # Update other settings
             if PrivacyManager.update_privacy_settings(user['user_id'], settings):
-                st.success("✅ Privacy settings saved!")
+                st.success(" Privacy settings saved!")
                 st.rerun()
             else:
                 st.error("Failed to save settings")
         
         # Preview
-        st.markdown("---")
-        st.subheader("👁️ Preview Public Profile")
+        st.divider()
+        st.subheader(" Preview Public Profile")
         
-        if st.button("🔍 View as Public"):
+        if st.button(" View as Public"):
             profile = PrivacyManager.preview_public_profile(user['user_id'])
             if profile:
                 st.json(profile)
     
     # Tab 4: My Profile
     with tabs[3]:
-        st.subheader("👤 My Profile")
+        st.subheader(" My Profile")
         
         # User profile information
         st.write(f"**Full Name:** {user['full_name']}")
@@ -7323,26 +7322,26 @@ def show_my_library():
             if unique_code:
                 st.write(f"**Unique ID:** {unique_code}")
             else:
-                if st.button("🆔 Generate Unique ID"):
+                if st.button(" Generate Unique ID"):
                     new_id = EnhancedUserManager.generate_user_unique_id(user['user_id'])
                     if new_id:
                         st.success(f"Generated: {new_id}")
                         st.rerun()
             
             # QR Code
-            if st.button("📱 Generate My QR Code"):
+            if st.button(" Generate My QR Code"):
                 qr_data = SmartUtilities.generate_user_qr(user['user_id'])
                 if qr_data:
                     st.image(qr_data, width=200)
 
 def show_community_library():
     """Browse Community Library"""
-    st.title("🌐 Community Library")
+    st.title(" Community Library")
     
     st.markdown("Browse and read PDFs shared by other users")
     
     # Search
-    search_query = st.text_input("🔍 Search PDFs", placeholder="Search by title, author, genre...")
+    search_query = st.text_input(" Search PDFs", placeholder="Search by title, author, genre...")
     
     # Get public PDFs
     public_pdfs = PeerLibraryManager.browse_public_libraries()
@@ -7365,26 +7364,26 @@ def show_community_library():
             user_groups[owner].append(pdf)
         
         for owner, pdfs in user_groups.items():
-            with st.expander(f"👤 {owner} ({len(pdfs)} PDFs)"):
+            with st.expander(f" {owner} ({len(pdfs)} PDFs)"):
                 for pdf in pdfs:
-                    col1, col2 = st.columns([4, 1])
+                    col1, col2 = st.columns([4, 1], gap="small")
                     
                     with col1:
-                        st.markdown(f"### 📄 {pdf['title']}")
+                        st.markdown(f"###  {pdf['title']}")
                         st.write(f"**Author:** {pdf['author'] or 'Unknown'}")
                         st.write(f"**Genre:** {pdf['genre'] or 'Unknown'}")
                         st.write(f"**Description:** {pdf['description'] or 'No description'}")
                         st.write(f"**Views:** {pdf['views_count']} | **Uploaded:** {pdf['upload_date']}")
                     
                     with col2:
-                        if st.button("📖 Read", key=f"read_{pdf['pdf_id']}"):
+                        if st.button(" Read", key=f"read_{pdf['pdf_id']}"):
                             pdf_data = PeerLibraryManager.get_pdf_file(pdf['pdf_id'])
                             if pdf_data:
                                 PeerLibraryManager.increment_pdf_views(pdf['pdf_id'])
                                 
                                 # Display PDF
                                 st.download_button(
-                                    "⬇️ Download PDF",
+                                    " Download PDF",
                                     pdf_data['pdf_file'],
                                     pdf_data['pdf_filename'],
                                     mime="application/pdf",
@@ -7394,10 +7393,10 @@ def show_community_library():
                                 # Extract and show preview
                                 preview_text = pdf_handler.extract_text(pdf_data['pdf_file'], max_pages=3)
                                 if preview_text:
-                                    with st.expander("📖 Preview (First 3 pages)"):
+                                    with st.expander(" Preview (First 3 pages)"):
                                         st.text(preview_text)
                         
-                        if st.button("👤 Visit Profile", key=f"profile_{pdf['owner_id']}"):
+                        if st.button(" Visit Profile", key=f"profile_{pdf['owner_id']}"):
                             st.session_state.viewing_user = pdf['owner_id']
                             st.rerun()
     else:
@@ -7405,8 +7404,8 @@ def show_community_library():
     
     # If viewing a profile
     if 'viewing_user' in st.session_state:
-        st.markdown("---")
-        st.subheader("👤 User Profile")
+        st.divider()
+        st.subheader(" User Profile")
         
         profile_data = PeerLibraryManager.get_user_public_profile(st.session_state.viewing_user)
         current_user = Auth.get_user()
@@ -7415,7 +7414,7 @@ def show_community_library():
             user_info = profile_data['user']
             privacy = profile_data['privacy']
             
-            col1, col2 = st.columns([1, 3])
+            col1, col2 = st.columns([1, 3], gap="small")
             
             with col1:
                 if privacy.get('show_profile_photo'):
@@ -7426,7 +7425,7 @@ def show_community_library():
                 # Show profile rating
                 rating_data = ProfileCommentsManager.get_average_profile_rating(st.session_state.viewing_user)
                 if rating_data['rating_count'] > 0:
-                    st.markdown(f"⭐ **{rating_data['avg_rating']:.1f}** / 5.0")
+                    st.markdown(f" **{rating_data['avg_rating']:.1f}** / 5.0")
                     st.caption(f"({rating_data['rating_count']} ratings)")
             
             with col2:
@@ -7443,7 +7442,7 @@ def show_community_library():
                     st.write(f"**Public Library:** {len(user_pdfs)} PDFs")
             
             # Tabs for different sections
-            profile_tabs = st.tabs(["📚 Library", "💬 Comments & Ratings", "📊 Stats"])
+            profile_tabs = st.tabs([" Library", " Comments & Ratings", " Stats"])
             
             # Tab 1: User's Library
             with profile_tabs[0]:
@@ -7457,8 +7456,8 @@ def show_community_library():
                         st.write(f"**{len(user_pdfs)} Public PDFs**")
                         
                         for pdf in user_pdfs:
-                            with st.expander(f"📄 {pdf['title']} by {pdf['author']}"):
-                                col1, col2 = st.columns([3, 1])
+                            with st.expander(f" {pdf['title']} by {pdf['author']}"):
+                                col1, col2 = st.columns([3, 1], gap="small")
                                 
                                 with col1:
                                     st.write(f"**Genre:** {pdf['genre']}")
@@ -7470,14 +7469,14 @@ def show_community_library():
                                     pdf_rating = ProfileCommentsManager.get_pdf_average_rating(pdf['pdf_id'])
                                     
                                     if pdf_rating['rating_count'] > 0:
-                                        st.markdown(f"⭐ **{pdf_rating['avg_rating']:.1f}** / 5.0 ({pdf_rating['rating_count']} ratings)")
+                                        st.markdown(f" **{pdf_rating['avg_rating']:.1f}** / 5.0 ({pdf_rating['rating_count']} ratings)")
                                     
                                     if pdf_comments:
                                         st.markdown("**Comments:**")
                                         for comment in pdf_comments[:3]:  # Show first 3
                                             st.markdown(f"- **{comment['full_name']}**: {comment['comment']}")
                                             if comment['rating']:
-                                                st.caption(f"⭐ {comment['rating']}/5.0")
+                                                st.caption(f" {comment['rating']}/5.0")
                                 
                                 with col2:
                                     # Add comment to PDF
@@ -7486,7 +7485,7 @@ def show_community_library():
                                         pdf_rating_input = st.slider("Rating", 0.0, 5.0, 3.0, 0.5, key=f"pdf_rating_{pdf['pdf_id']}")
                                         pdf_comment_input = st.text_area("Comment", key=f"pdf_comment_{pdf['pdf_id']}", height=80)
                                         
-                                        if st.form_submit_button("💬 Post"):
+                                        if st.form_submit_button(" Post"):
                                             if pdf_comment_input:
                                                 success, msg = ProfileCommentsManager.add_pdf_comment(
                                                     pdf['pdf_id'],
@@ -7508,20 +7507,20 @@ def show_community_library():
             
             # Tab 2: Comments & Ratings
             with profile_tabs[1]:
-                st.markdown("### 💬 Profile Comments & Ratings")
+                st.markdown("###  Profile Comments & Ratings")
                 
                 # Add comment form
                 if current_user['user_id'] != st.session_state.viewing_user:
                     with st.form("profile_comment_form", clear_on_submit=True):
                         st.write("**Leave a comment and rating:**")
                         
-                        col1, col2 = st.columns([3, 1])
+                        col1, col2 = st.columns([3, 1], gap="small")
                         with col1:
                             comment_text = st.text_area("Your comment", height=100)
                         with col2:
                             rating_input = st.slider("Rating", 0.0, 5.0, 5.0, 0.5)
                         
-                        if st.form_submit_button("💬 Post Comment", type="primary"):
+                        if st.form_submit_button(" Post Comment", type="primary"):
                             if comment_text:
                                 success, msg = ProfileCommentsManager.add_profile_comment(
                                     st.session_state.viewing_user,
@@ -7530,15 +7529,15 @@ def show_community_library():
                                     rating_input if rating_input > 0 else None
                                 )
                                 if success:
-                                    st.success("✅ Comment posted successfully!")
+                                    st.success(" Comment posted successfully!")
                                     st.balloons()
                                     st.rerun()
                                 else:
-                                    st.error(f"❌ {msg}")
+                                    st.error(f" {msg}")
                             else:
-                                st.warning("⚠️ Please enter a comment")
+                                st.warning(" Please enter a comment")
                 
-                st.markdown("---")
+                st.divider()
                 
                 # Display existing comments
                 comments = ProfileCommentsManager.get_profile_comments(st.session_state.viewing_user)
@@ -7548,7 +7547,7 @@ def show_community_library():
                     
                     for comment in comments:
                         with st.container():
-                            col1, col2 = st.columns([4, 1])
+                            col1, col2 = st.columns([4, 1], gap="small")
                             
                             with col1:
                                 st.markdown(f"**{comment['full_name']}** (@{comment['username']})")
@@ -7557,17 +7556,17 @@ def show_community_library():
                             
                             with col2:
                                 if comment['rating']:
-                                    st.metric("Rating", f"⭐ {comment['rating']}/5.0")
+                                    st.metric("Rating", f" {comment['rating']}/5.0")
                             
-                            st.markdown("---")
+                            st.divider()
                 else:
                     st.info("No comments yet. Be the first to comment!")
             
             # Tab 3: Stats
             with profile_tabs[2]:
-                st.markdown("### 📊 Profile Statistics")
+                st.markdown("###  Profile Statistics")
                 
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3 = st.columns(3, gap="small")
                 
                 with col1:
                     pdf_count = len(PeerLibraryManager.get_user_library(st.session_state.viewing_user, public_only=True))
@@ -7579,15 +7578,15 @@ def show_community_library():
                 
                 with col3:
                     rating_data = ProfileCommentsManager.get_average_profile_rating(st.session_state.viewing_user)
-                    st.metric("Average Rating", f"{rating_data['avg_rating']:.1f} ⭐")
+                    st.metric("Average Rating", f"{rating_data['avg_rating']:.1f} ")
         
-        if st.button("⬅️ Back to Community"):
+        if st.button(" Back to Community"):
             del st.session_state.viewing_user
             st.rerun()
 
 def show_system_tools():
     """System Tools for admins"""
-    st.title("⚙️ System Tools")
+    st.title(" System Tools")
     
     user = Auth.get_user()
     
@@ -7597,31 +7596,31 @@ def show_system_tools():
     
     # Add Smart Tools and Data Management tabs for functional admin
     if user.get('is_functional_admin'):
-        tabs = st.tabs(["💾 Backup & Restore", "🔍 Data Integrity", "📊 Export Data", "📈 System Stats", "🔧 Smart Tools", "🗄️ Data Management", "📬 Send Reminders"])
+        tabs = st.tabs([" Backup & Restore", " Data Integrity", " Export Data", " System Stats", " Smart Tools", " Data Management", " Send Reminders"])
     else:
-        tabs = st.tabs(["💾 Backup & Restore", "🔍 Data Integrity", "📊 Export Data", "📈 System Stats", "📬 Send Reminders"])
+        tabs = st.tabs([" Backup & Restore", " Data Integrity", " Export Data", " System Stats", " Send Reminders"])
     
     # Backup & Restore
     with tabs[0]:
-        st.subheader("💾 Backup & Restore")
+        st.subheader(" Backup & Restore")
         
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="small")
         
         with col1:
             st.markdown("### Create Backup")
             
-            if st.button("🗄️ Create Full Backup", type="primary"):
+            if st.button(" Create Full Backup", type="primary"):
                 with st.spinner("Creating backup..."):
                     success, backup_path = DataManagement.create_full_backup()
                     
                     if success:
-                        st.success(f"✅ Backup created: {backup_path}")
+                        st.success(f" Backup created: {backup_path}")
                         
                         # Offer download
                         try:
                             with open(backup_path, 'rb') as f:
                                 st.download_button(
-                                    "⬇️ Download Backup",
+                                    " Download Backup",
                                     f.read(),
                                     os.path.basename(backup_path),
                                     mime="application/zip"
@@ -7643,7 +7642,7 @@ def show_system_tools():
                 for backup in backups:
                     filename = backup['file_path'].split('/')[-1] if backup['file_path'] else 'Unknown'
                     file_size_mb = (backup['file_size'] / 1024 / 1024) if backup['file_size'] else 0
-                    st.write(f"📦 {filename} - {backup['created_at']} ({file_size_mb:.2f} MB)")
+                    st.write(f" {filename} - {backup['created_at']} ({file_size_mb:.2f} MB)")
         
         with col2:
             st.markdown("### Restore Backup")
@@ -7651,35 +7650,35 @@ def show_system_tools():
             restore_file = st.file_uploader("Upload Backup ZIP", type=['zip'])
             
             if restore_file:
-                st.warning("⚠️ Restore will overwrite existing data!")
+                st.warning(" Restore will overwrite existing data!")
                 
-                if st.button("🔄 Restore Now", type="primary"):
+                if st.button(" Restore Now", type="primary"):
                     with st.spinner("Restoring..."):
                         if DataManagement.restore_from_backup(restore_file):
-                            st.success("✅ Restore successful!")
+                            st.success(" Restore successful!")
                         else:
                             st.error("Restore failed")
     
     # Data Integrity
     with tabs[1]:
-        st.subheader("🔍 Data Integrity Check")
+        st.subheader(" Data Integrity Check")
         
-        if st.button("🔍 Run Integrity Check"):
+        if st.button(" Run Integrity Check"):
             with st.spinner("Checking..."):
                 issues = DataManagement.run_integrity_check()
                 
                 if issues:
-                    st.warning(f"⚠️ Found {len(issues)} issues:")
+                    st.warning(f" Found {len(issues)} issues:")
                     for issue in issues:
                         st.write(f"- {issue}")
                 else:
-                    st.success("✅ No integrity issues found!")
+                    st.success(" No integrity issues found!")
         
         # Duplicates
-        st.markdown("---")
-        st.subheader("📋 Duplicate Books")
+        st.divider()
+        st.subheader(" Duplicate Books")
         
-        if st.button("🔍 Check Duplicates"):
+        if st.button(" Check Duplicates"):
             duplicates = DataManagement.check_duplicates()
             
             if duplicates:
@@ -7691,14 +7690,14 @@ def show_system_tools():
     
     # Export Data
     with tabs[2]:
-        st.subheader("📊 Export Data")
+        st.subheader(" Export Data")
         
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="small")
         
         with col1:
             st.markdown("### Export Books")
             
-            if st.button("📥 Export Books to Excel"):
+            if st.button(" Export Books to Excel"):
                 books = Database.execute_query("""
                     SELECT 
                         b.book_id,
@@ -7717,7 +7716,7 @@ def show_system_tools():
                 if books:
                     excel_data = excel_exporter.export_books(books)
                     st.download_button(
-                        "⬇️ Download Books.xlsx",
+                        " Download Books.xlsx",
                         excel_data.getvalue(),
                         "books_catalog.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -7728,7 +7727,7 @@ def show_system_tools():
         with col2:
             st.markdown("### Export Users")
             
-            if st.button("📥 Export Users to Excel"):
+            if st.button(" Export Users to Excel"):
                 users = Database.execute_query("""
                     SELECT 
                         u.user_id,
@@ -7749,7 +7748,7 @@ def show_system_tools():
                 if users:
                     excel_data = excel_exporter.export_users(users)
                     st.download_button(
-                        "⬇️ Download Users.xlsx",
+                        " Download Users.xlsx",
                         excel_data.getvalue(),
                         "users_list.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -7757,9 +7756,9 @@ def show_system_tools():
     
     # System Stats
     with tabs[3]:
-        st.subheader("📈 System Statistics")
+        st.subheader(" System Statistics")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(3, gap="small")
         
         # Database size
         with col1:
@@ -7789,31 +7788,31 @@ def show_system_tools():
     # Smart Tools (Functional Admin Only)
     if user.get('is_functional_admin') and len(tabs) > 4:
         with tabs[4]:
-            st.subheader("🔧 Smart Tools & Utilities")
+            st.subheader(" Smart Tools & Utilities")
             
             smart_tabs = st.tabs([
-                "🆔 ID Generator", 
-                "📅 Calendar View", 
-                "📊 Barcode & QR", 
-                "🎯 Recommendations",
-                "🔤 Spell Check",
-                "🔍 Book Similarity"
+                " ID Generator", 
+                " Calendar View", 
+                " Barcode & QR", 
+                " Recommendations",
+                " Spell Check",
+                " Book Similarity"
             ])
             
             # Tab 1: Unique ID Generator
             with smart_tabs[0]:
-                st.markdown("### 🆔 Unique ID Generator")
+                st.markdown("###  Unique ID Generator")
                 st.caption("Generate unique identifiers for users and books")
                 
-                col1, col2 = st.columns(2)
+                col1, col2 = st.columns(2, gap="small")
                 
                 with col1:
                     st.markdown("#### User ID Generator")
                     user_id_input = st.number_input("User ID", min_value=1, value=1, key="user_id_gen")
-                    if st.button("🔄 Generate User ID", key="gen_user_id"):
+                    if st.button(" Generate User ID", key="gen_user_id"):
                         try:
                             unique_id = unique_id_gen.generate_user_id()
-                            st.success(f"✅ Generated: **{unique_id}**")
+                            st.success(f" Generated: **{unique_id}**")
                             st.code(f"Format: USR-{datetime.now().year}-{str(user_id_input).zfill(6)}")
                         except Exception as e:
                             st.error(f"Error: {e}")
@@ -7821,61 +7820,61 @@ def show_system_tools():
                 with col2:
                     st.markdown("#### Book ID Generator")
                     book_id_input = st.number_input("Book ID", min_value=1, value=1, key="book_id_gen")
-                    if st.button("🔄 Generate Book ID", key="gen_book_id"):
+                    if st.button(" Generate Book ID", key="gen_book_id"):
                         try:
                             unique_id = unique_id_gen.generate_book_id()
-                            st.success(f"✅ Generated: **{unique_id}**")
+                            st.success(f" Generated: **{unique_id}**")
                             st.code(f"Format: BK-{datetime.now().year}-{str(book_id_input).zfill(6)}")
                         except Exception as e:
                             st.error(f"Error: {e}")
                 
-                st.markdown("---")
-                st.info("💡 **Tip:** These IDs can be used for tracking and barcode generation")
+                st.divider()
+                st.info(" **Tip:** These IDs can be used for tracking and barcode generation")
             
             # Tab 2: Calendar View
             with smart_tabs[1]:
-                st.markdown("### 📅 Borrowing Calendar View")
+                st.markdown("###  Borrowing Calendar View")
                 st.caption("Visual overview of all active loans and due dates")
                 
-                if st.button("🔄 Load Calendar", key="load_calendar"):
+                if st.button(" Load Calendar", key="load_calendar"):
                     with st.spinner("Loading calendar..."):
                         calendar_data = SmartUtilities.create_borrowing_calendar()
                         
                         if calendar_data:
-                            st.success(f"✅ Found {len(calendar_data)} active loans")
+                            st.success(f" Found {len(calendar_data)} active loans")
                             
                             # Display in table format
                             df = pd.DataFrame(calendar_data)
                             st.dataframe(df, use_container_width=True, hide_index=True)
                             
                             # Show urgent items
-                            st.markdown("#### ⚠️ Due Soon")
+                            st.markdown("####  Due Soon")
                             urgent = [item for item in calendar_data if item['days_until_due'] <= 3]
                             if urgent:
                                 for item in urgent:
                                     color = "red" if item['days_until_due'] < 0 else "orange"
-                                    st.markdown(f":{color}[📚 **{item['title']}** - {item['user']} - Due: {item['due_date']} ({item['days_until_due']} days)]")
+                                    st.markdown(f":{color}[ **{item['title']}** - {item['user']} - Due: {item['due_date']} ({item['days_until_due']} days)]")
                             else:
-                                st.success("✅ No urgent returns")
+                                st.success(" No urgent returns")
                         else:
                             st.info("No active loans")
             
             # Tab 3: Barcode & QR Generator
             with smart_tabs[2]:
-                st.markdown("### 📊 Barcode & QR Code Generator")
+                st.markdown("###  Barcode & QR Code Generator")
                 st.caption("Generate barcodes and QR codes for books and users")
                 
-                col1, col2 = st.columns(2)
+                col1, col2 = st.columns(2, gap="small")
                 
                 with col1:
                     st.markdown("#### Book Barcode")
                     book_id_barcode = st.number_input("Book ID", min_value=1, value=1, key="book_barcode")
-                    if st.button("📊 Generate Book Barcode", key="gen_book_barcode"):
+                    if st.button(" Generate Book Barcode", key="gen_book_barcode"):
                         try:
                             barcode_img = SmartUtilities.generate_book_barcode(book_id_barcode)
                             if barcode_img:
                                 st.image(barcode_img, caption=f"Book {book_id_barcode} Barcode")
-                                st.success("✅ Barcode generated successfully")
+                                st.success(" Barcode generated successfully")
                             else:
                                 st.error("Failed to generate barcode")
                         except Exception as e:
@@ -7884,23 +7883,23 @@ def show_system_tools():
                 with col2:
                     st.markdown("#### User QR Code")
                     user_id_qr = st.number_input("User ID", min_value=1, value=1, key="user_qr")
-                    if st.button("📱 Generate User QR", key="gen_user_qr"):
+                    if st.button(" Generate User QR", key="gen_user_qr"):
                         try:
                             qr_img = SmartUtilities.generate_user_qr(user_id_qr)
                             if qr_img:
                                 st.image(qr_img, caption=f"User {user_id_qr} QR Code", width=200)
-                                st.success("✅ QR code generated successfully")
+                                st.success(" QR code generated successfully")
                             else:
                                 st.error("Failed to generate QR code")
                         except Exception as e:
                             st.error(f"Error: {e}")
                 
-                st.markdown("---")
-                st.info("💡 **Tip:** Scan QR codes with mobile devices for quick access")
+                st.divider()
+                st.info(" **Tip:** Scan QR codes with mobile devices for quick access")
             
             # Tab 4: Book Recommendations
             with smart_tabs[3]:
-                st.markdown("### 🎯 Book Recommendation Engine")
+                st.markdown("###  Book Recommendation Engine")
                 st.caption("AI-powered book recommendations based on similarity")
                 
                 book_search = st.text_input("Search for a book", key="rec_search")
@@ -7921,15 +7920,15 @@ def show_system_tools():
                             format_func=lambda x: f"{x['title']} by {x['author']}"
                         )
                         
-                        if st.button("🔍 Get Recommendations", key="get_recs"):
+                        if st.button(" Get Recommendations", key="get_recs"):
                             with st.spinner("Analyzing..."):
                                 recommendations = SmartUtilities.get_book_recommendations(selected_book['book_id'])
                                 
                                 if recommendations:
-                                    st.success(f"✅ Found {len(recommendations)} similar books")
+                                    st.success(f" Found {len(recommendations)} similar books")
                                     
                                     for rec in recommendations:
-                                        with st.expander(f"📚 {rec['title']} by {rec['author']}"):
+                                        with st.expander(f" {rec['title']} by {rec['author']}"):
                                             st.write(f"**Genre:** {rec['genre']}")
                                             st.write(f"**Similarity:** {rec.get('similarity_score', 0):.1f}%")
                                             st.write(f"**ISBN:** {rec.get('isbn', 'N/A')}")
@@ -7940,12 +7939,12 @@ def show_system_tools():
             
             # Tab 5: Spell Checker
             with smart_tabs[4]:
-                st.markdown("### 🔤 Local Spell Checker")
+                st.markdown("###  Local Spell Checker")
                 st.caption("Check spelling for book titles and descriptions")
                 
                 text_to_check = st.text_area("Enter text to check", height=150, key="spell_check_text")
                 
-                if st.button("✓ Check Spelling", key="check_spell"):
+                if st.button(" Check Spelling", key="check_spell"):
                     if text_to_check:
                         # Simple spell check using fuzzy matching against known words
                         words = text_to_check.split()
@@ -7973,22 +7972,22 @@ def show_system_tools():
                                     })
                             
                             if suspicious_words:
-                                st.warning(f"⚠️ Found {len(suspicious_words)} potential issues:")
+                                st.warning(f" Found {len(suspicious_words)} potential issues:")
                                 for item in suspicious_words:
-                                    st.write(f"- **{item['word']}** → Did you mean: *{item['suggestion']}*? (Confidence: {item['score']}%)")
+                                    st.write(f"- **{item['word']}** -> Did you mean: *{item['suggestion']}*? (Confidence: {item['score']}%)")
                             else:
-                                st.success("✅ No spelling issues detected")
+                                st.success(" No spelling issues detected")
                     else:
                         st.warning("Please enter text to check")
             
             # Tab 6: Book Similarity Matcher
             with smart_tabs[5]:
-                st.markdown("### 🔍 Book Similarity Matcher")
+                st.markdown("###  Book Similarity Matcher")
                 st.caption("Find duplicate or similar books using fuzzy matching")
                 
                 threshold = st.slider("Similarity Threshold (%)", 60, 100, 80, key="similarity_threshold")
                 
-                if st.button("🔍 Find Similar Books", key="find_similar"):
+                if st.button(" Find Similar Books", key="find_similar"):
                     with st.spinner("Analyzing entire catalog..."):
                         all_books = Database.execute_query("""
                             SELECT b.book_id, b.title, b.isbn, b.author
@@ -8031,11 +8030,11 @@ def show_system_tools():
                                         checked.add(book2['book_id'])
                             
                             if duplicates:
-                                st.warning(f"⚠️ Found {len(duplicates)} potential matches:")
+                                st.warning(f" Found {len(duplicates)} potential matches:")
                                 
                                 for dup in duplicates:
                                     with st.expander(f"Match {dup['similarity']:.1f}% similarity"):
-                                        col1, col2 = st.columns(2)
+                                        col1, col2 = st.columns(2, gap="small")
                                         with col1:
                                             st.write("**Book 1:**")
                                             st.write(f"Title: {dup['book1']['title']}")
@@ -8047,29 +8046,29 @@ def show_system_tools():
                                             st.write(f"Author: {dup['book2']['author']}")
                                             st.write(f"ISBN: {dup['book2']['isbn']}")
                             else:
-                                st.success(f"✅ No similar books found at {threshold}% threshold")
+                                st.success(f" No similar books found at {threshold}% threshold")
                         else:
                             st.info("Not enough books to compare")
     
     # Data Management (Functional Admin Only)
     if user.get('is_functional_admin') and len(tabs) > 5:
         with tabs[5]:
-            st.subheader("🗄️ Data Management & Configuration")
+            st.subheader(" Data Management & Configuration")
             
             data_tabs = st.tabs([
-                "⚙️ JSON Config", 
-                "💾 SQLite Storage", 
-                "🗑️ Temp Files",
-                "💾 Auto-Save",
-                "🔄 Data Sync"
+                " JSON Config", 
+                " SQLite Storage", 
+                " Temp Files",
+                " Auto-Save",
+                " Data Sync"
             ])
             
             # Tab 1: JSON Configuration
             with data_tabs[0]:
-                st.markdown("### ⚙️ JSON Configuration Manager")
+                st.markdown("###  JSON Configuration Manager")
                 st.caption("View and manage application configuration")
                 
-                col1, col2 = st.columns([2, 1])
+                col1, col2 = st.columns([2, 1], gap="small")
                 
                 with col1:
                     st.markdown("#### Current Configuration")
@@ -8084,25 +8083,25 @@ def show_system_tools():
                 with col2:
                     st.markdown("#### Actions")
                     
-                    if st.button("💾 Save Config", key="save_config"):
+                    if st.button(" Save Config", key="save_config"):
                         with st.spinner("Saving configuration..."):
                             success, msg = Config.save_config()
                             if success:
-                                st.success(f"✅ {msg}")
+                                st.success(f" {msg}")
                             else:
-                                st.error(f"❌ {msg}")
+                                st.error(f" {msg}")
                     
-                    if st.button("🔄 Load Config", key="load_config"):
+                    if st.button(" Load Config", key="load_config"):
                         with st.spinner("Loading configuration..."):
                             success, msg = Config.load_config()
                             if success:
-                                st.success(f"✅ {msg}")
+                                st.success(f" {msg}")
                                 st.rerun()
                             else:
-                                st.error(f"❌ {msg}")
+                                st.error(f" {msg}")
                     
-                    st.markdown("---")
-                    st.info("💡 **Tip:** Config is stored in `config.json`")
+                    st.divider()
+                    st.info(" **Tip:** Config is stored in `config.json`")
                     
                     if os.path.exists(Config.CONFIG_FILE):
                         file_size = os.path.getsize(Config.CONFIG_FILE)
@@ -8110,17 +8109,17 @@ def show_system_tools():
             
             # Tab 2: SQLite Storage
             with data_tabs[1]:
-                st.markdown("### �️ SQLite Database")
+                st.markdown("###  SQLite Database")
                 st.caption("Main database storage and status")
                 
-                col1, col2 = st.columns([2, 1])
+                col1, col2 = st.columns([2, 1], gap="small")
                 
                 with col1:
                     st.markdown("#### Database Status")
                     
                     if os.path.exists(Config.SQLITE_DB):
                         file_size = os.path.getsize(Config.SQLITE_DB) / 1024  # KB
-                        st.success(f"✅ SQLite database exists ({file_size:.2f} KB)")
+                        st.success(f" SQLite database exists ({file_size:.2f} KB)")
                         
                         # Get database stats
                         books = Database.execute_query("SELECT COUNT(*) as count FROM books")
@@ -8128,7 +8127,7 @@ def show_system_tools():
                         transactions = Database.execute_query("SELECT COUNT(*) as count FROM transactions")
                         
                         if books and users and transactions:
-                            col_a, col_b, col_c = st.columns(3)
+                            col_a, col_b, col_c = st.columns(3, gap="small")
                             with col_a:
                                 st.metric("Books", books[0]['count'])
                             with col_b:
@@ -8136,21 +8135,21 @@ def show_system_tools():
                             with col_c:
                                 st.metric("Transactions", transactions[0]['count'])
                     else:
-                        st.warning("⚠️ SQLite database not found")
+                        st.warning(" SQLite database not found")
                 
                 with col2:
                     st.markdown("#### Actions")
                     
-                    if st.button("🔧 Initialize Database", key="init_db"):
+                    if st.button(" Initialize Database", key="init_db"):
                         with st.spinner("Initializing database..."):
                             success = Database.init_pool()
                             if success:
-                                st.success("✅ Database initialized successfully")
+                                st.success(" Database initialized successfully")
                                 st.rerun()
                             else:
-                                st.error("❌ Database initialization failed")
+                                st.error(" Database initialization failed")
                     
-                    if st.button("� Database Info", key="db_info"):
+                    if st.button(" Database Info", key="db_info"):
                         with st.spinner("Getting database information..."):
                             try:
                                 tables = Database.execute_query("""
@@ -8159,23 +8158,23 @@ def show_system_tools():
                                     ORDER BY name
                                 """)
                                 if tables:
-                                    st.success(f"✅ Found {len(tables)} tables")
+                                    st.success(f" Found {len(tables)} tables")
                                     for table in tables:
                                         st.text(f"• {table['name']}")
                                 else:
                                     st.info("No tables found")
                             except Exception as e:
-                                st.error(f"❌ Error: {e}")
+                                st.error(f" Error: {e}")
                     
-                    st.markdown("---")
-                    st.info("💡 **Tip:** Local storage enables offline access")
+                    st.divider()
+                    st.info(" **Tip:** Local storage enables offline access")
             
             # Tab 3: Temp Files
             with data_tabs[2]:
-                st.markdown("### 🗑️ Temporary File Management")
+                st.markdown("###  Temporary File Management")
                 st.caption("Manage temporary files and cleanup")
                 
-                col1, col2 = st.columns([2, 1])
+                col1, col2 = st.columns([2, 1], gap="small")
                 
                 with col1:
                     st.markdown("#### Temp Directory Status")
@@ -8192,47 +8191,47 @@ def show_system_tools():
                                 if os.path.isfile(filepath):
                                     size = os.path.getsize(filepath) / 1024  # KB
                                     mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
-                                    st.text(f"📄 {filename} ({size:.2f} KB) - {mtime.strftime('%Y-%m-%d %H:%M')}")
+                                    st.text(f" {filename} ({size:.2f} KB) - {mtime.strftime('%Y-%m-%d %H:%M')}")
                         else:
-                            st.success("✅ No temp files")
+                            st.success(" No temp files")
                     else:
-                        st.warning("⚠️ Temp directory not initialized")
+                        st.warning(" Temp directory not initialized")
                 
                 with col2:
                     st.markdown("#### Actions")
                     
-                    if st.button("🔧 Initialize Temp Dir", key="init_temp"):
+                    if st.button(" Initialize Temp Dir", key="init_temp"):
                         success = TempFileManager.init_temp_dir()
                         if success:
-                            st.success("✅ Temp directory initialized")
+                            st.success(" Temp directory initialized")
                             st.rerun()
                         else:
-                            st.error("❌ Failed to initialize")
+                            st.error(" Failed to initialize")
                     
                     hours = st.number_input("Clean files older than (hours)", min_value=1, value=24, key="clean_hours")
                     
-                    if st.button("🗑️ Clean Temp Files", key="clean_temp"):
+                    if st.button(" Clean Temp Files", key="clean_temp"):
                         with st.spinner("Cleaning temp files..."):
                             count = TempFileManager.clean_temp_files(hours)
-                            st.success(f"✅ Cleaned {count} temp files")
+                            st.success(f" Cleaned {count} temp files")
                             st.rerun()
                     
-                    st.markdown("---")
-                    st.info("💡 **Tip:** Clean old files regularly to save space")
+                    st.divider()
+                    st.info(" **Tip:** Clean old files regularly to save space")
             
             # Tab 4: Auto-Save
             with data_tabs[3]:
-                st.markdown("### 💾 Auto-Save Manager")
+                st.markdown("###  Auto-Save Manager")
                 st.caption("View and manage auto-saved form data")
                 
-                col1, col2 = st.columns([2, 1])
+                col1, col2 = st.columns([2, 1], gap="small")
                 
                 with col1:
                     st.markdown("#### Auto-Save Status")
                     
                     if os.path.exists(Config.AUTO_SAVE_FILE):
                         file_size = os.path.getsize(Config.AUTO_SAVE_FILE) / 1024  # KB
-                        st.success(f"✅ Auto-save file exists ({file_size:.2f} KB)")
+                        st.success(f" Auto-save file exists ({file_size:.2f} KB)")
                         
                         # Load and display auto-save data
                         try:
@@ -8244,14 +8243,14 @@ def show_system_tools():
                             if auto_save_data:
                                 st.markdown("#### Saved Forms")
                                 for form_name, data in auto_save_data.items():
-                                    with st.expander(f"📝 {form_name}"):
+                                    with st.expander(f" {form_name}"):
                                         st.json(data)
                             else:
                                 st.info("No saved forms")
                         except Exception as e:
                             st.error(f"Error loading auto-save data: {e}")
                     else:
-                        st.info("ℹ️ No auto-save file")
+                        st.info("ℹ No auto-save file")
                 
                 with col2:
                     st.markdown("#### Actions")
@@ -8266,25 +8265,25 @@ def show_system_tools():
                             if form_names:
                                 selected_form = st.selectbox("Select Form", form_names, key="form_select")
                                 
-                                if st.button("🗑️ Clear Form", key="clear_form"):
+                                if st.button(" Clear Form", key="clear_form"):
                                     success = AutoSaveManager.clear_form_data(selected_form)
                                     if success:
-                                        st.success(f"✅ Cleared {selected_form}")
+                                        st.success(f" Cleared {selected_form}")
                                         st.rerun()
                                     else:
-                                        st.error("❌ Failed to clear")
+                                        st.error(" Failed to clear")
                         except:
                             pass
                     
-                    st.markdown("---")
-                    st.info("💡 **Tip:** Auto-save prevents data loss on form errors")
+                    st.divider()
+                    st.info(" **Tip:** Auto-save prevents data loss on form errors")
             
             # Tab 5: Data Sync
             with data_tabs[4]:
-                st.markdown("### 🔄 Data Synchronization")
+                st.markdown("###  Data Synchronization")
                 st.caption("Sync data between MariaDB and SQLite")
                 
-                col1, col2 = st.columns([2, 1])
+                col1, col2 = st.columns([2, 1], gap="small")
                 
                 with col1:
                     st.markdown("#### Sync Status")
@@ -8292,22 +8291,22 @@ def show_system_tools():
                     sync_status = DataSyncManager.get_sync_status()
                     
                     if sync_status:
-                        st.success(f"✅ Last sync: {sync_status['synced_at']}")
+                        st.success(f" Last sync: {sync_status['synced_at']}")
                         st.write(f"**Type:** {sync_status['sync_type']}")
                         st.write(f"**Status:** {sync_status['status']}")
                         st.write(f"**Message:** {sync_status['message']}")
                     else:
-                        st.warning("⚠️ No sync history")
+                        st.warning(" No sync history")
                     
-                    st.markdown("---")
+                    st.divider()
                     st.markdown("#### Data Consistency Check")
                     
-                    if st.button("🔍 Check Consistency", key="check_consistency"):
+                    if st.button(" Check Consistency", key="check_consistency"):
                         with st.spinner("Checking data consistency..."):
                             consistency = DataSyncManager.verify_data_consistency()
                             
                             if consistency:
-                                col_a, col_b, col_c = st.columns(3)
+                                col_a, col_b, col_c = st.columns(3, gap="small")
                                 
                                 with col_a:
                                     st.metric("MariaDB Books", consistency['mariadb_count'])
@@ -8317,32 +8316,32 @@ def show_system_tools():
                                     st.metric("Difference", consistency['difference'])
                                 
                                 if consistency['in_sync']:
-                                    st.success("✅ Data is in sync!")
+                                    st.success(" Data is in sync!")
                                 else:
-                                    st.warning(f"⚠️ {consistency['difference']} records out of sync")
+                                    st.warning(f" {consistency['difference']} records out of sync")
                             else:
-                                st.error("❌ Failed to check consistency")
+                                st.error(" Failed to check consistency")
                 
                 with col2:
                     st.markdown("#### Actions")
                     
-                    if st.button("🔄 Sync to Local", key="sync_to_local", type="primary"):
+                    if st.button(" Sync to Local", key="sync_to_local", type="primary"):
                         with st.spinner("Syncing data to local storage..."):
                             success, msg = DataSyncManager.sync_to_local()
                             if success:
-                                st.success(f"✅ {msg}")
+                                st.success(f" {msg}")
                                 st.rerun()
                             else:
-                                st.error(f"❌ {msg}")
+                                st.error(f" {msg}")
                     
-                    st.markdown("---")
-                    st.info("💡 **Tip:** Regular syncing keeps local data up-to-date")
+                    st.divider()
+                    st.info(" **Tip:** Regular syncing keeps local data up-to-date")
     
     # Send Reminders Tab (Always available for admin)
     reminder_tab_index = 6 if user.get('is_functional_admin') else 4
     if len(tabs) > reminder_tab_index:
         with tabs[reminder_tab_index]:
-            st.subheader("📬 Send Return Reminders")
+            st.subheader(" Send Return Reminders")
             
             st.markdown("""
             Send automated return reminders to members with:
@@ -8365,33 +8364,33 @@ def show_system_tools():
             """)
             
             if affected:
-                st.info(f"📊 **{len(affected)}** members will receive reminders")
+                st.info(f" **{len(affected)}** members will receive reminders")
                 
                 # Show preview
-                with st.expander("👥 View Recipients"):
+                with st.expander(" View Recipients"):
                     for member in affected[:10]:  # Show first 10
                         days = member['days_until_due']
-                        status = "⚠️ OVERDUE" if days < 0 else "📅 DUE TODAY" if days == 0 else f"⏰ Due in {days} days"
+                        status = " OVERDUE" if days < 0 else " DUE TODAY" if days == 0 else f"Due in {days} days"
                         st.write(f"- {member['full_name']} ({member['email']}) - **{member['title']}** - {status}")
                     
                     if len(affected) > 10:
                         st.caption(f"... and {len(affected) - 10} more")
                 
-                st.markdown("---")
+                st.divider()
                 
                 # Send button
-                col1, col2 = st.columns([2, 1])
+                col1, col2 = st.columns([2, 1], gap="small")
                 with col1:
-                    st.warning("⚠️ This will send notification to all affected members")
+                    st.warning(" This will send notification to all affected members")
                 
                 with col2:
-                    if st.button("📨 Send Reminders Now", type="primary", use_container_width=True):
+                    if st.button(" Send Reminders Now", type="primary", use_container_width=True):
                         with st.spinner("Sending reminders..."):
                             sent_count = EmailService.send_bulk_reminders()
-                            st.success(f"✅ Sent {sent_count} reminders successfully!")
+                            st.success(f" Sent {sent_count} reminders successfully!")
                             st.balloons()
             else:
-                st.success("✅ No reminders needed - all books returned on time!")
+                st.success(" No reminders needed - all books returned on time!")
 
 
 
@@ -8404,7 +8403,7 @@ def main():
     # Page config
     st.set_page_config(
         page_title="LitGrid - Library Management",
-        page_icon="📚",
+        page_icon="",
         layout="wide"
     )
     
@@ -8425,44 +8424,44 @@ def main():
         
         # Sidebar
         with st.sidebar:
-            st.markdown("---")
-            st.markdown(f"### 👤 {user['full_name']}")
+            st.divider()
+            st.markdown(f"###  {user['full_name']}")
             st.caption(f"{user['role'].title()} | {user['member_tier'].title()}")
             
             if user['fine_balance'] > 0:
-                st.warning(f"⚠️ Fine: {format_currency(user['fine_balance'])}")
+                st.warning(f" Fine: {format_currency(user['fine_balance'])}")
             
             # Show notifications badge
             notifications = EmailService.get_user_notifications(user['email'])
             unread_count = len(notifications)
             if unread_count > 0:
-                st.info(f"🔔 {unread_count} new notification{'s' if unread_count != 1 else ''}")
+                st.info(f" {unread_count} new notification{'s' if unread_count != 1 else ''}")
                 
-                with st.expander("📬 View Notifications"):
+                with st.expander(" View Notifications"):
                     for notif in notifications[-5:]:  # Show last 5
                         st.markdown(f"**{notif['subject']}**")
                         st.caption(format_datetime(notif['timestamp']))
-                        if st.button("📖 Read", key=f"notif_{notif['timestamp']}"):
+                        if st.button(" Read", key=f"notif_{notif['timestamp']}"):
                             st.info(notif['message'])
-                        st.markdown("---")
+                        st.divider()
             
-            st.markdown("---")
+            st.divider()
             
             # Menu
-            menu = ["Dashboard", "Browse Books", "My Account", "📚 My Library", "🌐 Browse Community"]
+            menu = ["Dashboard", "Browse Books", "My Account", " My Library", " Browse Community"]
             
             if user['role'] in ['admin', 'librarian']:
-                menu.extend(["Manage Books", "Manage Members", "Borrowing & Returns", "Reports", "⚙️ System Tools"])
+                menu.extend(["Manage Books", "Manage Members", "Borrowing & Returns", "Reports", " System Tools"])
             
-            choice = st.radio("📚 Navigation", menu, label_visibility="collapsed")
+            choice = st.radio(" Navigation", menu, label_visibility="collapsed")
             
-            st.markdown("---")
-            if st.button("🚪 Logout", use_container_width=True):
+            st.divider()
+            if st.button(" Logout", use_container_width=True):
                 Auth.logout()
                 st.rerun()
             
             # Developer Info
-            st.markdown("---")
+            st.divider()
             st.markdown("""
                 <div style='text-align: center; padding: 10px;'>
                     <p style='font-size: 12px; color: #666; margin-bottom: 8px;'>Developed by</p>
@@ -8488,9 +8487,9 @@ def main():
             show_books()
         elif choice == "My Account":
             show_account()
-        elif choice == "📚 My Library":
+        elif choice == " My Library":
             show_my_library()
-        elif choice == "🌐 Browse Community":
+        elif choice == " Browse Community":
             show_community_library()
         elif choice == "Manage Books":
             show_manage_books()
@@ -8500,7 +8499,7 @@ def main():
             show_borrowing_returns()
         elif choice == "Reports":
             show_reports()
-        elif choice == "⚙️ System Tools":
+        elif choice == " System Tools":
             show_system_tools()
 
 if __name__ == "__main__":
