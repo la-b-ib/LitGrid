@@ -3830,8 +3830,8 @@ def show_dashboard():
 
         # Performance metrics
         circulation_rate = 0
-        if inventory_total and inventory_total['count'] > 0 and active_borrowings:
-            circulation_rate = (active_borrowings['count'] / inventory_total['count']) * 100
+        if total_inventory and total_inventory['count'] > 0 and active_borrowings:
+            circulation_rate = (active_borrowings['count'] / total_inventory['count']) * 100
 
         availability_rate = 0
         if total_inventory and total_inventory['count'] > 0:
