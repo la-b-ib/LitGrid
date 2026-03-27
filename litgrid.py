@@ -4993,9 +4993,6 @@ def show_login_page():
                 render_dynamic_password_reset_panel()
         
         with tab2:
-            st.markdown("### **User Registration**")
-            st.caption("Choose account type: Member for borrowing library items, or Staff (Admin/Librarian) for library management")
-
             # Create nested subtabs for Member and Admin registration
             sub_tab1, sub_tab2 = st.tabs(["Register as Member", "Register as Staff"])
 
