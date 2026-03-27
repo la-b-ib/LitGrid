@@ -11319,7 +11319,7 @@ def show_my_library():
     
     user = Auth.get_user()
     
-    tabs = st.tabs([" My PDFs", " Upload PDF", " Privacy Settings", " My Profile"])
+    tabs = st.tabs([" My PDFs", " Upload PDF", " Privacy Settings", " My Profile", " Browse Community"])
     
     # Tab 1: My PDFs
     with tabs[0]:
@@ -11502,9 +11502,16 @@ def show_my_library():
                 if qr_data:
                     st.image(qr_data, width=200)
 
-def show_community_library():
+    # Tab 5: Browse Community
+    with tabs[4]:
+        show_community_library(embedded=True)
+
+def show_community_library(embedded=False):
     """Browse Community Library"""
-    st.title(" Community Library")
+    if embedded:
+        st.subheader(" Community Library")
+    else:
+        st.title(" Community Library")
     
     st.markdown("Browse and read PDFs shared by other users")
     
@@ -11748,7 +11755,7 @@ def show_community_library():
                     rating_data = ProfileCommentsManager.get_average_profile_rating(st.session_state.viewing_user)
                     st.metric("Average Rating", f"{rating_data['avg_rating']:.1f} ")
         
-        if st.button(" Back to Community"):
+        if st.button(" Back to Community", key="back_to_community_embedded" if embedded else "back_to_community_page"):
             del st.session_state.viewing_user
             st.rerun()
 
@@ -12628,7 +12635,7 @@ def main():
             st.divider()
             
             # Menu
-            menu = ["Dashboard", "Browse Books", "My Account", " My Library", " Browse Community"]
+            menu = ["Dashboard", "Browse Books", "My Account", " My Library"]
             
             if user['role'] in ['admin', 'librarian', 'superadmin']:
                 menu.extend(["Manage Books", "Manage Members", "Borrowing & Returns", "Reports", " System Tools"])
@@ -12669,8 +12676,6 @@ def main():
             show_account()
         elif choice == " My Library":
             show_my_library()
-        elif choice == " Browse Community":
-            show_community_library()
         elif choice == "Manage Books":
             show_manage_books()
         elif choice == "Manage Members":
