@@ -8725,58 +8725,81 @@ def show_account():
     with tab5:
         st.subheader("Privacy, Visibility, and Anonymous Mode")
 
+        # Determine storage mode (database or ephemeral session)
+        privacy_storage_mode = "database"
         if account['user_id'] <= 0:
-            st.info("Privacy controls are available for persisted database accounts only.")
-        else:
+            privacy_storage_mode = "session"
+            if 'privacy_settings_ephemeral' not in st.session_state:
+                st.session_state.privacy_settings_ephemeral = {
+                    'anonymous_mode_enabled': 0,
+                    'anonymous_alias': generate_anonymous_alias(),
+                    'anonymous_avatar_style': 'geometric',
+                    'anonymous_rotation_hours': 72,
+                    'profile_theme': 'adaptive'
+                }
+            if 'privacy_map_ephemeral' not in st.session_state:
+                st.session_state.privacy_map_ephemeral = dict(default_privacy)
+            st.info("🔄 **Session Mode**: Privacy settings persist until logout/browser reset. Create an account to save permanently.")
+
+        # Load preferences
+        if privacy_storage_mode == "database":
             dyn_pref = ensure_dynamic_preferences_row() or {}
-            raw_feature_json = dyn_pref.get('feature_json')
-            try:
-                persisted_features = json.loads(raw_feature_json) if raw_feature_json else {}
-                if not isinstance(persisted_features, dict):
-                    persisted_features = {}
-            except Exception:
+        else:
+            dyn_pref = st.session_state.privacy_settings_ephemeral
+
+        raw_feature_json = dyn_pref.get('feature_json')
+        try:
+            persisted_features = json.loads(raw_feature_json) if raw_feature_json else {}
+            if not isinstance(persisted_features, dict):
                 persisted_features = {}
-            feature_flags = dict(default_feature_flags)
-            feature_flags.update({k: bool(v) for k, v in persisted_features.items()})
+        except Exception:
+            persisted_features = {}
+        feature_flags = dict(default_feature_flags)
+        feature_flags.update({k: bool(v) for k, v in persisted_features.items()})
 
+        # Load privacy map
+        if privacy_storage_mode == "database":
             privacy_map = load_privacy_map()
+        else:
+            privacy_map = st.session_state.privacy_map_ephemeral
 
-            st.markdown("### Advanced Anonymous Mode")
-            with st.form("anonymous_mode_form"):
-                anon_enabled = st.checkbox(
-                    "Enable advanced anonymous mode",
-                    value=bool(dyn_pref.get('anonymous_mode_enabled', 0))
+        st.markdown("### Advanced Anonymous Mode")
+        with st.form("anonymous_mode_form"):
+            anon_enabled = st.checkbox(
+                "Enable advanced anonymous mode",
+                value=bool(dyn_pref.get('anonymous_mode_enabled', 0))
+            )
+            alias_default = dyn_pref.get('anonymous_alias') or generate_anonymous_alias()
+            anon_alias = st.text_input("Anonymous Alias", value=alias_default)
+            avatar_style = st.selectbox(
+                "Anonymous avatar style",
+                ["geometric", "abstract", "minimal", "monochrome", "retro"],
+                index=["geometric", "abstract", "minimal", "monochrome", "retro"].index(
+                    str(dyn_pref.get('anonymous_avatar_style', 'geometric'))
+                    if str(dyn_pref.get('anonymous_avatar_style', 'geometric')) in ["geometric", "abstract", "minimal", "monochrome", "retro"]
+                    else "geometric"
                 )
-                alias_default = dyn_pref.get('anonymous_alias') or generate_anonymous_alias()
-                anon_alias = st.text_input("Anonymous Alias", value=alias_default)
-                avatar_style = st.selectbox(
-                    "Anonymous avatar style",
-                    ["geometric", "abstract", "minimal", "monochrome", "retro"],
-                    index=["geometric", "abstract", "minimal", "monochrome", "retro"].index(
-                        str(dyn_pref.get('anonymous_avatar_style', 'geometric'))
-                        if str(dyn_pref.get('anonymous_avatar_style', 'geometric')) in ["geometric", "abstract", "minimal", "monochrome", "retro"]
-                        else "geometric"
-                    )
+            )
+            rotation_hours = st.slider(
+                "Alias rotation interval (hours)",
+                min_value=12,
+                max_value=336,
+                value=max(12, to_int(dyn_pref.get('anonymous_rotation_hours'), 72))
+            )
+            profile_theme = st.selectbox(
+                "Profile theme mode",
+                ["adaptive", "privacy-first", "social", "productivity", "minimal"],
+                index=["adaptive", "privacy-first", "social", "productivity", "minimal"].index(
+                    str(dyn_pref.get('profile_theme', 'adaptive'))
+                    if str(dyn_pref.get('profile_theme', 'adaptive')) in ["adaptive", "privacy-first", "social", "productivity", "minimal"]
+                    else "adaptive"
                 )
-                rotation_hours = st.slider(
-                    "Alias rotation interval (hours)",
-                    min_value=12,
-                    max_value=336,
-                    value=max(12, to_int(dyn_pref.get('anonymous_rotation_hours'), 72))
-                )
-                profile_theme = st.selectbox(
-                    "Profile theme mode",
-                    ["adaptive", "privacy-first", "social", "productivity", "minimal"],
-                    index=["adaptive", "privacy-first", "social", "productivity", "minimal"].index(
-                        str(dyn_pref.get('profile_theme', 'adaptive'))
-                        if str(dyn_pref.get('profile_theme', 'adaptive')) in ["adaptive", "privacy-first", "social", "productivity", "minimal"]
-                        else "adaptive"
-                    )
-                )
-                save_anon = st.form_submit_button("Save Anonymous Preferences", use_container_width=True)
+            )
+            save_anon = st.form_submit_button("Save Anonymous Preferences", use_container_width=True)
 
-                if save_anon:
-                    final_alias = anon_alias.strip() or generate_anonymous_alias()
+            if save_anon:
+                final_alias = anon_alias.strip() or generate_anonymous_alias()
+                if privacy_storage_mode == "database":
                     done = Database.execute_update(
                         """
                         INSERT INTO account_dynamic_preferences
@@ -8804,102 +8827,115 @@ def show_account():
                         )
                     )
                     if done:
-                        st.success("Anonymous mode settings updated.")
+                        st.success("✅ Anonymous mode settings updated.")
                     else:
-                        st.error("Failed to update anonymous mode settings.")
+                        st.error("❌ Failed to update anonymous mode settings.")
+                else:
+                    st.session_state.privacy_settings_ephemeral['anonymous_mode_enabled'] = 1 if anon_enabled else 0
+                    st.session_state.privacy_settings_ephemeral['anonymous_alias'] = final_alias
+                    st.session_state.privacy_settings_ephemeral['anonymous_avatar_style'] = avatar_style
+                    st.session_state.privacy_settings_ephemeral['anonymous_rotation_hours'] = rotation_hours
+                    st.session_state.privacy_settings_ephemeral['profile_theme'] = profile_theme
+                    st.success("✅ Anonymous mode settings saved in session mode.")
 
-            if bool(dyn_pref.get('anonymous_mode_enabled', 0)):
-                st.info(
-                    f"Anonymous profile active as '{dyn_pref.get('anonymous_alias') or 'Anonymous'}' "
-                    f"with {dyn_pref.get('anonymous_avatar_style', 'geometric')} avatar style."
+        if bool(dyn_pref.get('anonymous_mode_enabled', 0)):
+            st.info(
+                f"Anonymous profile active as '{dyn_pref.get('anonymous_alias') or 'Anonymous'}' "
+                f"with {dyn_pref.get('anonymous_avatar_style', 'geometric')} avatar style."
+            )
+
+        st.divider()
+        st.markdown("### Field-Level Privacy Matrix")
+        st.caption("Set each field to public, private, or friends-only visibility.")
+
+        with st.form("field_privacy_form"):
+            updated_privacy = {}
+            for field_name in privacy_fields:
+                label = field_name.replace('_', ' ').title()
+                value = privacy_map.get(field_name, default_privacy[field_name])
+                idx = ['public', 'friends', 'private'].index(value) if value in ['public', 'friends', 'private'] else 2
+                updated_privacy[field_name] = st.selectbox(
+                    label,
+                    ['public', 'friends', 'private'],
+                    index=idx,
+                    key=f"privacy_{field_name}"
                 )
 
-            st.divider()
-            st.markdown("### Field-Level Privacy Matrix")
-            st.caption("Set each field to public, private, or friends-only visibility.")
-
-            with st.form("field_privacy_form"):
-                updated_privacy = {}
-                for field_name in privacy_fields:
-                    label = field_name.replace('_', ' ').title()
-                    value = privacy_map.get(field_name, default_privacy[field_name])
-                    idx = ['public', 'friends', 'private'].index(value) if value in ['public', 'friends', 'private'] else 2
-                    updated_privacy[field_name] = st.selectbox(
-                        label,
-                        ['public', 'friends', 'private'],
-                        index=idx,
-                        key=f"privacy_{field_name}"
-                    )
-
-                save_privacy = st.form_submit_button("Save Privacy Matrix", use_container_width=True)
-                if save_privacy:
+            save_privacy = st.form_submit_button("Save Privacy Matrix", use_container_width=True)
+            if save_privacy:
+                if privacy_storage_mode == "database":
                     save_privacy_map(updated_privacy)
-                    st.success("Field-level privacy settings saved.")
+                    st.success("✅ Field-level privacy settings saved.")
+                else:
+                    st.session_state.privacy_map_ephemeral = updated_privacy
+                    st.success("✅ Field-level privacy settings saved in session mode.")
 
-            def profile_view(field_name, viewer):
-                mode = privacy_map.get(field_name, default_privacy[field_name])
-                if mode == 'public':
-                    return True
-                if mode == 'private':
-                    return viewer == 'private'
-                return viewer in ['friends', 'private']
+        def profile_view(field_name, viewer):
+            mode = privacy_map.get(field_name, default_privacy[field_name])
+            if mode == 'public':
+                return True
+            if mode == 'private':
+                return viewer == 'private'
+            return viewer in ['friends', 'private']
 
-            st.markdown("### Visibility Preview")
-            preview_cols = st.columns(3, gap='small')
-            viewers = ['public', 'friends', 'private']
-            for i, viewer in enumerate(viewers):
-                with preview_cols[i]:
-                    st.write(f"**{viewer.title()} View**")
-                    shown = [f for f in privacy_fields if profile_view(f, viewer)]
-                    hidden = [f for f in privacy_fields if f not in shown]
-                    st.caption("Visible: " + (', '.join(shown) if shown else 'none'))
-                    st.caption("Hidden: " + (', '.join(hidden) if hidden else 'none'))
+        st.markdown("### Visibility Preview")
+        preview_cols = st.columns(3, gap='small')
+        viewers = ['public', 'friends', 'private']
+        for i, viewer in enumerate(viewers):
+            with preview_cols[i]:
+                st.write(f"**{viewer.title()} View**")
+                shown = [f for f in privacy_fields if profile_view(f, viewer)]
+                hidden = [f for f in privacy_fields if f not in shown]
+                st.caption("Visible: " + (', '.join(shown) if shown else 'none'))
+                st.caption("Hidden: " + (', '.join(hidden) if hidden else 'none'))
 
-            st.divider()
-            st.markdown("### Friends & Access Graph")
+        st.divider()
+        st.markdown("### Friends & Access Graph")
 
-            fr1, fr2 = st.columns(2, gap='small')
-            with fr1:
-                target_username = st.text_input("Send friend request to username", key="friends_target_username")
-                if st.button("Send Friend Request", use_container_width=True):
-                    if not target_username.strip():
-                        st.error("Enter a username.")
+        fr1, fr2 = st.columns(2, gap='small')
+        with fr1:
+            target_username = st.text_input("Send friend request to username", key="friends_target_username")
+            if st.button("Send Friend Request", use_container_width=True):
+                if not target_username.strip():
+                    st.error("Enter a username.")
+                else:
+                    target = Database.execute_query(
+                        "SELECT user_id, username FROM users WHERE LOWER(username) = LOWER(?) AND is_active = 1",
+                        (target_username.strip(),),
+                        fetch_one=True
+                    )
+                    if not target:
+                        st.error("User not found.")
+                    elif privacy_storage_mode == "session":
+                        st.error("Friend requests are only available for persisted accounts.")
+                    elif to_int(target['user_id']) == account['user_id']:
+                        st.error("You cannot send a friend request to yourself.")
                     else:
-                        target = Database.execute_query(
-                            "SELECT user_id, username FROM users WHERE LOWER(username) = LOWER(?) AND is_active = 1",
-                            (target_username.strip(),),
+                        exists = Database.execute_query(
+                            """
+                            SELECT friendship_id FROM friendships
+                            WHERE (requester_user_id = ? AND addressee_user_id = ?)
+                               OR (requester_user_id = ? AND addressee_user_id = ?)
+                            """,
+                            (account['user_id'], target['user_id'], target['user_id'], account['user_id']),
                             fetch_one=True
                         )
-                        if not target:
-                            st.error("User not found.")
-                        elif to_int(target['user_id']) == account['user_id']:
-                            st.error("You cannot send a friend request to yourself.")
+                        if exists:
+                            st.warning("Friend relationship already exists or is pending.")
                         else:
-                            exists = Database.execute_query(
+                            sent = Database.execute_update(
                                 """
-                                SELECT friendship_id FROM friendships
-                                WHERE (requester_user_id = ? AND addressee_user_id = ?)
-                                   OR (requester_user_id = ? AND addressee_user_id = ?)
+                                INSERT INTO friendships
+                                (requester_user_id, addressee_user_id, status, created_at)
+                                VALUES (?, ?, 'pending', datetime('now'))
                                 """,
-                                (account['user_id'], target['user_id'], target['user_id'], account['user_id']),
-                                fetch_one=True
+                                (account['user_id'], target['user_id'])
                             )
-                            if exists:
-                                st.warning("Friend relationship already exists or is pending.")
+                            if sent:
+                                st.success(f"Friend request sent to {target['username']}.")
+                                st.rerun()
                             else:
-                                sent = Database.execute_update(
-                                    """
-                                    INSERT INTO friendships
-                                    (requester_user_id, addressee_user_id, status, created_at)
-                                    VALUES (?, ?, 'pending', datetime('now'))
-                                    """,
-                                    (account['user_id'], target['user_id'])
-                                )
-                                if sent:
-                                    st.success(f"Friend request sent to {target['username']}.")
-                                    st.rerun()
-                                else:
-                                    st.error("Failed to send friend request.")
+                                st.error("Failed to send friend request.")
 
             with fr2:
                 incoming = Database.execute_query(
