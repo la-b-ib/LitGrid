@@ -8882,7 +8882,11 @@ def show_account():
                         # Map radio choice to lowercase
                         updated_privacy[field_name] = privacy_choice.lower()
 
-                save_privacy = st.form_submit_button("💾 Save Privacy Matrix", use_container_width=True)
+            save_privacy = st.form_submit_button(
+                "💾 Save Privacy Matrix",
+                use_container_width=True,
+                key="field_privacy_form_submit"
+            )
         
             if save_privacy:
                 if privacy_storage_mode == "database":
