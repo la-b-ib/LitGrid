@@ -3296,6 +3296,54 @@ class Database:
                     FOREIGN KEY (user_id) REFERENCES users(user_id)
                 )
             ''',
+            'account_dynamic_preferences': '''
+                CREATE TABLE IF NOT EXISTS account_dynamic_preferences (
+                    pref_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL UNIQUE,
+                    anonymous_mode_enabled INTEGER DEFAULT 0,
+                    anonymous_alias TEXT,
+                    anonymous_avatar_style TEXT DEFAULT 'geometric',
+                    anonymous_rotation_hours INTEGER DEFAULT 72,
+                    profile_theme TEXT DEFAULT 'adaptive',
+                    feature_json TEXT,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            ''',
+            'account_field_privacy': '''
+                CREATE TABLE IF NOT EXISTS account_field_privacy (
+                    privacy_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    field_name TEXT NOT NULL,
+                    visibility TEXT NOT NULL DEFAULT 'private',
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id),
+                    UNIQUE(user_id, field_name)
+                )
+            ''',
+            'friendships': '''
+                CREATE TABLE IF NOT EXISTS friendships (
+                    friendship_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    requester_user_id INTEGER NOT NULL,
+                    addressee_user_id INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    responded_at DATETIME,
+                    FOREIGN KEY (requester_user_id) REFERENCES users(user_id),
+                    FOREIGN KEY (addressee_user_id) REFERENCES users(user_id),
+                    UNIQUE(requester_user_id, addressee_user_id)
+                )
+            ''',
+            'account_profile_snapshots': '''
+                CREATE TABLE IF NOT EXISTS account_profile_snapshots (
+                    snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    snapshot_json TEXT NOT NULL,
+                    reason TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            ''',
             'notification_delivery_queue': '''
                 CREATE TABLE IF NOT EXISTS notification_delivery_queue (
                     queue_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3371,6 +3419,7 @@ class Database:
         ensure_column('account_notification_preferences', 'auto_scan_interval_minutes', 'INTEGER DEFAULT 60')
         ensure_column('account_deletion_requests', 'reviewed_by', 'INTEGER')
         ensure_column('account_deletion_requests', 'decision_reason', 'TEXT')
+        ensure_column('account_dynamic_preferences', 'profile_theme', "TEXT DEFAULT 'adaptive'")
         ensure_column('user_sessions', 'geo_hint', 'TEXT')
         ensure_column('user_sessions', 'trusted_device', 'INTEGER DEFAULT 0')
         ensure_column('user_sessions', 'trust_label', 'TEXT')
@@ -7031,6 +7080,7 @@ def show_account():
         'username': user.get('username', 'unknown'),
         'email': user.get('email', 'N/A'),
         'phone': user.get('phone') or 'Not provided',
+        'address': user.get('address') or '',
         'role': role,
         'member_tier': user.get('member_tier', role_defaults['member_tier']),
         'max_books_allowed': to_int(user.get('max_books_allowed'), role_defaults['max_books_allowed']),
@@ -7046,7 +7096,7 @@ def show_account():
         db_profile = Database.execute_query(
             """
             SELECT user_id, full_name, username, email, phone, role,
-                   fine_balance, is_active, member_tier, created_at, last_login
+                     address, fine_balance, is_active, member_tier, created_at, last_login
             FROM users
             WHERE user_id = ?
             """,
@@ -7058,6 +7108,7 @@ def show_account():
             account['username'] = db_profile.get('username') or account['username']
             account['email'] = db_profile.get('email') or account['email']
             account['phone'] = db_profile.get('phone') or account['phone']
+            account['address'] = db_profile.get('address') or account['address']
             account['role'] = db_profile.get('role') or account['role']
             account['member_tier'] = db_profile.get('member_tier') or account['member_tier']
             account['is_active'] = bool(db_profile.get('is_active', account['is_active']))
@@ -7068,6 +7119,166 @@ def show_account():
             defaults = default_by_role(account['role'])
             account['max_books_allowed'] = to_int(user.get('max_books_allowed'), defaults['max_books_allowed'])
             account['borrowing_days'] = to_int(user.get('borrowing_days'), defaults['borrowing_days'])
+
+    privacy_fields = [
+        'full_name', 'email', 'phone', 'address', 'member_since',
+        'last_login', 'member_tier', 'fine_balance', 'reading_stats',
+        'active_borrowing', 'recent_history', 'favorites', 'badges'
+    ]
+
+    default_privacy = {
+        'full_name': 'public',
+        'email': 'private',
+        'phone': 'friends',
+        'address': 'private',
+        'member_since': 'public',
+        'last_login': 'private',
+        'member_tier': 'public',
+        'fine_balance': 'private',
+        'reading_stats': 'friends',
+        'active_borrowing': 'private',
+        'recent_history': 'friends',
+        'favorites': 'public',
+        'badges': 'public'
+    }
+
+    dynamic_feature_catalog = [
+        ('profile_search_visibility', 'Profile appears in search'),
+        ('allow_friend_requests', 'Allow incoming friend requests'),
+        ('show_online_status', 'Show online status to friends'),
+        ('hide_last_seen', 'Hide last seen from non-friends'),
+        ('share_reading_velocity', 'Share reading velocity metrics'),
+        ('share_fine_status', 'Share fine status with friends'),
+        ('anonymous_reviews', 'Publish reviews anonymously'),
+        ('anonymous_recommendations', 'Hide identity in recommendations'),
+        ('mask_borrow_titles', 'Mask borrowed titles in public feed'),
+        ('hide_due_date_feed', 'Hide due dates from activity feed'),
+        ('public_export_links', 'Allow public profile export links'),
+        ('step_up_profile_edit', 'Require step-up auth for profile edits'),
+        ('step_up_data_export', 'Require step-up auth for exports'),
+        ('auto_revoke_idle_sessions', 'Auto revoke idle sessions'),
+        ('new_device_alerts', 'Alert on new device login'),
+        ('impossible_travel_lock', 'Auto lock impossible travel sessions'),
+        ('high_churn_lock', 'Auto lock high session churn'),
+        ('trusted_only_sensitive', 'Trusted devices for sensitive actions'),
+        ('password_rotation_reminders', 'Password rotation reminders'),
+        ('step_up_new_devices', 'Step-up challenge on new devices'),
+        ('weekly_privacy_digest', 'Weekly privacy digest'),
+        ('daily_deadline_digest', 'Daily deadline digest summary'),
+        ('weekly_activity_digest', 'Weekly activity digest'),
+        ('mute_marketing_messages', 'Mute marketing messages'),
+        ('timezone_auto_detect', 'Auto-detect timezone'),
+        ('strict_quiet_hours', 'Strict quiet-hours enforcement'),
+        ('multi_channel_bundling', 'Bundle multi-channel alerts'),
+        ('enable_snooze_actions', 'Enable reminder snooze actions'),
+        ('calendar_due_sync', 'Sync due dates to calendar'),
+        ('smart_due_bundles', 'Smartly bundle due-date reminders'),
+        ('personal_kpi_dashboard', 'Personal KPI dashboard'),
+        ('reading_goal_tracker', 'Reading goal tracker'),
+        ('streak_recovery_mode', 'Streak recovery grace mode'),
+        ('recommendation_diversity', 'Diversified recommendations'),
+        ('adaptive_home_layout', 'Adaptive home layout'),
+        ('compact_density_mode', 'Compact UI density mode'),
+        ('high_contrast_accessibility', 'High contrast accessibility'),
+        ('dyslexia_font_mode', 'Dyslexia-friendly typography'),
+        ('reduced_motion_mode', 'Reduced motion mode'),
+        ('keyboard_first_mode', 'Keyboard-first navigation mode'),
+        ('api_audit_webhooks', 'Audit webhook forwarding'),
+        ('signed_exports_only', 'Allow only signed exports'),
+        ('auto_delete_old_exports', 'Auto-delete old exports'),
+        ('retention_policy_controls', 'Data retention policy controls'),
+        ('activity_heatmap', 'Account activity heatmap'),
+        ('search_personalization_boost', 'Personalized search boost'),
+        ('availability_watch_alerts', 'Shelf availability watch alerts'),
+        ('waitlist_auto_join', 'Auto-join waitlists'),
+        ('one_click_reborrow', 'One-click reborrow actions'),
+        ('anonymous_alias_rotation', 'Automatic anonymous alias rotation')
+    ]
+
+    default_feature_flags = {key: False for key, _ in dynamic_feature_catalog}
+    default_feature_flags.update({
+        'allow_friend_requests': True,
+        'personal_kpi_dashboard': True,
+        'reading_goal_tracker': True,
+        'new_device_alerts': True,
+        'signed_exports_only': True,
+        'trusted_only_sensitive': True
+    })
+
+    def generate_anonymous_alias():
+        adjectives = ['Silent', 'Hidden', 'Masked', 'Steady', 'Nimble', 'Calm', 'Sharp', 'Quiet', 'Cipher', 'Nova']
+        nouns = ['Reader', 'Fox', 'Atlas', 'Owl', 'Raven', 'Voyager', 'Pilot', 'Scout', 'Harbor', 'Wave']
+        return f"{secrets.choice(adjectives)}{secrets.choice(nouns)}{secrets.randbelow(900)+100}"
+
+    def ensure_dynamic_preferences_row():
+        row = Database.execute_query(
+            """
+            SELECT anonymous_mode_enabled, anonymous_alias, anonymous_avatar_style,
+                   anonymous_rotation_hours, profile_theme, feature_json
+            FROM account_dynamic_preferences
+            WHERE user_id = ?
+            """,
+            (account['user_id'],),
+            fetch_one=True
+        )
+        if row:
+            return row
+
+        seed = {
+            'allow_friend_requests': True,
+            'new_device_alerts': True,
+            'personal_kpi_dashboard': True,
+            'reading_goal_tracker': True,
+            'signed_exports_only': True,
+            'trusted_only_sensitive': True
+        }
+        Database.execute_update(
+            """
+            INSERT INTO account_dynamic_preferences
+            (user_id, anonymous_mode_enabled, anonymous_alias, anonymous_avatar_style,
+             anonymous_rotation_hours, profile_theme, feature_json, updated_at)
+            VALUES (?, 0, ?, 'geometric', 72, 'adaptive', ?, datetime('now'))
+            """,
+            (account['user_id'], generate_anonymous_alias(), json.dumps(seed))
+        )
+        return Database.execute_query(
+            """
+            SELECT anonymous_mode_enabled, anonymous_alias, anonymous_avatar_style,
+                   anonymous_rotation_hours, profile_theme, feature_json
+            FROM account_dynamic_preferences
+            WHERE user_id = ?
+            """,
+            (account['user_id'],),
+            fetch_one=True
+        )
+
+    def load_privacy_map():
+        rows = Database.execute_query(
+            """
+            SELECT field_name, visibility
+            FROM account_field_privacy
+            WHERE user_id = ?
+            """,
+            (account['user_id'],)
+        ) or []
+        mapping = dict(default_privacy)
+        for row in rows:
+            if row['field_name'] in privacy_fields and row.get('visibility') in ['public', 'private', 'friends']:
+                mapping[row['field_name']] = row['visibility']
+        return mapping
+
+    def save_privacy_map(mapping):
+        for field_name in privacy_fields:
+            visibility = mapping.get(field_name, default_privacy[field_name])
+            Database.execute_update(
+                """
+                INSERT INTO account_field_privacy (user_id, field_name, visibility, updated_at)
+                VALUES (?, ?, ?, datetime('now'))
+                ON CONFLICT(user_id, field_name)
+                DO UPDATE SET visibility = excluded.visibility, updated_at = datetime('now')
+                """,
+                (account['user_id'], field_name, visibility)
+            )
 
     def has_sensitive_action_access():
         if account['user_id'] <= 0:
@@ -7285,11 +7496,13 @@ def show_account():
     if account['is_demo']:
         st.info("Demo account detected: account updates and exports are limited.")
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         " Profile & Health",
         " Reading Analytics",
         " Security & Access",
-        " Data Tools"
+        " Data Tools",
+        " Privacy & Anonymous",
+        " Feature Studio"
     ])
 
     with tab1:
@@ -7301,8 +7514,18 @@ def show_account():
             st.write(f"**Username:** {account['username']}")
             st.write(f"**Email:** {account['email']}")
             st.write(f"**Phone:** {account['phone']}")
+            st.write(f"**Address:** {account.get('address') or 'Not provided'}")
             st.write(f"**Member Since:** {format_date(account['created_at'])}")
             st.write(f"**Last Login:** {format_datetime(account['last_login'])}")
+
+            if account['user_id'] > 0:
+                anon_row = Database.execute_query(
+                    "SELECT anonymous_mode_enabled, anonymous_alias FROM account_dynamic_preferences WHERE user_id = ?",
+                    (account['user_id'],),
+                    fetch_one=True
+                )
+                if anon_row and bool(anon_row.get('anonymous_mode_enabled')):
+                    st.caption(f"Anonymous identity active: {anon_row.get('anonymous_alias') or 'Anonymous'}")
 
         with col2:
             st.subheader("Account Runtime Status")
@@ -7745,6 +7968,7 @@ def show_account():
                 new_full_name = st.text_input("Full Name", value=account['full_name'])
                 new_email = st.text_input("Email", value=account['email'])
                 new_phone = st.text_input("Phone", value='' if account['phone'] == 'Not provided' else account['phone'])
+                new_address = st.text_area("Address", value=account.get('address', ''), height=80)
 
                 submit_profile_update = st.form_submit_button("Update Profile", use_container_width=True)
 
@@ -7763,9 +7987,24 @@ def show_account():
                     elif new_email and not security_manager.validate_email(new_email):
                         st.error("Invalid email format")
                     else:
+                        Database.execute_update(
+                            """
+                            INSERT INTO account_profile_snapshots (user_id, snapshot_json, reason, created_at)
+                            VALUES (?, ?, 'before_profile_update', datetime('now'))
+                            """,
+                            (
+                                account['user_id'],
+                                json.dumps({
+                                    'full_name': account['full_name'],
+                                    'email': account['email'],
+                                    'phone': account['phone'],
+                                    'address': account.get('address', '')
+                                }, default=str)
+                            )
+                        )
                         success = Database.execute_update(
-                            "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = datetime('now') WHERE user_id = ?",
-                            (new_full_name.strip(), new_email.strip(), new_phone.strip(), account['user_id'])
+                            "UPDATE users SET full_name = ?, email = ?, phone = ?, address = ?, updated_at = datetime('now') WHERE user_id = ?",
+                            (new_full_name.strip(), new_email.strip(), new_phone.strip(), new_address.strip(), account['user_id'])
                         )
                         if success:
                             st.success("Profile updated successfully. Refreshing session data...")
@@ -7773,6 +8012,7 @@ def show_account():
                             user['full_name'] = new_full_name.strip()
                             user['email'] = new_email.strip()
                             user['phone'] = new_phone.strip()
+                            user['address'] = new_address.strip()
                             st.rerun()
                         else:
                             st.error("Failed to update profile information")
@@ -8188,6 +8428,346 @@ def show_account():
                         st.dataframe(pd.DataFrame(timeline_rows), use_container_width=True, hide_index=True)
         else:
             st.info("Data update/export is disabled for non-database accounts.")
+
+    with tab5:
+        st.subheader("Privacy, Visibility, and Anonymous Mode")
+
+        if account['user_id'] <= 0:
+            st.info("Privacy controls are available for persisted database accounts only.")
+        else:
+            dyn_pref = ensure_dynamic_preferences_row() or {}
+            raw_feature_json = dyn_pref.get('feature_json')
+            try:
+                persisted_features = json.loads(raw_feature_json) if raw_feature_json else {}
+                if not isinstance(persisted_features, dict):
+                    persisted_features = {}
+            except Exception:
+                persisted_features = {}
+            feature_flags = dict(default_feature_flags)
+            feature_flags.update({k: bool(v) for k, v in persisted_features.items()})
+
+            privacy_map = load_privacy_map()
+
+            st.markdown("### Advanced Anonymous Mode")
+            with st.form("anonymous_mode_form"):
+                anon_enabled = st.checkbox(
+                    "Enable advanced anonymous mode",
+                    value=bool(dyn_pref.get('anonymous_mode_enabled', 0))
+                )
+                alias_default = dyn_pref.get('anonymous_alias') or generate_anonymous_alias()
+                anon_alias = st.text_input("Anonymous Alias", value=alias_default)
+                avatar_style = st.selectbox(
+                    "Anonymous avatar style",
+                    ["geometric", "abstract", "minimal", "monochrome", "retro"],
+                    index=["geometric", "abstract", "minimal", "monochrome", "retro"].index(
+                        str(dyn_pref.get('anonymous_avatar_style', 'geometric'))
+                        if str(dyn_pref.get('anonymous_avatar_style', 'geometric')) in ["geometric", "abstract", "minimal", "monochrome", "retro"]
+                        else "geometric"
+                    )
+                )
+                rotation_hours = st.slider(
+                    "Alias rotation interval (hours)",
+                    min_value=12,
+                    max_value=336,
+                    value=max(12, to_int(dyn_pref.get('anonymous_rotation_hours'), 72))
+                )
+                profile_theme = st.selectbox(
+                    "Profile theme mode",
+                    ["adaptive", "privacy-first", "social", "productivity", "minimal"],
+                    index=["adaptive", "privacy-first", "social", "productivity", "minimal"].index(
+                        str(dyn_pref.get('profile_theme', 'adaptive'))
+                        if str(dyn_pref.get('profile_theme', 'adaptive')) in ["adaptive", "privacy-first", "social", "productivity", "minimal"]
+                        else "adaptive"
+                    )
+                )
+                save_anon = st.form_submit_button("Save Anonymous Preferences", use_container_width=True)
+
+                if save_anon:
+                    final_alias = anon_alias.strip() or generate_anonymous_alias()
+                    done = Database.execute_update(
+                        """
+                        INSERT INTO account_dynamic_preferences
+                        (user_id, anonymous_mode_enabled, anonymous_alias, anonymous_avatar_style,
+                         anonymous_rotation_hours, profile_theme, feature_json, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                        ON CONFLICT(user_id)
+                        DO UPDATE SET
+                            anonymous_mode_enabled = excluded.anonymous_mode_enabled,
+                            anonymous_alias = excluded.anonymous_alias,
+                            anonymous_avatar_style = excluded.anonymous_avatar_style,
+                            anonymous_rotation_hours = excluded.anonymous_rotation_hours,
+                            profile_theme = excluded.profile_theme,
+                            feature_json = COALESCE(account_dynamic_preferences.feature_json, excluded.feature_json),
+                            updated_at = datetime('now')
+                        """,
+                        (
+                            account['user_id'],
+                            1 if anon_enabled else 0,
+                            final_alias,
+                            avatar_style,
+                            rotation_hours,
+                            profile_theme,
+                            json.dumps(feature_flags)
+                        )
+                    )
+                    if done:
+                        st.success("Anonymous mode settings updated.")
+                    else:
+                        st.error("Failed to update anonymous mode settings.")
+
+            if bool(dyn_pref.get('anonymous_mode_enabled', 0)):
+                st.info(
+                    f"Anonymous profile active as '{dyn_pref.get('anonymous_alias') or 'Anonymous'}' "
+                    f"with {dyn_pref.get('anonymous_avatar_style', 'geometric')} avatar style."
+                )
+
+            st.divider()
+            st.markdown("### Field-Level Privacy Matrix")
+            st.caption("Set each field to public, private, or friends-only visibility.")
+
+            with st.form("field_privacy_form"):
+                updated_privacy = {}
+                for field_name in privacy_fields:
+                    label = field_name.replace('_', ' ').title()
+                    value = privacy_map.get(field_name, default_privacy[field_name])
+                    idx = ['public', 'friends', 'private'].index(value) if value in ['public', 'friends', 'private'] else 2
+                    updated_privacy[field_name] = st.selectbox(
+                        label,
+                        ['public', 'friends', 'private'],
+                        index=idx,
+                        key=f"privacy_{field_name}"
+                    )
+
+                save_privacy = st.form_submit_button("Save Privacy Matrix", use_container_width=True)
+                if save_privacy:
+                    save_privacy_map(updated_privacy)
+                    st.success("Field-level privacy settings saved.")
+
+            def profile_view(field_name, viewer):
+                mode = privacy_map.get(field_name, default_privacy[field_name])
+                if mode == 'public':
+                    return True
+                if mode == 'private':
+                    return viewer == 'private'
+                return viewer in ['friends', 'private']
+
+            st.markdown("### Visibility Preview")
+            preview_cols = st.columns(3, gap='small')
+            viewers = ['public', 'friends', 'private']
+            for i, viewer in enumerate(viewers):
+                with preview_cols[i]:
+                    st.write(f"**{viewer.title()} View**")
+                    shown = [f for f in privacy_fields if profile_view(f, viewer)]
+                    hidden = [f for f in privacy_fields if f not in shown]
+                    st.caption("Visible: " + (', '.join(shown) if shown else 'none'))
+                    st.caption("Hidden: " + (', '.join(hidden) if hidden else 'none'))
+
+            st.divider()
+            st.markdown("### Friends & Access Graph")
+
+            fr1, fr2 = st.columns(2, gap='small')
+            with fr1:
+                target_username = st.text_input("Send friend request to username", key="friends_target_username")
+                if st.button("Send Friend Request", use_container_width=True):
+                    if not target_username.strip():
+                        st.error("Enter a username.")
+                    else:
+                        target = Database.execute_query(
+                            "SELECT user_id, username FROM users WHERE LOWER(username) = LOWER(?) AND is_active = 1",
+                            (target_username.strip(),),
+                            fetch_one=True
+                        )
+                        if not target:
+                            st.error("User not found.")
+                        elif to_int(target['user_id']) == account['user_id']:
+                            st.error("You cannot send a friend request to yourself.")
+                        else:
+                            exists = Database.execute_query(
+                                """
+                                SELECT friendship_id FROM friendships
+                                WHERE (requester_user_id = ? AND addressee_user_id = ?)
+                                   OR (requester_user_id = ? AND addressee_user_id = ?)
+                                """,
+                                (account['user_id'], target['user_id'], target['user_id'], account['user_id']),
+                                fetch_one=True
+                            )
+                            if exists:
+                                st.warning("Friend relationship already exists or is pending.")
+                            else:
+                                sent = Database.execute_update(
+                                    """
+                                    INSERT INTO friendships
+                                    (requester_user_id, addressee_user_id, status, created_at)
+                                    VALUES (?, ?, 'pending', datetime('now'))
+                                    """,
+                                    (account['user_id'], target['user_id'])
+                                )
+                                if sent:
+                                    st.success(f"Friend request sent to {target['username']}.")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to send friend request.")
+
+            with fr2:
+                incoming = Database.execute_query(
+                    """
+                    SELECT f.friendship_id, u.username, u.full_name, f.created_at
+                    FROM friendships f
+                    JOIN users u ON f.requester_user_id = u.user_id
+                    WHERE f.addressee_user_id = ? AND f.status = 'pending'
+                    ORDER BY f.created_at DESC
+                    """,
+                    (account['user_id'],)
+                ) or []
+                if incoming:
+                    st.caption("Incoming requests")
+                    for row in incoming:
+                        c_a, c_b, c_c = st.columns([2, 1, 1], gap='small')
+                        c_a.write(f"{row['username']} ({row['full_name']})")
+                        if c_b.button("Accept", key=f"friend_accept_{row['friendship_id']}"):
+                            Database.execute_update(
+                                """
+                                UPDATE friendships
+                                SET status = 'accepted', responded_at = datetime('now')
+                                WHERE friendship_id = ?
+                                """,
+                                (row['friendship_id'],)
+                            )
+                            st.rerun()
+                        if c_c.button("Reject", key=f"friend_reject_{row['friendship_id']}"):
+                            Database.execute_update(
+                                """
+                                UPDATE friendships
+                                SET status = 'rejected', responded_at = datetime('now')
+                                WHERE friendship_id = ?
+                                """,
+                                (row['friendship_id'],)
+                            )
+                            st.rerun()
+                else:
+                    st.caption("No incoming friend requests.")
+
+            accepted_friends = Database.execute_query(
+                """
+                SELECT f.friendship_id,
+                       CASE WHEN f.requester_user_id = ? THEN u2.username ELSE u1.username END as friend_username,
+                       CASE WHEN f.requester_user_id = ? THEN u2.full_name ELSE u1.full_name END as friend_name,
+                       f.responded_at
+                FROM friendships f
+                JOIN users u1 ON f.requester_user_id = u1.user_id
+                JOIN users u2 ON f.addressee_user_id = u2.user_id
+                WHERE (f.requester_user_id = ? OR f.addressee_user_id = ?)
+                  AND f.status = 'accepted'
+                ORDER BY f.responded_at DESC
+                """,
+                (account['user_id'], account['user_id'], account['user_id'], account['user_id'])
+            ) or []
+            if accepted_friends:
+                st.caption("Connected friends")
+                st.dataframe(pd.DataFrame(accepted_friends), use_container_width=True, hide_index=True)
+
+    with tab6:
+        st.subheader("Feature Studio (50 Dynamic Controls)")
+
+        if account['user_id'] <= 0:
+            st.info("Feature Studio is available for persisted database accounts only.")
+        else:
+            dyn_pref = ensure_dynamic_preferences_row() or {}
+            raw_feature_json = dyn_pref.get('feature_json')
+            try:
+                persisted_features = json.loads(raw_feature_json) if raw_feature_json else {}
+                if not isinstance(persisted_features, dict):
+                    persisted_features = {}
+            except Exception:
+                persisted_features = {}
+
+            feature_flags = dict(default_feature_flags)
+            feature_flags.update({k: bool(v) for k, v in persisted_features.items()})
+
+            st.caption("Toggle advanced controls that shape your account behavior, privacy, UX, and automation.")
+            st.write(f"Configured features: **{len(dynamic_feature_catalog)}**")
+
+            preset_col1, preset_col2, preset_col3 = st.columns(3, gap='small')
+            if preset_col1.button("Apply Privacy-First Preset", use_container_width=True):
+                for k in feature_flags.keys():
+                    feature_flags[k] = False
+                for k in ['signed_exports_only', 'step_up_profile_edit', 'step_up_data_export', 'trusted_only_sensitive', 'hide_last_seen', 'anonymous_reviews', 'anonymous_alias_rotation', 'impossible_travel_lock', 'high_churn_lock']:
+                    feature_flags[k] = True
+            if preset_col2.button("Apply Social Preset", use_container_width=True):
+                for k in feature_flags.keys():
+                    feature_flags[k] = False
+                for k in ['allow_friend_requests', 'show_online_status', 'share_reading_velocity', 'weekly_activity_digest', 'availability_watch_alerts', 'search_personalization_boost']:
+                    feature_flags[k] = True
+            if preset_col3.button("Apply Productivity Preset", use_container_width=True):
+                for k in feature_flags.keys():
+                    feature_flags[k] = False
+                for k in ['personal_kpi_dashboard', 'reading_goal_tracker', 'calendar_due_sync', 'smart_due_bundles', 'daily_deadline_digest', 'one_click_reborrow', 'waitlist_auto_join']:
+                    feature_flags[k] = True
+
+            with st.form("feature_studio_form"):
+                draft_flags = {}
+                left_col, right_col = st.columns(2, gap='small')
+                midpoint = len(dynamic_feature_catalog) // 2
+
+                for key, label in dynamic_feature_catalog[:midpoint]:
+                    with left_col:
+                        draft_flags[key] = st.checkbox(label, value=bool(feature_flags.get(key, False)), key=f"studio_{key}")
+                for key, label in dynamic_feature_catalog[midpoint:]:
+                    with right_col:
+                        draft_flags[key] = st.checkbox(label, value=bool(feature_flags.get(key, False)), key=f"studio_{key}")
+
+                save_studio = st.form_submit_button("Save Feature Studio", use_container_width=True)
+                if save_studio:
+                    done = Database.execute_update(
+                        """
+                        INSERT INTO account_dynamic_preferences
+                        (user_id, anonymous_mode_enabled, anonymous_alias, anonymous_avatar_style,
+                         anonymous_rotation_hours, profile_theme, feature_json, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                        ON CONFLICT(user_id)
+                        DO UPDATE SET feature_json = excluded.feature_json, updated_at = datetime('now')
+                        """,
+                        (
+                            account['user_id'],
+                            1 if dyn_pref.get('anonymous_mode_enabled') else 0,
+                            dyn_pref.get('anonymous_alias') or generate_anonymous_alias(),
+                            dyn_pref.get('anonymous_avatar_style') or 'geometric',
+                            max(12, to_int(dyn_pref.get('anonymous_rotation_hours'), 72)),
+                            dyn_pref.get('profile_theme') or 'adaptive',
+                            json.dumps(draft_flags)
+                        )
+                    )
+                    if done:
+                        st.success("Feature Studio preferences saved.")
+                    else:
+                        st.error("Failed to save Feature Studio settings.")
+
+            enabled_count = sum(1 for _, _label in dynamic_feature_catalog if bool(feature_flags.get(_, False)))
+            st.metric("Enabled Dynamic Controls", enabled_count)
+
+            enabled_rows = []
+            for key, label in dynamic_feature_catalog:
+                if bool(feature_flags.get(key, False)):
+                    enabled_rows.append({'feature_key': key, 'feature_label': label, 'state': 'enabled'})
+            if enabled_rows:
+                st.caption("Currently enabled controls")
+                st.dataframe(pd.DataFrame(enabled_rows), use_container_width=True, hide_index=True)
+            else:
+                st.caption("No controls enabled yet. Use presets or custom toggles above.")
+
+            if bool(feature_flags.get('anonymous_alias_rotation')):
+                if st.button("Rotate Anonymous Alias Now", use_container_width=True):
+                    new_alias = generate_anonymous_alias()
+                    Database.execute_update(
+                        """
+                        UPDATE account_dynamic_preferences
+                        SET anonymous_alias = ?, updated_at = datetime('now')
+                        WHERE user_id = ?
+                        """,
+                        (new_alias, account['user_id'])
+                    )
+                    st.success(f"New anonymous alias: {new_alias}")
+                    st.rerun()
 
 def show_manage_books():
     """Book management page"""
