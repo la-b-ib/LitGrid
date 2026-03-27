@@ -5089,32 +5089,35 @@ def show_login_page():
                 with st.form("register_member_form"):
                     # Personal Information
                     st.markdown("#### **Personal Information**")
-                    col_a, col_b = st.columns(2, gap="small")
+                    col_a, col_b, col_c = st.columns(3, gap="small")
                     with col_a:
                         full_name = st.text_input("Full Name *", placeholder="John Doe")
-                        date_of_birth = st.date_input("Date of Birth *")
-                    with col_b:
-                        phone = st.text_input("Phone Number *", placeholder="+1-555-0000")
                         gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"])
+                    with col_b:
+                        date_of_birth = st.date_input("Date of Birth *")
+                    with col_c:
+                        phone = st.text_input("Phone Number *", placeholder="+1-555-0000")
 
                     # Address Information
                     st.markdown("#### **Address Information**")
-                    col_c, col_d = st.columns(2, gap="small")
-                    with col_c:
-                        street = st.text_input("Street Address *")
-                        city = st.text_input("City *")
+                    col_d, col_e, col_f = st.columns(3, gap="small")
                     with col_d:
+                        street = st.text_input("Street Address *")
+                    with col_e:
+                        city = st.text_input("City *")
+                    with col_f:
                         state = st.text_input("State/Province *")
                         zip_code = st.text_input("Zip/Postal Code *")
 
                     # Account Information
                     st.markdown("#### **Account Information**")
-                    col_e, col_f = st.columns(2, gap="small")
-                    with col_e:
+                    col_g, col_h, col_i = st.columns(3, gap="small")
+                    with col_g:
                         username_reg = st.text_input("Username *", placeholder="johndoe123", help="Alphanumeric, 4-20 characters")
                         email = st.text_input("Email *", placeholder="john@example.com")
-                    with col_f:
+                    with col_h:
                         occupation = st.text_input("Occupation", placeholder="Software Engineer")
+                    with col_i:
                         library_interests = st.multiselect("Library Interests",
                             ["Fiction", "Non-Fiction", "Science", "History", "Biography", "Self-Help", "Poetry", "Children's Books"])
 
