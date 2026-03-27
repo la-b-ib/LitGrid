@@ -4993,9 +4993,6 @@ def show_login_page():
                 render_dynamic_password_reset_panel()
         
         with tab2:
-            # Create nested subtabs for Member and Admin registration
-            sub_tab1, sub_tab2 = st.tabs(["Register as Member", "Register as Staff"])
-
             # Password strength validator (defined once for both tabs)
             def validate_password_strength(password):
                 """Check password strength"""
@@ -5063,353 +5060,170 @@ def show_login_page():
                 """, (username, email))
                 return existing is not None and len(existing) > 0
 
-            # ====== SUB_TAB 1: MEMBER REGISTRATION ======
-            with sub_tab1:
-                st.markdown("#### **Member Registration**")
-                st.caption(f"Maximum {Config.MAX_MEMBER_ACCOUNTS} member accounts allowed")
+            st.markdown("#### **Unified Registration Form**")
 
-                # Show remaining slots
-                count_result = Database.execute_query(
-                    "SELECT COUNT(*) as count FROM users WHERE role = 'member'",
-                    fetch_one=True
+            # Show remaining member slots for capacity-aware validation
+            count_result = Database.execute_query(
+                "SELECT COUNT(*) as count FROM users WHERE role = 'member'",
+                fetch_one=True
+            )
+            current_count = count_result['count'] if count_result else 0
+            remaining = Config.MAX_MEMBER_ACCOUNTS - current_count
+            st.caption(f"Member slots available: {max(0, remaining)} of {Config.MAX_MEMBER_ACCOUNTS}")
+
+            with st.form("register_unified_form"):
+                account_type = st.radio(
+                    "Register As",
+                    ["Member", "Staff"],
+                    horizontal=True
                 )
-                current_count = count_result['count'] if count_result else 0
-                remaining = Config.MAX_MEMBER_ACCOUNTS - current_count
 
-                if remaining > 0:
-                    st.success(f"✅ {remaining} registration slot(s) available")
-                else:
-                    st.error("❌ No registration slots available")
+                section_col1, section_col2, section_col3 = st.columns(3, gap="medium")
 
-                st.divider()
+                with section_col1:
+                    st.markdown("#### **Personal Information**")
+                    full_name = st.text_input("Full Name *", placeholder="John Doe")
+                    date_of_birth = st.date_input("Date of Birth *")
+                    phone = st.text_input("Phone Number *", placeholder="+1-555-0000")
+                    gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"])
 
-                with st.form("register_member_form"):
-                    section_col1, section_col2, section_col3 = st.columns(3, gap="medium")
+                with section_col2:
+                    st.markdown("#### **Address Information**")
+                    street = st.text_input("Street Address *")
+                    city = st.text_input("City *")
+                    state = st.text_input("State/Province *")
+                    zip_code = st.text_input("Zip/Postal Code *")
 
-                    with section_col1:
-                        st.markdown("#### **Personal Information**")
-                        full_name = st.text_input("Full Name *", placeholder="John Doe")
-                        date_of_birth = st.date_input("Date of Birth *")
-                        phone = st.text_input("Phone Number *", placeholder="+1-555-0000")
-                        gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"])
+                with section_col3:
+                    st.markdown("#### **Account Information**")
+                    username_reg = st.text_input("Username *", placeholder="johndoe123", help="Alphanumeric, 4-20 characters")
+                    email = st.text_input("Email *", placeholder="john@example.com")
 
-                    with section_col2:
-                        st.markdown("#### **Address Information**")
-                        street = st.text_input("Street Address *")
-                        city = st.text_input("City *")
-                        state = st.text_input("State/Province *")
-                        zip_code = st.text_input("Zip/Postal Code *")
-
-                    with section_col3:
-                        st.markdown("#### **Account Information**")
-                        username_reg = st.text_input("Username *", placeholder="johndoe123", help="Alphanumeric, 4-20 characters")
-                        email = st.text_input("Email *", placeholder="john@example.com")
+                    if account_type == "Staff":
+                        reg_role = st.selectbox("Role *", ["librarian", "admin"], help="Admin: Full system access, Librarian: Book & member management")
+                        department = st.selectbox("Department", ["Circulation", "Cataloging", "Reference", "Administration"])
+                        employment_date = st.date_input("Employment Start Date *")
+                    else:
                         occupation = st.text_input("Occupation", placeholder="Software Engineer")
-                        library_interests = st.multiselect("Library Interests",
-                            ["Fiction", "Non-Fiction", "Science", "History", "Biography", "Self-Help", "Poetry", "Children's Books"])
-
-                    security_col, photo_col = st.columns(2, gap="medium")
-
-                    with security_col:
-                        st.markdown("#### **Password Security**")
-                        st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars (!@#$%^&*), no repetition")
-                        password_reg = st.text_input("Password *", type="password", help="Min 12 chars, mixed case, numbers, special chars", key="member_pass")
-                        confirm_pass = st.text_input("Confirm Password *", type="password", key="member_confirm")
-                        is_member_password_strong = show_password_feedback(password_reg, confirm_pass)
-
-                    with photo_col:
-                        st.markdown("#### **Profile Photo**")
-                        profile_photo = st.file_uploader("Upload Profile Photo *", type=["jpg", "jpeg", "png"], help="Max 5MB, square image preferred", key="member_photo")
-
-                    # Legal & Consent Section
-                    st.divider()
-                    legal_col, agreement_col = st.columns(2, gap="medium")
-
-                    with legal_col:
-                        st.markdown("#### **Legal & Consent**")
-
-                        with st.expander("Terms of Service", expanded=False):
-                            st.markdown("""
-                            **TERMS OF SERVICE**
-
-                            By registering for an account with LitGrid Library, you agree to the following terms:
-
-                            1. **Account Responsibility**: You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
-
-                            2. **Library Code of Conduct**: Members must follow all library rules and policies, including treating library materials with respect and returning items on time.
-
-                            3. **Collection Policy**: Items may only be borrowed for authorized personal use. Resale or commercial use is prohibited.
-
-                            4. **Fine & Fee Policy**: Late fees and damage charges apply per library policy. You accept responsibility for items borrowed under your account.
-
-                            5. **Membership**: Membership is non-transferable and personal. Sharing credentials is prohibited.
-
-                            6. **Compliance**: You agree to comply with all applicable laws and library policies.
-                            """)
-
-                        with st.expander("Usage Guide", expanded=False):
-                            st.markdown("""
-                            **HOW TO USE LITGRID LIBRARY**
-
-                            **Getting Started:**
-                            - Browse our catalog using the search feature or category filters
-                            - Click "Borrow" to check out items (max 10 items per member)
-                            - View your active borrowings and due dates in your library dashboard
-
-                            **Borrowing:**
-                            - Standard loan period: 30 days
-                            - Renewals: Available for items with no pending reservations
-                            - Maximum renewals: 2 times per item
-
-                            **Returning:**
-                            - Return items by their due date to avoid late fees
-                            - Use the check-in process in your dashboard
-                            - Late fees: $1.00 per day per item
-
-                            **Dashboard Features:**
-                            - View borrowed items and due dates
-                            - Renew items before they're due
-                            - Check your reading statistics
-                            - Manage account preferences
-                            """)
-
-                        with st.expander("Privacy & Legal Disclaimer", expanded=False):
-                            st.markdown("""
-                            **PRIVACY POLICY & LEGAL DISCLAIMER**
-
-                            **Data Protection:**
-                            - We collect only necessary information for library services
-                            - Your data is encrypted and securely stored
-                            - We do not share your information with third parties
-                            - You may request data deletion by contacting support
-
-                            **Library Responsibility:**
-                            - LitGrid is not responsible for loss or damage to items provided by members
-                            - Items borrowed remain library property
-                            - Member is responsible for damage beyond normal wear
-
-                            **Limitation of Liability:**
-                            - The library service is provided "as is"
-                            - We are not liable for service interruptions or data loss
-                            - Maximum liability is limited to account fees paid
-
-                            **Termination:**
-                            - Accounts may be suspended for policy violations
-                            - Outstanding fines must be paid before re-registration
-
-                            **Updates:**
-                            - Terms may be updated at any time
-                            - Continued use implies acceptance of updated terms
-                            """)
-
-                    with agreement_col:
-                        st.markdown("#### **Your Agreement**")
-
-                        agree_terms = st.radio(
-                            "I have read and agree to all terms:",
-                            ["I do not agree", "I agree to all Terms, Usage Guide, and Legal Disclaimer"],
-                            help="You must agree to all terms to register",
-                            key="member_agree_terms"
+                        library_interests = st.multiselect(
+                            "Library Interests",
+                            ["Fiction", "Non-Fiction", "Science", "History", "Biography", "Self-Help", "Poetry", "Children's Books"]
                         )
 
-                        agree_data = st.checkbox("I understand my data will be securely stored and used only for library services", key="member_agree_data")
-                        agree_contact = st.checkbox("I agree to receive library notifications (overdue reminders, new book alerts)", key="member_agree_contact")
+                security_col, photo_col = st.columns(2, gap="medium")
 
-                    member_password_ready = (
-                        bool(password_reg)
-                        and bool(confirm_pass)
-                        and is_member_password_strong
-                        and password_reg == confirm_pass
-                    )
-
-                    submit_reg = st.form_submit_button(
-                        "Complete Member Registration",
-                        use_container_width=True,
-                        disabled=(remaining <= 0 or not member_password_ready)
-                    )
-
-                    if submit_reg:
-                        # Validation
-                        errors = []
-
-                        if not all([full_name, username_reg, email, phone, street, city, state, zip_code, password_reg, confirm_pass, profile_photo]):
-                            errors.append("Please fill all required fields (marked with *)")
-
-                        if username_reg and not (4 <= len(username_reg) <= 20):
-                            errors.append("Username must be 4-20 characters")
-
-                        if email and "@" not in email:
-                            errors.append("Invalid email format")
-
-                        if password_reg != confirm_pass:
-                            errors.append("Passwords do not match")
-
-                        if password_reg and not is_member_password_strong:
-                            is_strong, msg = validate_password_strength(password_reg)
-                            if not is_strong:
-                                errors.append(f"Password too weak: {msg}")
-
-                        if username_reg or email:
-                            if check_duplicate_credentials(username_reg, email):
-                                errors.append("Username or email already registered. Choose different credentials.")
-
-                        if not profile_photo:
-                            errors.append("Profile photo is required")
-
-                        if profile_photo and profile_photo.size > 5 * 1024 * 1024:
-                            errors.append("Photo must be less than 5MB")
-
-                        if "do not" in agree_terms.lower():
-                            errors.append("You must agree to all terms to register")
-
-                        if not agree_data:
-                            errors.append("You must acknowledge data storage terms")
-
-                        # Display errors
-                        if errors:
-                            for error in errors:
-                                st.error(f"❌ {error}")
-                        else:
-                            # Register user as member
-                            try:
-                                success, msg = Auth.register(username_reg, email, password_reg, full_name, phone, role='member')
-                                if success:
-                                    st.success("✅ Member Account created successfully!")
-                                    st.info("You can now login with your credentials")
-                                    st.balloons()
-                                else:
-                                    st.error(f"❌ Registration failed: {msg}")
-                            except Exception as e:
-                                st.error(f"❌ Error during registration: {str(e)}")
-
-            # ====== SUB_TAB 2: STAFF REGISTRATION ======
-            with sub_tab2:
-                st.markdown("#### **Staff Registration (Admin/Librarian)**")
-                st.caption("Register new library staff members with administrative or librarian privileges")
-
-                with st.form("register_staff_form"):
-                    # Personal Information
-                    st.markdown("#### **Personal Information**")
-                    col1, col2 = st.columns(2, gap="small")
-
-                    with col1:
-                        reg_full_name = st.text_input("Full Name *", key="staff_name", placeholder="Jane Smith")
-                        reg_date_of_birth = st.date_input("Date of Birth *", key="staff_dob")
-                        reg_phone = st.text_input("Phone Number *", key="staff_phone", placeholder="+1-555-0000")
-                        reg_gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"], key="staff_gender")
-
-                    with col2:
-                        reg_username = st.text_input("Username *", key="staff_user", placeholder="janesmith123", help="4-20 alphanumeric characters")
-                        reg_email = st.text_input("Email *", key="staff_email", placeholder="jane@library.local")
-                        reg_role = st.selectbox("Role *", ["librarian", "admin"], key="staff_role", help="Admin: Full system access, Librarian: Book & member management")
-                        reg_department = st.selectbox("Department", ["Circulation", "Cataloging", "Reference", "Administration"], key="staff_dept")
-
-                    # Address Information
-                    st.markdown("#### **Address Information**")
-                    col3, col4 = st.columns(2, gap="small")
-                    with col3:
-                        reg_street = st.text_input("Street Address *", key="staff_street")
-                        reg_city = st.text_input("City *", key="staff_city")
-                    with col4:
-                        reg_state = st.text_input("State/Province *", key="staff_state")
-                        reg_zip = st.text_input("Zip/Postal Code *", key="staff_zip")
-
-                    # Employment Information
-                    st.markdown("#### **Employment Information**")
-                    col5, col6 = st.columns(2, gap="small")
-                    with col5:
-                        reg_employment_date = st.date_input("Employment Start Date *", key="staff_emp_date")
-                        reg_salary_grade = st.selectbox("Salary Grade", ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"], key="staff_salary")
-                    with col6:
-                        reg_supervisor = st.text_input("Supervisor Name", key="staff_supervisor")
-                        reg_work_schedule = st.selectbox("Work Schedule", ["Full-Time", "Part-Time", "Casual"], key="staff_schedule")
-
-                    # Password Security
+                with security_col:
                     st.markdown("#### **Password Security**")
                     st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars, no repetition")
-                    reg_password = st.text_input("Password *", type="password", key="staff_pass", help="Min 12 chars, mixed case, numbers, special chars")
-                    reg_confirm_pass = st.text_input("Confirm Password *", type="password", key="staff_confirm_pass")
-                    is_staff_password_strong = show_password_feedback(reg_password, reg_confirm_pass)
+                    password_reg = st.text_input("Password *", type="password", help="Min 12 chars, mixed case, numbers, special chars", key="unified_pass")
+                    confirm_pass = st.text_input("Confirm Password *", type="password", key="unified_confirm")
+                    is_password_strong = show_password_feedback(password_reg, confirm_pass)
 
-                    # Photo Upload
-                    st.markdown("#### **Staff Photo**")
-                    reg_photo = st.file_uploader("Upload Staff Photo *", type=["jpg", "jpeg", "png"], key="staff_photo", help="Max 5MB")
+                with photo_col:
+                    st.markdown("#### **Profile Photo**")
+                    profile_photo = st.file_uploader("Upload Photo *", type=["jpg", "jpeg", "png"], help="Max 5MB", key="unified_photo")
 
-                    # Additional Info
-                    st.markdown("#### **Additional Information**")
-                    reg_notes = st.text_area("Notes/Comments", key="staff_notes", height=100, placeholder="Any additional information about this staff member...")
+                st.divider()
+                legal_col, agreement_col = st.columns(2, gap="medium")
 
-                    # Employment Agreement
-                    st.divider()
-                    st.markdown("#### **Employment Agreement**")
-                    agree_employment = st.radio(
-                        "I confirm employment authorization:",
-                        ["Do not proceed", "I confirm all information is accurate and authorized"],
-                        key="staff_agree"
+                with legal_col:
+                    st.markdown("#### **Legal & Consent**")
+                    with st.expander("Terms of Service", expanded=False):
+                        st.markdown("Read and accept terms before registration.")
+                    with st.expander("Usage Guide", expanded=False):
+                        st.markdown("Learn borrowing, return, and policy basics.")
+                    with st.expander("Privacy & Legal Disclaimer", expanded=False):
+                        st.markdown("Understand privacy handling and legal policy.")
+
+                with agreement_col:
+                    st.markdown("#### **Your Agreement**")
+                    agree_terms = st.radio(
+                        "I have read and agree to all terms:",
+                        ["I do not agree", "I agree to all Terms, Usage Guide, and Legal Disclaimer"],
+                        key="unified_agree_terms"
                     )
+                    agree_data = st.checkbox("I understand my data will be securely stored and used only for library services", key="unified_agree_data")
 
-                    staff_password_ready = (
-                        bool(reg_password)
-                        and bool(reg_confirm_pass)
-                        and is_staff_password_strong
-                        and reg_password == reg_confirm_pass
-                    )
+                    if account_type == "Staff":
+                        agree_staff = st.radio(
+                            "I confirm employment authorization:",
+                            ["Do not proceed", "I confirm all information is accurate and authorized"],
+                            key="unified_agree_staff"
+                        )
+                    else:
+                        agree_contact = st.checkbox("I agree to receive library notifications (overdue reminders, new book alerts)", key="unified_agree_contact")
 
-                    submit_reg = st.form_submit_button(
-                        "Create Staff Account",
-                        use_container_width=True,
-                        disabled=(not staff_password_ready)
-                    )
+                password_ready = (
+                    bool(password_reg)
+                    and bool(confirm_pass)
+                    and is_password_strong
+                    and password_reg == confirm_pass
+                )
 
-                    if submit_reg:
-                        errors = []
+                submit_reg = st.form_submit_button(
+                    "Complete Registration",
+                    use_container_width=True,
+                    disabled=(not password_ready or (account_type == "Member" and remaining <= 0))
+                )
 
-                        if not all([reg_full_name, reg_username, reg_email, reg_phone, reg_street, reg_city, reg_state, reg_zip, reg_password, reg_confirm_pass, reg_photo]):
-                            errors.append("Please fill all required fields (marked with *)")
+                if submit_reg:
+                    errors = []
 
-                        if reg_username and not (4 <= len(reg_username) <= 20):
-                            errors.append("Username must be 4-20 characters")
+                    if not all([full_name, username_reg, email, phone, street, city, state, zip_code, password_reg, confirm_pass, profile_photo]):
+                        errors.append("Please fill all required fields (marked with *)")
 
-                        if reg_email and "@" not in reg_email:
-                            errors.append("Invalid email format")
+                    if account_type == "Member" and remaining <= 0:
+                        errors.append("No member registration slots available")
 
-                        if reg_password != reg_confirm_pass:
-                            errors.append("Passwords do not match")
+                    if username_reg and not (4 <= len(username_reg) <= 20):
+                        errors.append("Username must be 4-20 characters")
 
-                        if reg_password and not is_staff_password_strong:
-                            is_strong, msg = validate_password_strength(reg_password)
-                            if not is_strong:
-                                errors.append(f"Password too weak: {msg}")
+                    if email and "@" not in email:
+                        errors.append("Invalid email format")
 
-                        if reg_username or reg_email:
-                            if check_duplicate_credentials(reg_username, reg_email):
-                                errors.append("Username or email already registered. Choose different credentials.")
+                    if password_reg != confirm_pass:
+                        errors.append("Passwords do not match")
 
-                        if not reg_photo:
-                            errors.append("Staff photo is required")
+                    if password_reg and not is_password_strong:
+                        is_strong, msg = validate_password_strength(password_reg)
+                        if not is_strong:
+                            errors.append(f"Password too weak: {msg}")
 
-                        if reg_photo and reg_photo.size > 5 * 1024 * 1024:
-                            errors.append("Photo must be less than 5MB")
+                    if username_reg or email:
+                        if check_duplicate_credentials(username_reg, email):
+                            errors.append("Username or email already registered. Choose different credentials.")
 
-                        if "not proceed" in agree_employment.lower():
-                            errors.append("You must confirm employment authorization")
+                    if profile_photo and profile_photo.size > 5 * 1024 * 1024:
+                        errors.append("Photo must be less than 5MB")
 
-                        if errors:
-                            for error in errors:
-                                st.error(f"❌ {error}")
-                        else:
-                            try:
-                                # Register user with specified role
-                                success, msg = Auth.register(reg_username, reg_email, reg_password, reg_full_name, reg_phone, role=reg_role)
+                    if "do not" in agree_terms.lower():
+                        errors.append("You must agree to all terms to register")
 
-                                if success:
-                                    st.success(f"✅ Staff account created successfully!")
-                                    st.info(f"Role: {reg_role.title()}, Department: {reg_department}")
-                                    st.balloons()
+                    if not agree_data:
+                        errors.append("You must acknowledge data storage terms")
+
+                    if account_type == "Staff" and "agree_staff" in locals() and "not proceed" in agree_staff.lower():
+                        errors.append("You must confirm employment authorization")
+
+                    if errors:
+                        for error in errors:
+                            st.error(f"❌ {error}")
+                    else:
+                        try:
+                            role_to_create = 'member' if account_type == "Member" else reg_role
+                            success, msg = Auth.register(username_reg, email, password_reg, full_name, phone, role=role_to_create)
+                            if success:
+                                if account_type == "Member":
+                                    st.success("✅ Member account created successfully!")
                                 else:
-                                    st.error(f"❌ Error: {msg}")
-                            except Exception as e:
-                                st.error(f"❌ Registration error: {str(e)}")
+                                    st.success("✅ Staff account created successfully!")
+                                    st.info(f"Role: {reg_role.title()}, Department: {department}")
+                                st.info("You can now login with your credentials")
+                                st.balloons()
+                            else:
+                                st.error(f"❌ Registration failed: {msg}")
+                        except Exception as e:
+                            st.error(f"❌ Registration error: {str(e)}")
 
 
 def show_dashboard():
