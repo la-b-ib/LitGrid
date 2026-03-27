@@ -9038,9 +9038,12 @@ def show_account():
                 st.success(f"✅ Anonymous alias rotated to: **{new_alias}**")
                 st.rerun()
 
-def show_manage_books():
+def show_manage_books(embedded=False):
     """Book management page"""
-    st.markdown('<h1 class="litgrid-header"> Manage Books</h1>', unsafe_allow_html=True)
+    if embedded:
+        st.subheader(" Manage Books")
+    else:
+        st.markdown('<h1 class="litgrid-header"> Manage Books</h1>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4 = st.tabs([" All Books", " Add Book", " Bulk Import", " Statistics"])
     
@@ -11320,9 +11323,11 @@ def show_my_library():
     user = Auth.get_user()
     is_management_user = user['role'] in ['admin', 'librarian', 'superadmin']
     
-    tab_labels = [" My PDFs & Upload", " Privacy Settings", " Browse Community"]
+    tab_labels = [" My PDFs & Upload"]
     if is_management_user:
-        tab_labels.extend([" Manage Books", " Manage Members"])
+        tab_labels[0] = " My PDFs, Upload & Manage Books"
+        tab_labels.append(" Manage Members")
+    tab_labels.extend([" Privacy Settings", " Browse Community"])
     tabs = st.tabs(tab_labels)
     
     # Tab 1: My PDFs & Upload PDF
@@ -11402,9 +11407,21 @@ def show_my_library():
                         st.rerun()
                     else:
                         st.error(message)
+
+        if is_management_user:
+            st.divider()
+            show_manage_books(embedded=True)
+
+    privacy_tab_index = 2 if is_management_user else 1
+    community_tab_index = 3 if is_management_user else 2
+
+    # Manage Members Tab (admin/librarian/superadmin)
+    if is_management_user:
+        with tabs[1]:
+            show_manage_members()
     
-    # Tab 2: Privacy Settings
-    with tabs[1]:
+    # Privacy Settings Tab
+    with tabs[privacy_tab_index]:
         st.subheader(" Privacy & Anonymous Mode")
         
         privacy = PrivacyManager.get_privacy_settings(user['user_id'])
@@ -11471,17 +11488,9 @@ def show_my_library():
             if profile:
                 st.json(profile)
 
-    # Tab 3: Browse Community
-    with tabs[2]:
+    # Browse Community Tab
+    with tabs[community_tab_index]:
         show_community_library(embedded=True)
-
-    # Tab 4/5: Management (admin/librarian/superadmin)
-    if is_management_user:
-        with tabs[3]:
-            show_manage_books()
-
-        with tabs[4]:
-            show_manage_members()
 
 def show_community_library(embedded=False):
     """Browse Community Library"""
