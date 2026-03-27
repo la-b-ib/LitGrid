@@ -18,6 +18,7 @@ import hmac
 import secrets
 import json
 import re
+from zoneinfo import ZoneInfo
 from collections import Counter
 import warnings
 
@@ -296,6 +297,338 @@ class RateLimiter:
         return True
 
 rate_limiter = RateLimiter()
+
+
+class AccountOpsEngine:
+    """Account operations security, delivery, and workflow helpers."""
+
+    @staticmethod
+    def check_operation_rate_limit(user_id, operation, max_attempts, window_minutes):
+        """Throttle account-sensitive operations per user/time window."""
+        if not user_id or user_id <= 0:
+            return True, 0
+
+        recent = Database.execute_query(
+            """
+            SELECT COUNT(*) as cnt
+            FROM account_operation_events
+            WHERE user_id = ?
+              AND operation = ?
+              AND status IN ('allowed', 'success')
+              AND created_at >= datetime('now', ?)
+            """,
+            (user_id, operation, f"-{int(window_minutes)} minutes"),
+            fetch_one=True
+        ) or {'cnt': 0}
+
+        count = int(recent.get('cnt', 0))
+        if count >= int(max_attempts):
+            Database.execute_update(
+                """
+                INSERT INTO account_operation_events (user_id, operation, status, metadata, created_at)
+                VALUES (?, ?, 'blocked', ?, datetime('now'))
+                """,
+                (user_id, operation, f"window_minutes={window_minutes};max={max_attempts}")
+            )
+            return False, window_minutes
+
+        Database.execute_update(
+            """
+            INSERT INTO account_operation_events (user_id, operation, status, metadata, created_at)
+            VALUES (?, ?, 'allowed', ?, datetime('now'))
+            """,
+            (user_id, operation, f"window_minutes={window_minutes};max={max_attempts}")
+        )
+        return True, 0
+
+    @staticmethod
+    def log_operation_result(user_id, operation, status, metadata=None):
+        """Persist operation outcome for auditability."""
+        if not user_id or user_id <= 0:
+            return
+        Database.execute_update(
+            """
+            INSERT INTO account_operation_events (user_id, operation, status, metadata, created_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+            """,
+            (user_id, operation, status, metadata)
+        )
+
+    @staticmethod
+    def build_signed_export(user_id, username, export_bundle, expiry_hours=24):
+        """Build export payload with checksum + HMAC signature + expiration."""
+        now_dt = datetime.utcnow()
+        expires_at = now_dt + timedelta(hours=max(1, int(expiry_hours)))
+        payload = {
+            'generated_at_utc': now_dt.isoformat() + 'Z',
+            'expires_at_utc': expires_at.isoformat() + 'Z',
+            'user_id': user_id,
+            'username': username,
+            'data': export_bundle
+        }
+        payload_json = json.dumps(payload, sort_keys=True, default=str)
+        checksum = hashlib.sha256(payload_json.encode('utf-8')).hexdigest()
+
+        signing_secret = (
+            os.getenv('LITGRID_EXPORT_SIGNING_KEY')
+            or os.getenv('SECRET_KEY')
+            or Config.SUPERADMIN_SECURITY_KEY
+            or Config._x4
+        )
+        signature_base = f"{checksum}:{expires_at.isoformat()}:{user_id}"
+        signature = hmac.new(
+            str(signing_secret).encode('utf-8'),
+            signature_base.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+
+        envelope = {
+            'meta': {
+                'version': 1,
+                'checksum_sha256': checksum,
+                'signature_hmac_sha256': signature,
+                'expires_at_utc': expires_at.isoformat() + 'Z',
+                'signed_fields': ['checksum_sha256', 'expires_at_utc', 'user_id']
+            },
+            'payload': payload
+        }
+
+        checksum_text = (
+            f"sha256={checksum}\n"
+            f"signature_hmac_sha256={signature}\n"
+            f"expires_at_utc={expires_at.isoformat()}Z\n"
+            f"user_id={user_id}\n"
+            f"username={username}\n"
+        )
+        return envelope, checksum_text, checksum, expires_at
+
+    @staticmethod
+    def log_deletion_timeline(request_id, event_type, actor_user_id, actor_role, reason, metadata=None):
+        """Append immutable deletion workflow event."""
+        Database.execute_update(
+            """
+            INSERT INTO account_deletion_timeline
+            (request_id, event_type, actor_user_id, actor_role, reason, metadata, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+            """,
+            (request_id, event_type, actor_user_id, actor_role, reason, metadata)
+        )
+
+    @staticmethod
+    def acquire_scheduler_lock(lock_name, interval_minutes=15, hold_seconds=90):
+        """Acquire idempotency lock for background scan execution."""
+        row = Database.execute_query(
+            "SELECT lock_name, locked_until, last_run_at FROM scheduler_locks WHERE lock_name = ?",
+            (lock_name,),
+            fetch_one=True
+        )
+
+        if row:
+            if row.get('locked_until'):
+                active_lock = Database.execute_query(
+                    "SELECT 1 as locked FROM scheduler_locks WHERE lock_name = ? AND locked_until > datetime('now')",
+                    (lock_name,),
+                    fetch_one=True
+                )
+                if active_lock:
+                    return False, 'lock_active'
+
+            if row.get('last_run_at'):
+                recent = Database.execute_query(
+                    """
+                    SELECT 1 as recent
+                    FROM scheduler_locks
+                    WHERE lock_name = ?
+                      AND last_run_at >= datetime('now', ?)
+                    """,
+                    (lock_name, f"-{int(interval_minutes)} minutes"),
+                    fetch_one=True
+                )
+                if recent:
+                    return False, 'interval_not_elapsed'
+
+        lock_until = datetime.utcnow() + timedelta(seconds=max(30, int(hold_seconds)))
+        lock_until_str = lock_until.strftime('%Y-%m-%d %H:%M:%S')
+
+        if row:
+            ok = Database.execute_update(
+                """
+                UPDATE scheduler_locks
+                SET locked_until = ?, updated_at = datetime('now')
+                WHERE lock_name = ?
+                """,
+                (lock_until_str, lock_name)
+            )
+        else:
+            ok = Database.execute_update(
+                """
+                INSERT INTO scheduler_locks
+                (lock_name, locked_until, last_status, updated_at)
+                VALUES (?, ?, 'running', datetime('now'))
+                """,
+                (lock_name, lock_until_str)
+            )
+
+        return bool(ok), 'acquired' if ok else 'update_failed'
+
+    @staticmethod
+    def release_scheduler_lock(lock_name, status='success', error_reason=None):
+        """Release lock and persist last execution metadata."""
+        Database.execute_update(
+            """
+            UPDATE scheduler_locks
+            SET locked_until = NULL,
+                last_run_at = datetime('now'),
+                last_status = ?,
+                last_error = ?,
+                updated_at = datetime('now')
+            WHERE lock_name = ?
+            """,
+            (status, error_reason, lock_name)
+        )
+
+    @staticmethod
+    def queue_notification_job(user_id, borrowing_id, channel, notify_date, payload, dedup_key, max_retries=3):
+        """Queue a delivery job using dedup key for idempotency."""
+        exists = Database.execute_query(
+            "SELECT queue_id FROM notification_delivery_queue WHERE dedup_key = ?",
+            (dedup_key,),
+            fetch_one=True
+        )
+        if exists:
+            return False
+
+        return Database.execute_update(
+            """
+            INSERT INTO notification_delivery_queue
+            (user_id, borrowing_id, channel, notify_date, dedup_key, payload_json, status, attempts, max_retries, next_attempt_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'queued', 0, ?, datetime('now'), datetime('now'), datetime('now'))
+            """,
+            (user_id, borrowing_id, channel, notify_date, dedup_key, json.dumps(payload, default=str), int(max_retries))
+        )
+
+    @staticmethod
+    def process_notification_queue_for_user(user_id):
+        """Run delivery state machine for queued/retried jobs."""
+        jobs = Database.execute_query(
+            """
+            SELECT queue_id, user_id, borrowing_id, channel, notify_date, dedup_key,
+                   payload_json, status, attempts, max_retries
+            FROM notification_delivery_queue
+            WHERE user_id = ?
+              AND status IN ('queued', 'retried')
+              AND (next_attempt_at IS NULL OR next_attempt_at <= datetime('now'))
+            ORDER BY created_at ASC
+            LIMIT 200
+            """,
+            (user_id,)
+        ) or []
+
+        sent = 0
+        failed = 0
+        retried = 0
+
+        for job in jobs:
+            queue_id = job['queue_id']
+            attempts = int(job.get('attempts', 0)) + 1
+            max_retries = int(job.get('max_retries', 3) or 3)
+            payload = {}
+            try:
+                payload = json.loads(job.get('payload_json') or '{}')
+            except Exception:
+                payload = {}
+
+            delivered = False
+            error_reason = None
+
+            try:
+                if job['channel'] == 'in_app':
+                    if 'notifications' not in st.session_state:
+                        st.session_state.notifications = []
+                    st.session_state.notifications.append({
+                        'to': payload.get('email'),
+                        'subject': payload.get('subject', 'LitGrid Reminder'),
+                        'message': payload.get('message', ''),
+                        'timestamp': datetime.now(),
+                        'type': payload.get('type', 'deadline')
+                    })
+                    delivered = True
+                elif job['channel'] == 'email':
+                    if payload.get('digest_mode'):
+                        if 'notifications' not in st.session_state:
+                            st.session_state.notifications = []
+                        st.session_state.notifications.append({
+                            'to': payload.get('email'),
+                            'subject': payload.get('subject', 'LitGrid Daily Digest'),
+                            'message': payload.get('message', ''),
+                            'timestamp': datetime.now(),
+                            'type': 'daily_digest'
+                        })
+                        delivered = True
+                    else:
+                        delivered = EmailService.send_return_reminder(
+                            payload.get('email'),
+                            payload.get('full_name'),
+                            payload.get('book_title'),
+                            payload.get('due_date'),
+                            int(payload.get('days_until_due', 0))
+                        )
+                else:
+                    error_reason = 'unsupported_channel'
+            except Exception as ex:
+                error_reason = str(ex)
+
+            if delivered:
+                Database.execute_update(
+                    """
+                    UPDATE notification_delivery_queue
+                    SET status = 'sent', attempts = ?, sent_at = datetime('now'), error_reason = NULL, updated_at = datetime('now')
+                    WHERE queue_id = ?
+                    """,
+                    (attempts, queue_id)
+                )
+
+                if job.get('borrowing_id'):
+                    Database.execute_update(
+                        """
+                        INSERT OR IGNORE INTO account_notification_ledger
+                        (user_id, borrowing_id, channel, notify_date, message, sent_at)
+                        VALUES (?, ?, ?, ?, ?, datetime('now'))
+                        """,
+                        (
+                            user_id,
+                            job['borrowing_id'],
+                            job['channel'],
+                            job['notify_date'],
+                            payload.get('message', '')
+                        )
+                    )
+                sent += 1
+                continue
+
+            if attempts < max_retries:
+                Database.execute_update(
+                    """
+                    UPDATE notification_delivery_queue
+                    SET status = 'retried', attempts = ?, error_reason = ?,
+                        next_attempt_at = datetime('now', '+15 minutes'), updated_at = datetime('now')
+                    WHERE queue_id = ?
+                    """,
+                    (attempts, error_reason or 'delivery_failed', queue_id)
+                )
+                retried += 1
+            else:
+                Database.execute_update(
+                    """
+                    UPDATE notification_delivery_queue
+                    SET status = 'failed', attempts = ?, error_reason = ?, updated_at = datetime('now')
+                    WHERE queue_id = ?
+                    """,
+                    (attempts, error_reason or 'max_retries_exceeded', queue_id)
+                )
+                failed += 1
+
+        return {'sent': sent, 'failed': failed, 'retried': retried, 'processed': len(jobs)}
 
 # ================================================================
 # ADVANCED UTILITIES - V4.0
@@ -2891,11 +3224,159 @@ class Database:
                     code_value TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
+            ''',
+            'account_notification_preferences': '''
+                CREATE TABLE IF NOT EXISTS account_notification_preferences (
+                    pref_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL UNIQUE,
+                    email_enabled INTEGER DEFAULT 1,
+                    in_app_enabled INTEGER DEFAULT 1,
+                    deadline_threshold_days INTEGER DEFAULT 3,
+                    timezone TEXT DEFAULT 'UTC',
+                    quiet_hours_enabled INTEGER DEFAULT 0,
+                    quiet_start TEXT DEFAULT '22:00',
+                    quiet_end TEXT DEFAULT '07:00',
+                    digest_mode INTEGER DEFAULT 0,
+                    digest_hour INTEGER DEFAULT 8,
+                    auto_scan_enabled INTEGER DEFAULT 0,
+                    auto_scan_interval_minutes INTEGER DEFAULT 60,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            ''',
+            'account_notification_ledger': '''
+                CREATE TABLE IF NOT EXISTS account_notification_ledger (
+                    ledger_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    borrowing_id INTEGER NOT NULL,
+                    channel TEXT NOT NULL,
+                    notify_date DATE NOT NULL,
+                    message TEXT,
+                    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id),
+                    UNIQUE(user_id, borrowing_id, channel, notify_date)
+                )
+            ''',
+            'account_deletion_requests': '''
+                CREATE TABLE IF NOT EXISTS account_deletion_requests (
+                    request_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    export_json TEXT,
+                    requested_by TEXT,
+                    status TEXT DEFAULT 'pending',
+                    notes TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at DATETIME,
+                    reviewed_by INTEGER,
+                    decision_reason TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            ''',
+            'account_deletion_timeline': '''
+                CREATE TABLE IF NOT EXISTS account_deletion_timeline (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    request_id INTEGER NOT NULL,
+                    event_type TEXT NOT NULL,
+                    actor_user_id INTEGER,
+                    actor_role TEXT,
+                    reason TEXT NOT NULL,
+                    metadata TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (request_id) REFERENCES account_deletion_requests(request_id)
+                )
+            ''',
+            'account_operation_events': '''
+                CREATE TABLE IF NOT EXISTS account_operation_events (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    operation TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    metadata TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            ''',
+            'notification_delivery_queue': '''
+                CREATE TABLE IF NOT EXISTS notification_delivery_queue (
+                    queue_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    borrowing_id INTEGER,
+                    channel TEXT NOT NULL,
+                    notify_date DATE,
+                    dedup_key TEXT NOT NULL UNIQUE,
+                    payload_json TEXT,
+                    status TEXT DEFAULT 'queued',
+                    attempts INTEGER DEFAULT 0,
+                    max_retries INTEGER DEFAULT 3,
+                    error_reason TEXT,
+                    next_attempt_at DATETIME,
+                    sent_at DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
+            ''',
+            'scheduler_locks': '''
+                CREATE TABLE IF NOT EXISTS scheduler_locks (
+                    lock_name TEXT PRIMARY KEY,
+                    locked_until DATETIME,
+                    last_run_at DATETIME,
+                    last_status TEXT,
+                    last_error TEXT,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''',
+            'user_sessions': '''
+                CREATE TABLE IF NOT EXISTS user_sessions (
+                    session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    session_token TEXT NOT NULL UNIQUE,
+                    device_label TEXT,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    geo_hint TEXT,
+                    trusted_device INTEGER DEFAULT 0,
+                    trust_label TEXT,
+                    step_up_verified_until DATETIME,
+                    risk_score INTEGER DEFAULT 0,
+                    risk_reasons TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    is_active INTEGER DEFAULT 1,
+                    revoked_at DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                )
             '''
         }
         
         for table_name, table_sql in tables.items():
             cursor.execute(table_sql)
+
+        def ensure_column(table_name, column_name, column_def):
+            try:
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                cols = [row[1] for row in cursor.fetchall()]
+                if column_name not in cols:
+                    cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_def}")
+            except:
+                pass
+
+        ensure_column('account_notification_preferences', 'timezone', "TEXT DEFAULT 'UTC'")
+        ensure_column('account_notification_preferences', 'quiet_hours_enabled', 'INTEGER DEFAULT 0')
+        ensure_column('account_notification_preferences', 'quiet_start', "TEXT DEFAULT '22:00'")
+        ensure_column('account_notification_preferences', 'quiet_end', "TEXT DEFAULT '07:00'")
+        ensure_column('account_notification_preferences', 'digest_mode', 'INTEGER DEFAULT 0')
+        ensure_column('account_notification_preferences', 'digest_hour', 'INTEGER DEFAULT 8')
+        ensure_column('account_notification_preferences', 'auto_scan_enabled', 'INTEGER DEFAULT 0')
+        ensure_column('account_notification_preferences', 'auto_scan_interval_minutes', 'INTEGER DEFAULT 60')
+        ensure_column('account_deletion_requests', 'reviewed_by', 'INTEGER')
+        ensure_column('account_deletion_requests', 'decision_reason', 'TEXT')
+        ensure_column('user_sessions', 'geo_hint', 'TEXT')
+        ensure_column('user_sessions', 'trusted_device', 'INTEGER DEFAULT 0')
+        ensure_column('user_sessions', 'trust_label', 'TEXT')
+        ensure_column('user_sessions', 'step_up_verified_until', 'DATETIME')
+        ensure_column('user_sessions', 'risk_score', 'INTEGER DEFAULT 0')
+        ensure_column('user_sessions', 'risk_reasons', 'TEXT')
         
         conn.commit()
     
@@ -3304,12 +3785,327 @@ class Auth:
             st.session_state.user = None
         if 'login_time' not in st.session_state:
             st.session_state.login_time = None
+        if 'session_token' not in st.session_state:
+            st.session_state.session_token = None
+
+    @staticmethod
+    def _safe_int(value, default=0):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _ensure_session_token():
+        """Ensure request session has a stable token."""
+        Auth.init_session()
+        if not st.session_state.session_token:
+            st.session_state.session_token = secrets.token_urlsafe(24)
+        return st.session_state.session_token
+
+    @staticmethod
+    def _upsert_user_session(user):
+        """Create or refresh persistent user session row for real DB users."""
+        user_id = Auth._safe_int(user.get('user_id'), 0)
+        if user_id <= 0:
+            return
+
+        token = Auth._ensure_session_token()
+        geo_hint = st.session_state.get('account_timezone_hint') or os.getenv('TZ') or 'UTC'
+        device_label = 'Web Session'
+        existing = Database.execute_query(
+            "SELECT session_id, trusted_device FROM user_sessions WHERE session_token = ?",
+            (token,),
+            fetch_one=True
+        )
+
+        if existing:
+            Database.execute_update(
+                """
+                UPDATE user_sessions
+                SET user_id = ?, is_active = 1, last_seen = datetime('now'), revoked_at = NULL,
+                    geo_hint = COALESCE(geo_hint, ?), device_label = COALESCE(device_label, ?)
+                WHERE session_token = ?
+                """,
+                (user_id, geo_hint, device_label, token)
+            )
+        else:
+            Database.execute_update(
+                """
+                INSERT INTO user_sessions
+                (user_id, session_token, device_label, ip_address, user_agent, geo_hint, trusted_device,
+                 created_at, last_seen, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, 0, datetime('now'), datetime('now'), 1)
+                """,
+                (user_id, token, device_label, None, None, geo_hint)
+            )
+
+        Auth._evaluate_and_handle_session_risk(user_id, token)
+
+    @staticmethod
+    def _evaluate_and_handle_session_risk(user_id, session_token):
+        """Score risky session patterns and auto-revoke when threshold is exceeded."""
+        current = Database.execute_query(
+            """
+            SELECT session_id, geo_hint, trusted_device
+            FROM user_sessions
+            WHERE user_id = ? AND session_token = ?
+            """,
+            (user_id, session_token),
+            fetch_one=True
+        )
+        if not current:
+            return
+
+        score = 0
+        reasons = []
+
+        churn = Database.execute_query(
+            """
+            SELECT COUNT(*) as cnt
+            FROM user_sessions
+            WHERE user_id = ?
+              AND created_at >= datetime('now', '-15 minutes')
+            """,
+            (user_id,),
+            fetch_one=True
+        ) or {'cnt': 0}
+        churn_count = int(churn.get('cnt', 0))
+        if churn_count >= 5:
+            score += 70
+            reasons.append(f"high_session_churn:{churn_count}")
+
+        if current.get('geo_hint'):
+            impossible_travel_proxy = Database.execute_query(
+                """
+                SELECT session_id
+                FROM user_sessions
+                WHERE user_id = ?
+                  AND session_token != ?
+                  AND is_active = 1
+                  AND geo_hint IS NOT NULL
+                  AND geo_hint != ?
+                  AND last_seen >= datetime('now', '-90 minutes')
+                LIMIT 1
+                """,
+                (user_id, session_token, current.get('geo_hint')),
+                fetch_one=True
+            )
+            if impossible_travel_proxy:
+                score += 45
+                reasons.append('impossible_travel_proxy')
+
+        recent_revocations = Database.execute_query(
+            """
+            SELECT COUNT(*) as cnt
+            FROM user_sessions
+            WHERE user_id = ?
+              AND revoked_at >= datetime('now', '-60 minutes')
+            """,
+            (user_id,),
+            fetch_one=True
+        ) or {'cnt': 0}
+        revoked_count = int(recent_revocations.get('cnt', 0))
+        if revoked_count >= 4:
+            score += 25
+            reasons.append(f"recent_revocations:{revoked_count}")
+
+        Database.execute_update(
+            """
+            UPDATE user_sessions
+            SET risk_score = ?, risk_reasons = ?, last_seen = datetime('now')
+            WHERE user_id = ? AND session_token = ?
+            """,
+            (score, ';'.join(reasons) if reasons else None, user_id, session_token)
+        )
+
+        if score >= 80:
+            Database.execute_update(
+                """
+                UPDATE user_sessions
+                SET is_active = 0, revoked_at = datetime('now'), last_seen = datetime('now')
+                WHERE user_id = ? AND session_token = ?
+                """,
+                (user_id, session_token)
+            )
+            AuditLogger.log_action(
+                user_id=user_id,
+                action='session_auto_revoked_risk',
+                entity_type='session',
+                details=f"risk_score={score};reasons={';'.join(reasons)}",
+                status='success'
+            )
+
+    @staticmethod
+    def get_current_session_row():
+        """Fetch persistent row for current session token."""
+        token = st.session_state.get('session_token')
+        user = st.session_state.get('user')
+        user_id = Auth._safe_int(user.get('user_id'), 0) if isinstance(user, dict) else 0
+        if not token or user_id <= 0:
+            return None
+        return Database.execute_query(
+            """
+            SELECT session_id, trusted_device, trust_label, step_up_verified_until, risk_score, risk_reasons, is_active
+            FROM user_sessions
+            WHERE user_id = ? AND session_token = ?
+            """,
+            (user_id, token),
+            fetch_one=True
+        )
+
+    @staticmethod
+    def is_current_device_trusted():
+        """Check trust flag for current device/session."""
+        row = Auth.get_current_session_row()
+        return bool(row and int(row.get('trusted_device') or 0) == 1 and int(row.get('is_active') or 0) == 1)
+
+    @staticmethod
+    def is_step_up_verified():
+        """Check whether current session has recent step-up verification."""
+        row = Auth.get_current_session_row()
+        if not row or not row.get('step_up_verified_until'):
+            return False
+        valid = Database.execute_query(
+            """
+            SELECT 1 as ok
+            FROM user_sessions
+            WHERE session_id = ?
+              AND step_up_verified_until IS NOT NULL
+              AND step_up_verified_until > datetime('now')
+            """,
+            (row['session_id'],),
+            fetch_one=True
+        )
+        return bool(valid)
+
+    @staticmethod
+    def mark_current_device_trusted(trust_label='Trusted Web Device', trust_days=30):
+        """Mark current device as trusted."""
+        token = st.session_state.get('session_token')
+        user = st.session_state.get('user')
+        user_id = Auth._safe_int(user.get('user_id'), 0) if isinstance(user, dict) else 0
+        if not token or user_id <= 0:
+            return False
+        return Database.execute_update(
+            """
+            UPDATE user_sessions
+            SET trusted_device = 1,
+                trust_label = ?,
+                step_up_verified_until = datetime('now', ?),
+                last_seen = datetime('now')
+            WHERE user_id = ? AND session_token = ?
+            """,
+            (trust_label, f"+{int(trust_days)} days", user_id, token)
+        )
+
+    @staticmethod
+    def mark_step_up_verified(minutes=15):
+        """Set short-lived step-up verification window for current session."""
+        token = st.session_state.get('session_token')
+        user = st.session_state.get('user')
+        user_id = Auth._safe_int(user.get('user_id'), 0) if isinstance(user, dict) else 0
+        if not token or user_id <= 0:
+            return False
+        return Database.execute_update(
+            """
+            UPDATE user_sessions
+            SET step_up_verified_until = datetime('now', ?), last_seen = datetime('now')
+            WHERE user_id = ? AND session_token = ?
+            """,
+            (f"+{int(minutes)} minutes", user_id, token)
+        )
+
+    @staticmethod
+    def start_step_up_challenge(user_id, email, purpose='sensitive_action'):
+        """Generate and send step-up challenge code."""
+        code = str(secrets.randbelow(900000) + 100000)
+        if 'step_up_challenges' not in st.session_state:
+            st.session_state.step_up_challenges = {}
+
+        st.session_state.step_up_challenges[f"{user_id}:{purpose}"] = {
+            'code': code,
+            'created_at': datetime.now(),
+            'attempts': 0
+        }
+        EmailService.send_2fa_code(email, code)
+        return True
+
+    @staticmethod
+    def verify_step_up_challenge(user_id, submitted_code, purpose='sensitive_action'):
+        """Verify step-up challenge code and establish short-lived verified state."""
+        key = f"{user_id}:{purpose}"
+        challenge = (st.session_state.get('step_up_challenges') or {}).get(key)
+        if not challenge:
+            return False, 'No active challenge. Request a verification code first.'
+
+        elapsed = (datetime.now() - challenge['created_at']).total_seconds()
+        if elapsed > 300:
+            return False, 'Verification code expired. Request a new one.'
+
+        challenge['attempts'] = int(challenge.get('attempts', 0)) + 1
+        if challenge['attempts'] > 5:
+            return False, 'Too many failed attempts. Request a new code.'
+
+        if str(submitted_code).strip() != str(challenge['code']).strip():
+            return False, 'Invalid verification code.'
+
+        Auth.mark_step_up_verified(minutes=20)
+        return True, 'Step-up verification complete.'
+
+    @staticmethod
+    def _touch_user_session():
+        """Refresh last_seen for active real-user sessions."""
+        token = st.session_state.get('session_token')
+        user = st.session_state.get('user')
+        user_id = Auth._safe_int(user.get('user_id'), 0) if isinstance(user, dict) else 0
+        if token and user_id > 0:
+            Database.execute_update(
+                "UPDATE user_sessions SET last_seen = datetime('now') WHERE session_token = ? AND is_active = 1",
+                (token,)
+            )
+
+    @staticmethod
+    def _is_current_session_active():
+        """Check whether current session token is still active for DB users."""
+        token = st.session_state.get('session_token')
+        user = st.session_state.get('user')
+        user_id = Auth._safe_int(user.get('user_id'), 0) if isinstance(user, dict) else 0
+        if not token or user_id <= 0:
+            return True
+
+        row = Database.execute_query(
+            "SELECT is_active FROM user_sessions WHERE session_token = ? AND user_id = ?",
+            (token, user_id),
+            fetch_one=True
+        )
+        return bool(row and row.get('is_active') == 1)
+
+    @staticmethod
+    def _deactivate_current_session():
+        """Mark the active session token as revoked."""
+        token = st.session_state.get('session_token')
+        user = st.session_state.get('user')
+        user_id = Auth._safe_int(user.get('user_id'), 0) if isinstance(user, dict) else 0
+        if token and user_id > 0:
+            Database.execute_update(
+                """
+                UPDATE user_sessions
+                SET is_active = 0, revoked_at = datetime('now'), last_seen = datetime('now')
+                WHERE session_token = ? AND user_id = ?
+                """,
+                (token, user_id)
+            )
     
     @staticmethod
     def is_authenticated():
         """Check if user is authenticated"""
         Auth.init_session()
         if not st.session_state.authenticated:
+            return False
+
+        if not Auth._is_current_session_active():
+            Auth.logout()
             return False
         
         # Check timeout
@@ -3318,6 +4114,7 @@ class Auth:
             if elapsed > timedelta(minutes=Config.SESSION_TIMEOUT):
                 Auth.logout()
                 return False
+        Auth._touch_user_session()
         return True
     
     @staticmethod
@@ -3326,10 +4123,13 @@ class Auth:
         st.session_state.authenticated = True
         st.session_state.user = user
         st.session_state.login_time = datetime.now()
+        Auth._ensure_session_token()
+        Auth._upsert_user_session(user)
     
     @staticmethod
     def logout():
         """Logout user"""
+        Auth._deactivate_current_session()
         st.session_state.authenticated = False
         st.session_state.user = None
         st.session_state.login_time = None
@@ -4759,11 +5559,11 @@ def show_dashboard():
             with col2:
                 st.write("**Financial**")
                 total_fines = Database.execute_query(
-                    "SELECT COALESCE(SUM(amount), 0) as total FROM fines WHERE status = 'paid'",
+                    "SELECT COALESCE(SUM(fine_amount), 0) as total FROM fines WHERE status = 'paid'",
                     fetch_one=True
                 )
                 pending_fines = Database.execute_query(
-                    "SELECT COALESCE(SUM(amount), 0) as total FROM fines WHERE status = 'pending'",
+                    "SELECT COALESCE(SUM(fine_amount), 0) as total FROM fines WHERE status = 'pending'",
                     fetch_one=True
                 )
                 users_with_fines = Database.execute_query(
@@ -4787,15 +5587,17 @@ def show_dashboard():
 
             # User activity
             activity_query = """
-                SELECT u.username, u.full_name, u.role, u.last_login, COUNT(b.borrowing_id) as borrowing_count
+                SELECT u.username, u.full_name, u.role,
+                       MAX(b.checkout_date) as last_activity,
+                       COUNT(b.borrowing_id) as borrowing_count
                 FROM users u
                 LEFT JOIN borrowing b ON u.user_id = b.user_id AND date(b.checkout_date) >= date('now', '-' || ? || ' days')
-                WHERE u.last_login >= datetime('now', '-' || ? || ' days')
                 GROUP BY u.user_id
-                ORDER BY u.last_login DESC
+                HAVING MAX(b.checkout_date) IS NOT NULL
+                ORDER BY MAX(b.checkout_date) DESC
             """
 
-            activities = Database.execute_query(activity_query, (log_days, log_days))
+            activities = Database.execute_query(activity_query, (log_days,))
 
             if activities:
                 df_activities = []
@@ -4804,7 +5606,7 @@ def show_dashboard():
                         "Username": act['username'],
                         "Name": act['full_name'],
                         "Role": act['role'].upper(),
-                        "Last Login": act['last_login'][:16] if act['last_login'] else "Never",
+                        "Last Activity": act['last_activity'][:16] if act['last_activity'] else "Never",
                         "Recent Borrowings": act['borrowing_count']
                     })
 
@@ -4947,6 +5749,117 @@ def show_dashboard():
 
                 if st.button("Export Security Report", use_container_width=True):
                     st.success("Security report exported")
+
+            st.divider()
+            st.markdown("### Deletion Request Approval Workflow")
+            st.caption("Approve or reject account deletion requests with mandatory reason. Timeline events are append-only.")
+
+            pending_requests = Database.execute_query(
+                """
+                SELECT dr.request_id, dr.user_id, u.username, u.full_name, dr.status, dr.created_at,
+                       dr.requested_by, dr.notes, dr.reviewed_at, dr.decision_reason
+                FROM account_deletion_requests dr
+                LEFT JOIN users u ON dr.user_id = u.user_id
+                ORDER BY
+                    CASE WHEN dr.status = 'pending' THEN 0 ELSE 1 END,
+                    dr.created_at DESC
+                LIMIT 100
+                """
+            ) or []
+
+            if pending_requests:
+                st.dataframe(pd.DataFrame(pending_requests), use_container_width=True, hide_index=True)
+
+                pending_ids = [r['request_id'] for r in pending_requests if str(r.get('status', '')).lower() == 'pending']
+                if pending_ids:
+                    wf1, wf2 = st.columns(2, gap="small")
+                    with wf1:
+                        selected_request_id = st.selectbox("Pending Request", pending_ids, key="sa_delete_request_id")
+                        workflow_action = st.radio(
+                            "Action",
+                            ["approve", "reject"],
+                            horizontal=True,
+                            key="sa_delete_workflow_action"
+                        )
+                    with wf2:
+                        workflow_reason = st.text_area(
+                            "Mandatory Reason",
+                            placeholder="Explain exactly why this request is approved/rejected.",
+                            key="sa_delete_workflow_reason"
+                        )
+
+                    if st.button("Apply Workflow Decision", use_container_width=True):
+                        if not workflow_reason or len(workflow_reason.strip()) < 8:
+                            st.error("A detailed reason is required (minimum 8 characters).")
+                        else:
+                            selected = next((r for r in pending_requests if r['request_id'] == selected_request_id), None)
+                            if not selected:
+                                st.error("Selected request not found.")
+                            else:
+                                admin_user_id = Auth._safe_int(user.get('user_id'), -9999)
+                                final_status = 'approved' if workflow_action == 'approve' else 'rejected'
+                                updated = Database.execute_update(
+                                    """
+                                    UPDATE account_deletion_requests
+                                    SET status = ?, reviewed_at = datetime('now'), reviewed_by = ?, decision_reason = ?
+                                    WHERE request_id = ? AND status = 'pending'
+                                    """,
+                                    (final_status, admin_user_id, workflow_reason.strip(), selected_request_id)
+                                )
+                                if updated:
+                                    if final_status == 'approved' and selected.get('user_id'):
+                                        Database.execute_update(
+                                            "UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE user_id = ?",
+                                            (selected['user_id'],)
+                                        )
+                                        Database.execute_update(
+                                            """
+                                            UPDATE user_sessions
+                                            SET is_active = 0, revoked_at = datetime('now'), last_seen = datetime('now')
+                                            WHERE user_id = ? AND is_active = 1
+                                            """,
+                                            (selected['user_id'],)
+                                        )
+                                    AccountOpsEngine.log_deletion_timeline(
+                                        request_id=selected_request_id,
+                                        event_type=f"workflow_{final_status}",
+                                        actor_user_id=admin_user_id,
+                                        actor_role='superadmin',
+                                        reason=workflow_reason.strip(),
+                                        metadata=f"requested_by={selected.get('requested_by')}"
+                                    )
+                                    AuditLogger.log_action(
+                                        user_id=admin_user_id,
+                                        action=f"deletion_request_{final_status}",
+                                        entity_type='account_deletion_requests',
+                                        entity_id=selected_request_id,
+                                        details=workflow_reason.strip(),
+                                        status='success'
+                                    )
+                                    st.success(f"Request #{selected_request_id} marked as {final_status}.")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to apply workflow decision.")
+
+                selected_timeline_id = st.selectbox(
+                    "View Timeline for Request",
+                    [r['request_id'] for r in pending_requests],
+                    key='sa_delete_timeline_selector'
+                )
+                timeline_rows = Database.execute_query(
+                    """
+                    SELECT event_type, actor_user_id, actor_role, reason, metadata, created_at
+                    FROM account_deletion_timeline
+                    WHERE request_id = ?
+                    ORDER BY created_at ASC, event_id ASC
+                    """,
+                    (selected_timeline_id,)
+                ) or []
+                if timeline_rows:
+                    st.caption("Immutable Timeline")
+                    st.dataframe(pd.DataFrame(timeline_rows), use_container_width=True, hide_index=True)
+            else:
+                st.info("No deletion requests found.")
 
         # ============ TAB 9: PERFORMANCE MONITORING ============
         with sa_tab9:
@@ -5613,7 +6526,7 @@ def show_dashboard():
                 fetch_one=True
             )
             total_fines = Database.execute_query(
-                "SELECT COALESCE(SUM(amount), 0) as total FROM fines WHERE status = 'paid'",
+                "SELECT COALESCE(SUM(fine_amount), 0) as total FROM fines WHERE status = 'paid'",
                 fetch_one=True
             )
 
@@ -6076,56 +6989,521 @@ def show_books():
         st.warning(" No books found matching your criteria. Try adjusting the filters.")
 
 def show_account():
-    """Enhanced Account page with password change and statistics"""
+    """Robust account center with profile health, analytics, security, and data controls."""
     user = Auth.get_user()
-    
+
+    if not user:
+        st.error("Unable to load account context. Please log in again.")
+        return
+
+    def to_int(value, default=0):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def to_float(value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def default_by_role(role_name):
+        role_value = (role_name or 'member').lower()
+        defaults = {
+            'member_tier': 'standard',
+            'max_books_allowed': 10,
+            'borrowing_days': Config.DEFAULT_BORROWING_DAYS,
+        }
+        if role_value in ['librarian', 'admin']:
+            defaults.update({'member_tier': 'staff', 'max_books_allowed': 50, 'borrowing_days': 60})
+        elif role_value == 'superadmin':
+            defaults.update({'member_tier': 'superadmin', 'max_books_allowed': 999, 'borrowing_days': 365})
+        return defaults
+
+    user_id = to_int(user.get('user_id'), 0)
+    role = str(user.get('role', 'member'))
+    role_defaults = default_by_role(role)
+
+    account = {
+        'user_id': user_id,
+        'full_name': user.get('full_name', 'Unknown User'),
+        'username': user.get('username', 'unknown'),
+        'email': user.get('email', 'N/A'),
+        'phone': user.get('phone') or 'Not provided',
+        'role': role,
+        'member_tier': user.get('member_tier', role_defaults['member_tier']),
+        'max_books_allowed': to_int(user.get('max_books_allowed'), role_defaults['max_books_allowed']),
+        'borrowing_days': to_int(user.get('borrowing_days'), role_defaults['borrowing_days']),
+        'is_active': bool(user.get('is_active', True)),
+        'fine_balance': to_float(user.get('fine_balance'), 0.0),
+        'created_at': user.get('created_at', 'N/A'),
+        'last_login': user.get('last_login', 'N/A'),
+        'is_demo': bool(user.get('is_demo')),
+    }
+
+    if user_id > 0:
+        db_profile = Database.execute_query(
+            """
+            SELECT user_id, full_name, username, email, phone, role,
+                   fine_balance, is_active, member_tier, created_at, last_login
+            FROM users
+            WHERE user_id = ?
+            """,
+            (user_id,),
+            fetch_one=True
+        )
+        if db_profile:
+            account['full_name'] = db_profile.get('full_name') or account['full_name']
+            account['username'] = db_profile.get('username') or account['username']
+            account['email'] = db_profile.get('email') or account['email']
+            account['phone'] = db_profile.get('phone') or account['phone']
+            account['role'] = db_profile.get('role') or account['role']
+            account['member_tier'] = db_profile.get('member_tier') or account['member_tier']
+            account['is_active'] = bool(db_profile.get('is_active', account['is_active']))
+            account['fine_balance'] = to_float(db_profile.get('fine_balance'), account['fine_balance'])
+            account['created_at'] = db_profile.get('created_at') or account['created_at']
+            account['last_login'] = db_profile.get('last_login') or account['last_login']
+
+            defaults = default_by_role(account['role'])
+            account['max_books_allowed'] = to_int(user.get('max_books_allowed'), defaults['max_books_allowed'])
+            account['borrowing_days'] = to_int(user.get('borrowing_days'), defaults['borrowing_days'])
+
+    def has_sensitive_action_access():
+        if account['user_id'] <= 0:
+            return True
+        return Auth.is_current_device_trusted() or Auth.is_step_up_verified()
+
+    def require_sensitive_action_access(purpose_key, header_label):
+        """Render step-up UI and require trusted or recently verified session."""
+        if account['user_id'] <= 0:
+            return True
+        if has_sensitive_action_access():
+            return True
+
+        st.warning(f"{header_label} requires step-up authentication because this device is not trusted.")
+        c1, c2, c3 = st.columns([1, 1, 2], gap='small')
+        with c1:
+            if st.button("Send Verification Code", key=f"stepup_send_{purpose_key}", use_container_width=True):
+                Auth.start_step_up_challenge(account['user_id'], account['email'], purpose=purpose_key)
+                st.success("Verification code sent to your notification inbox/email channel.")
+        with c2:
+            code = st.text_input("Code", max_chars=6, key=f"stepup_code_{purpose_key}")
+            trust_device = st.checkbox("Trust this device", key=f"stepup_trust_{purpose_key}")
+            if st.button("Verify", key=f"stepup_verify_{purpose_key}", use_container_width=True):
+                ok, msg = Auth.verify_step_up_challenge(account['user_id'], code, purpose=purpose_key)
+                if ok:
+                    if trust_device:
+                        Auth.mark_current_device_trusted(trust_label='User trusted from account center', trust_days=30)
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+        return False
+
+    def parse_hhmm(hhmm):
+        try:
+            h, m = str(hhmm).split(':')
+            return int(h), int(m)
+        except Exception:
+            return 22, 0
+
+    def is_quiet_hours(now_dt, start_hhmm, end_hhmm):
+        sh, sm = parse_hhmm(start_hhmm)
+        eh, em = parse_hhmm(end_hhmm)
+        start_minutes = sh * 60 + sm
+        end_minutes = eh * 60 + em
+        current_minutes = now_dt.hour * 60 + now_dt.minute
+
+        if start_minutes == end_minutes:
+            return False
+        if start_minutes < end_minutes:
+            return start_minutes <= current_minutes < end_minutes
+        return current_minutes >= start_minutes or current_minutes < end_minutes
+
+    def run_deadline_notification_scan(scan_pref, source='manual'):
+        """Queue + process deadline reminders with digest, dedup, and delivery state machine."""
+        tz_name_scan = scan_pref.get('timezone', 'UTC') or 'UTC'
+        st.session_state.account_timezone_hint = tz_name_scan
+        try:
+            now_local = datetime.now(ZoneInfo(tz_name_scan))
+        except Exception:
+            tz_name_scan = 'UTC'
+            now_local = datetime.now(ZoneInfo('UTC'))
+
+        if scan_pref.get('quiet_hours_enabled') and is_quiet_hours(
+            now_local,
+            scan_pref.get('quiet_start', '22:00'),
+            scan_pref.get('quiet_end', '07:00')
+        ):
+            return {
+                'matched': 0,
+                'queued': 0,
+                'sent': 0,
+                'failed': 0,
+                'retried': 0,
+                'dedup_skipped': 0,
+                'status': 'quiet_hours_active',
+                'timezone': tz_name_scan
+            }
+
+        notify_date_local = now_local.date().isoformat()
+        due_items = Database.execute_query(
+            """
+            SELECT br.borrowing_id, b.title, br.due_date,
+                   CAST(julianday(br.due_date) - julianday(date('now')) AS INTEGER) as days_until_due
+            FROM borrowing br
+            JOIN books b ON br.book_id = b.book_id
+            WHERE br.user_id = ?
+              AND br.return_date IS NULL
+              AND br.due_date <= date('now', '+' || ? || ' days')
+            ORDER BY br.due_date ASC
+            """,
+            (account['user_id'], to_int(scan_pref.get('deadline_threshold_days'), 3))
+        ) or []
+
+        queued = 0
+        dedup_skipped = 0
+        digest_mode = bool(scan_pref.get('digest_mode', 0))
+        digest_hour = max(0, min(23, to_int(scan_pref.get('digest_hour'), 8)))
+
+        if digest_mode and source == 'scheduler' and int(now_local.hour) < digest_hour:
+            return {
+                'matched': len(due_items),
+                'queued': 0,
+                'sent': 0,
+                'failed': 0,
+                'retried': 0,
+                'dedup_skipped': 0,
+                'status': 'digest_window_not_reached',
+                'timezone': tz_name_scan
+            }
+
+        if digest_mode and due_items:
+            lines = [
+                f"- {row['title']} (due: {row['due_date']}, in {row['days_until_due']} day(s))"
+                for row in due_items
+            ]
+            digest_message = "Daily borrowing reminder digest:\n" + "\n".join(lines)
+            for channel in ['in_app', 'email']:
+                if channel == 'in_app' and not scan_pref.get('in_app_enabled'):
+                    continue
+                if channel == 'email' and not scan_pref.get('email_enabled'):
+                    continue
+                dedup_key = f"digest:{account['user_id']}:{notify_date_local}:{channel}"
+                payload = {
+                    'email': account['email'],
+                    'subject': 'LitGrid Daily Deadline Digest',
+                    'message': digest_message,
+                    'type': 'daily_digest',
+                    'digest_mode': True,
+                    'full_name': account['full_name']
+                }
+                if AccountOpsEngine.queue_notification_job(
+                    account['user_id'],
+                    None,
+                    channel,
+                    notify_date_local,
+                    payload,
+                    dedup_key,
+                    max_retries=3
+                ):
+                    queued += 1
+                else:
+                    dedup_skipped += 1
+        else:
+            for row in due_items:
+                for channel in ['in_app', 'email']:
+                    if channel == 'in_app' and not scan_pref.get('in_app_enabled'):
+                        continue
+                    if channel == 'email' and not scan_pref.get('email_enabled'):
+                        continue
+
+                    already_sent = Database.execute_query(
+                        """
+                        SELECT ledger_id FROM account_notification_ledger
+                        WHERE user_id = ? AND borrowing_id = ? AND channel = ? AND notify_date = ?
+                        """,
+                        (account['user_id'], row['borrowing_id'], channel, notify_date_local),
+                        fetch_one=True
+                    )
+                    if already_sent:
+                        dedup_skipped += 1
+                        continue
+
+                    dedup_key = f"{account['user_id']}:{row['borrowing_id']}:{channel}:{notify_date_local}"
+                    payload = {
+                        'email': account['email'],
+                        'full_name': account['full_name'],
+                        'book_title': row['title'],
+                        'due_date': row['due_date'],
+                        'days_until_due': int(row['days_until_due'] or 0),
+                        'subject': 'Borrowing deadline reminder',
+                        'message': f"'{row['title']}' is due in {row['days_until_due']} day(s) on {row['due_date']}",
+                        'type': 'deadline',
+                        'digest_mode': False
+                    }
+                    if AccountOpsEngine.queue_notification_job(
+                        account['user_id'],
+                        row['borrowing_id'],
+                        channel,
+                        notify_date_local,
+                        payload,
+                        dedup_key,
+                        max_retries=3
+                    ):
+                        queued += 1
+                    else:
+                        dedup_skipped += 1
+
+        delivery = AccountOpsEngine.process_notification_queue_for_user(account['user_id'])
+        AuditLogger.log_action(
+            user_id=account['user_id'],
+            action='deadline_notification_scan',
+            entity_type='account',
+            details=(
+                f"source={source};matched={len(due_items)};queued={queued};"
+                f"sent={delivery['sent']};failed={delivery['failed']};retried={delivery['retried']};"
+                f"dedup_skipped={dedup_skipped};digest_mode={int(digest_mode)};timezone={tz_name_scan}"
+            ),
+            status='success'
+        )
+
+        return {
+            'matched': len(due_items),
+            'queued': queued,
+            'sent': delivery['sent'],
+            'failed': delivery['failed'],
+            'retried': delivery['retried'],
+            'dedup_skipped': dedup_skipped,
+            'status': 'ok',
+            'timezone': tz_name_scan
+        }
+
     st.markdown('<h1 class="litgrid-header"> My Account</h1>', unsafe_allow_html=True)
-    
-    tab1, tab2, tab3 = st.tabs([" Profile", " Security", " My Statistics"])
-    
+
+    if account['is_demo']:
+        st.info("Demo account detected: account updates and exports are limited.")
+
+    tab1, tab2, tab3, tab4 = st.tabs([
+        " Profile & Health",
+        " Reading Analytics",
+        " Security & Access",
+        " Data Tools"
+    ])
+
     with tab1:
         col1, col2 = st.columns(2, gap="small")
-        
+
         with col1:
-            st.subheader(" Personal Information")
-            st.write(f"**Full Name:** {user['full_name']}")
-            st.write(f"**Username:** {user['username']}")
-            st.write(f"**Email:** {user['email']}")
-            st.write(f"**Phone:** {user.get('phone', 'Not provided') or 'Not provided'}")
-            st.write(f"**Member Since:** {format_date(user.get('created_at', 'N/A'))}")
-            st.write(f"**Last Login:** {format_datetime(user.get('last_login', 'N/A'))}")
-        
+            st.subheader("Identity")
+            st.write(f"**Full Name:** {account['full_name']}")
+            st.write(f"**Username:** {account['username']}")
+            st.write(f"**Email:** {account['email']}")
+            st.write(f"**Phone:** {account['phone']}")
+            st.write(f"**Member Since:** {format_date(account['created_at'])}")
+            st.write(f"**Last Login:** {format_datetime(account['last_login'])}")
+
         with col2:
-            st.subheader(" Account Status")
-            st.write(f"**Role:** {user['role'].title()}")
-            st.write(f"**Member Tier:** {user['member_tier'].title()}")
-            st.write(f"**Max Books Allowed:** {user['max_books_allowed']}")
-            st.write(f"**Borrowing Days:** {user['borrowing_days']}")
-            st.write(f"**Status:** {' Active' if user['is_active'] else ' Inactive'}")
-            
-            # Fine balance
+            st.subheader("Account Runtime Status")
+            st.write(f"**Role:** {account['role'].title()}")
+            st.write(f"**Member Tier:** {str(account['member_tier']).title()}")
+            st.write(f"**Max Books Allowed:** {account['max_books_allowed']}")
+            st.write(f"**Borrowing Days:** {account['borrowing_days']}")
+            st.write(f"**Status:** {' Active' if account['is_active'] else ' Inactive'}")
+
             st.divider()
-            if user['fine_balance'] > 0:
-                st.error(f" **Outstanding Fine:** {format_currency(user['fine_balance'])}")
-                st.caption("Please clear your fines to continue borrowing books")
+            if account['fine_balance'] > 0:
+                st.error(f"Outstanding Fine: {format_currency(account['fine_balance'])}")
             else:
-                st.success(" **No Outstanding Fines**")
-    
+                st.success("No Outstanding Fines")
+
+        st.divider()
+        st.subheader("Profile Health")
+
+        completeness_fields = {
+            'Full Name': bool(account['full_name'] and account['full_name'] != 'Unknown User'),
+            'Username': bool(account['username'] and account['username'] != 'unknown'),
+            'Email': bool(account['email'] and account['email'] != 'N/A'),
+            'Phone': bool(account['phone'] and account['phone'] != 'Not provided'),
+        }
+        completeness_score = int((sum(1 for ok in completeness_fields.values() if ok) / len(completeness_fields)) * 100)
+
+        m1, m2, m3 = st.columns(3, gap="small")
+        with m1:
+            st.metric("Profile Completeness", f"{completeness_score}%")
+        with m2:
+            session_remaining = "N/A"
+            if st.session_state.get('login_time'):
+                elapsed = datetime.now() - st.session_state.login_time
+                left = max(0, Config.SESSION_TIMEOUT - int(elapsed.total_seconds() // 60))
+                session_remaining = f"{left} min"
+            st.metric("Session Timeout Remaining", session_remaining)
+        with m3:
+            st.metric("Auth Context", "Real User" if account['user_id'] > 0 else "Functional Account")
+
+        if account['user_id'] > 0:
+            borrow_health = Database.execute_query(
+                """
+                SELECT
+                    COUNT(*) as active_count,
+                    SUM(CASE WHEN due_date < date('now') THEN 1 ELSE 0 END) as overdue_count,
+                    SUM(CASE WHEN due_date BETWEEN date('now') AND date('now', '+3 days') THEN 1 ELSE 0 END) as due_soon_count
+                FROM borrowing
+                WHERE user_id = ? AND return_date IS NULL
+                """,
+                (account['user_id'],),
+                fetch_one=True
+            )
+
+            active_count = to_int(borrow_health.get('active_count') if borrow_health else 0)
+            overdue_count = to_int(borrow_health.get('overdue_count') if borrow_health else 0)
+            due_soon_count = to_int(borrow_health.get('due_soon_count') if borrow_health else 0)
+
+            c1, c2, c3 = st.columns(3, gap="small")
+            c1.metric("Active Borrowings", active_count)
+            c2.metric("Overdue Risk", overdue_count)
+            c3.metric("Due in 3 Days", due_soon_count)
+
+            active_items = Database.execute_query(
+                """
+                SELECT b.title,
+                       br.checkout_date,
+                       br.due_date,
+                       CAST(julianday(br.due_date) - julianday(date('now')) AS INTEGER) as days_left
+                FROM borrowing br
+                JOIN books b ON br.book_id = b.book_id
+                WHERE br.user_id = ? AND br.return_date IS NULL
+                ORDER BY br.due_date ASC
+                LIMIT 20
+                """,
+                (account['user_id'],)
+            )
+
+            if active_items:
+                st.subheader("Borrowing Deadlines")
+                df_active = pd.DataFrame(active_items)
+
+                def deadline_state(days_left):
+                    if days_left is None:
+                        return 'Unknown'
+                    if days_left < 0:
+                        return 'Overdue'
+                    if days_left <= 3:
+                        return 'Due Soon'
+                    return 'On Track'
+
+                df_active['status'] = df_active['days_left'].apply(deadline_state)
+                st.dataframe(df_active, use_container_width=True, hide_index=True)
+        else:
+            st.info("Borrowing risk analytics are available for persisted database accounts.")
+
     with tab2:
-        st.subheader(" Security Settings")
-        
-        # Check if functional admin
+        st.subheader("Reading Analytics")
+
+        if account['user_id'] <= 0:
+            st.info("Detailed analytics are not available for functional/demo accounts.")
+        else:
+            stats = get_member_statistics(account['user_id'])
+            c1, c2, c3, c4 = st.columns(4, gap="small")
+            c1.metric("Books Read", stats.get('total_read', 0))
+            c2.metric("Currently Borrowed", stats.get('currently_borrowed', 0))
+            c3.metric("Reading Days", stats.get('total_reading_days', 0))
+            c4.metric("Favorite Genre", stats.get('favorite_genre', 'N/A'))
+
+            st.divider()
+
+            monthly_activity = Database.execute_query(
+                """
+                SELECT strftime('%Y-%m', checkout_date) as month,
+                       COUNT(*) as borrow_count,
+                       AVG(julianday(COALESCE(return_date, date('now'))) - julianday(checkout_date)) as avg_duration
+                FROM borrowing
+                WHERE user_id = ? AND checkout_date >= date('now', '-12 months')
+                GROUP BY month
+                ORDER BY month
+                """,
+                (account['user_id'],)
+            )
+
+            if monthly_activity:
+                st.subheader("12-Month Borrowing Activity")
+                df_month = pd.DataFrame(monthly_activity)
+                df_month['avg_duration'] = df_month['avg_duration'].fillna(0)
+
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=df_month['month'],
+                    y=df_month['borrow_count'],
+                    name='Borrows',
+                    marker_color='#1E88E5'
+                ))
+                fig.add_trace(go.Scatter(
+                    x=df_month['month'],
+                    y=df_month['avg_duration'],
+                    name='Avg Days Kept',
+                    mode='lines+markers',
+                    yaxis='y2',
+                    line=dict(color='#FF7043')
+                ))
+                fig.update_layout(
+                    xaxis_title='Month',
+                    yaxis=dict(title='Borrow Count'),
+                    yaxis2=dict(title='Avg Days Kept', overlaying='y', side='right'),
+                    legend=dict(orientation='h'),
+                    height=380
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            genre_distribution = Database.execute_query(
+                """
+                SELECT COALESCE(b.genre, 'Unknown') as genre, COUNT(*) as count
+                FROM borrowing br
+                JOIN books b ON br.book_id = b.book_id
+                WHERE br.user_id = ?
+                GROUP BY COALESCE(b.genre, 'Unknown')
+                ORDER BY count DESC
+                LIMIT 8
+                """,
+                (account['user_id'],)
+            )
+
+            if genre_distribution:
+                st.subheader("Genre Distribution")
+                df_genre = pd.DataFrame(genre_distribution)
+                fig_genre = px.pie(df_genre, values='count', names='genre', hole=0.45)
+                st.plotly_chart(fig_genre, use_container_width=True)
+
+            recent_history = Database.execute_query(
+                """
+                SELECT b.title, b.isbn, br.checkout_date, br.return_date,
+                       ROUND(julianday(COALESCE(br.return_date, date('now'))) - julianday(br.checkout_date), 1) as days_borrowed
+                FROM borrowing br
+                JOIN books b ON br.book_id = b.book_id
+                WHERE br.user_id = ?
+                ORDER BY br.checkout_date DESC
+                LIMIT 15
+                """,
+                (account['user_id'],)
+            )
+            st.subheader("Recent Reading History")
+            if recent_history:
+                st.dataframe(pd.DataFrame(recent_history), use_container_width=True, hide_index=True)
+            else:
+                st.info("No reading history found.")
+
+    with tab3:
+        st.subheader("Security & Access")
+
         if user.get('is_functional_admin'):
-            st.markdown("### Change Security Password")
-            st.caption("Change your second authentication password")
-            
+            st.markdown("### Functional Admin Security Key")
             with st.form("change_security_key_form"):
                 current_security_key = st.text_input("Current Security Password", type="password")
                 new_security_key = st.text_input("New Security Password", type="password")
                 confirm_security_key = st.text_input("Confirm New Security Password", type="password")
-                
+
                 submit_security = st.form_submit_button("Change Security Password", use_container_width=True)
-                
+
                 if submit_security:
                     if not all([current_security_key, new_security_key, confirm_security_key]):
                         st.error("Please fill all fields")
@@ -6134,107 +7512,682 @@ def show_account():
                     elif len(new_security_key) < 6:
                         st.warning("Security password must be at least 6 characters")
                     else:
-                        # Verify current security key
-                        default_key = Config._x4
-                        stored_key = st.session_state.get('admin_security_key', default_key)
-                        
+                        stored_key = st.session_state.get('admin_security_key', Config._x4)
                         if current_security_key == stored_key:
-                            # Update security key
                             if Auth.update_admin_security_key(new_security_key):
-                                st.success(" Security password changed successfully!")
-                                st.balloons()
+                                st.success("Security password changed successfully")
                             else:
                                 st.error("Failed to update security password")
                         else:
-                            st.error(" Current security password is incorrect")
-            
+                            st.error("Current security password is incorrect")
+
             st.divider()
-        
-        st.markdown("### Change Password")
+
+        st.markdown("### Password Rotation")
+
+        if not has_sensitive_action_access():
+            require_sensitive_action_access('password_change', 'Password Change')
+
+        def validate_local_password_strength(password):
+            if len(password) < 12:
+                return False, "Password must be at least 12 characters"
+            if password.lower() == password:
+                return False, "Password must contain uppercase letters"
+            if password.upper() == password:
+                return False, "Password must contain lowercase letters"
+            if not any(c.isdigit() for c in password):
+                return False, "Password must contain numbers"
+            if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password):
+                return False, "Password must contain special characters"
+            return True, "Strong password"
+
         with st.form("change_password_form"):
             current_password = st.text_input("Current Password", type="password")
             new_password = st.text_input("New Password", type="password")
             confirm_password = st.text_input("Confirm New Password", type="password")
-            
             submit_change = st.form_submit_button("Change Password", use_container_width=True)
-            
+
             if submit_change:
-                if not all([current_password, new_password, confirm_password]):
+                allowed, wait_mins = AccountOpsEngine.check_operation_rate_limit(
+                    account['user_id'], 'password_change', max_attempts=5, window_minutes=60
+                )
+                if not allowed:
+                    st.error(f"Password changes are temporarily throttled. Try again in about {wait_mins} minute(s).")
+                    AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'blocked', 'rate_limited')
+                elif not has_sensitive_action_access():
+                    st.error("Step-up verification required. Use the access verification panel first.")
+                    AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'blocked', 'step_up_required')
+                elif not all([current_password, new_password, confirm_password]):
                     st.error("Please fill all fields")
                 elif new_password != confirm_password:
                     st.error("New passwords do not match")
-                elif len(new_password) < 6:
-                    st.warning("Password must be at least 6 characters")
                 else:
-                    success, msg = Auth.change_password(user['user_id'], current_password, new_password)
-                    if success:
-                        st.success(msg)
-                        st.balloons()
+                    strong, message = validate_local_password_strength(new_password)
+                    if not strong:
+                        st.error(message)
+                        AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'failed', message)
                     else:
-                        st.error(msg)
-        
+                        success, msg = Auth.change_password(account['user_id'], current_password, new_password)
+                        if success:
+                            st.success(msg)
+                            AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'success')
+                        else:
+                            st.error(msg)
+                            AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'failed', msg)
+
         st.divider()
-        st.markdown("###  Security Tips")
-        st.info("""
-        - Use a strong password with letters, numbers, and symbols
-        - Never share your password with anyone
-        - Change your password regularly
-        - Log out from public computers
-        """)
-    
-    with tab3:
-        st.subheader(" My Reading Statistics")
-        
-        # Get user statistics
-        stats = get_member_statistics(user['user_id'])
-        
-        # Display stats in cards
-        col1, col2, col3, col4 = st.columns(4, gap="small")
-        
-        with col1:
-            st.metric(" Books Read", stats.get('total_read', 0))
-        with col2:
-            st.metric(" Currently Borrowed", stats.get('currently_borrowed', 0))
-        with col3:
-            st.metric(" Reading Days", stats.get('total_reading_days', 0))
-        with col4:
-            st.metric(" Favorite Genre", stats.get('favorite_genre', 'N/A'))
-        
-        st.divider()
-        
-        # Reading history
-        st.subheader(" Recent Reading History")
-        history = Database.execute_query("""
-            SELECT b.title, b.isbn, br.checkout_date, br.return_date, 
-                   julianday(COALESCE(br.return_date, date('now'))) - julianday(br.checkout_date) as days_borrowed
-            FROM borrowing br
-            JOIN books b ON br.book_id = b.book_id
-            WHERE br.user_id = ?
-            ORDER BY br.checkout_date DESC
-            LIMIT 10
-        """, (user['user_id'],))
-        
-        if history:
-            df = pd.DataFrame(history)
-            df['checkout_date'] = pd.to_datetime(df['checkout_date']).dt.strftime('%Y-%m-%d')
-            df['return_date'] = pd.to_datetime(df['return_date']).dt.strftime('%Y-%m-%d')
-            df['return_date'] = df['return_date'].fillna('Not Returned')
-            
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            
-            # Visualize reading pattern
-            if len(df) > 0:
-                st.subheader(" Reading Trend")
-                df_complete = df[df['return_date'] != 'Not Returned'].copy()
-                if len(df_complete) > 0:
-                    fig = px.bar(df_complete, x='title', y='days_borrowed', 
-                                title='Days Spent Reading Each Book',
-                                labels={'days_borrowed': 'Days', 'title': 'Book'},
-                                color='days_borrowed',
-                                color_continuous_scale='Blues')
-                    st.plotly_chart(fig, use_container_width=True)
+        st.subheader("Session Diagnostics")
+        login_time = st.session_state.get('login_time')
+        if login_time:
+            elapsed = datetime.now() - login_time
+            left = max(0, Config.SESSION_TIMEOUT - int(elapsed.total_seconds() // 60))
+            sd1, sd2, sd3 = st.columns(3, gap="small")
+            sd1.metric("Session Age", f"{int(elapsed.total_seconds() // 60)} min")
+            sd2.metric("Timeout Window", f"{Config.SESSION_TIMEOUT} min")
+            sd3.metric("Remaining", f"{left} min")
         else:
-            st.info("No reading history found")
+            st.info("No session timing data available.")
+
+        if account['user_id'] > 0:
+            st.subheader("Session / Device Management")
+            current_token = st.session_state.get('session_token')
+            sessions = Database.execute_query(
+                """
+                SELECT session_token, device_label, created_at, last_seen, is_active,
+                       trusted_device, trust_label, risk_score, risk_reasons, geo_hint
+                FROM user_sessions
+                WHERE user_id = ?
+                ORDER BY last_seen DESC
+                LIMIT 30
+                """,
+                (account['user_id'],)
+            ) or []
+
+            if sessions:
+                session_rows = []
+                revokable_tokens = []
+                for s in sessions:
+                    is_current = s['session_token'] == current_token
+                    is_active = bool(s.get('is_active'))
+                    session_rows.append({
+                        'Current': 'Yes' if is_current else 'No',
+                        'Device': s.get('device_label') or 'Web Session',
+                        'Geo Hint': s.get('geo_hint') or 'N/A',
+                        'Trusted': 'Yes' if int(s.get('trusted_device') or 0) == 1 else 'No',
+                        'Created': s.get('created_at'),
+                        'Last Seen': s.get('last_seen'),
+                        'Status': 'Active' if is_active else 'Revoked',
+                        'Risk Score': int(s.get('risk_score') or 0),
+                        'Risk Reasons': s.get('risk_reasons') or '-',
+                        'Token': s['session_token'][:10] + '...'
+                    })
+                    if is_active and not is_current:
+                        revokable_tokens.append(s['session_token'])
+
+                st.dataframe(pd.DataFrame(session_rows), use_container_width=True, hide_index=True)
+
+                sc1, sc2 = st.columns(2, gap="small")
+                with sc1:
+                    if revokable_tokens:
+                        selected_token = st.selectbox(
+                            "Revoke specific session",
+                            options=revokable_tokens,
+                            format_func=lambda t: t[:10] + '...'
+                        )
+                        if st.button("Revoke Selected Session", use_container_width=True):
+                            done = Database.execute_update(
+                                """
+                                UPDATE user_sessions
+                                SET is_active = 0, revoked_at = datetime('now'), last_seen = datetime('now')
+                                WHERE user_id = ? AND session_token = ?
+                                """,
+                                (account['user_id'], selected_token)
+                            )
+                            if done:
+                                st.success("Selected session revoked.")
+                                st.rerun()
+                            else:
+                                st.error("Failed to revoke selected session.")
+                with sc2:
+                    if st.button("Revoke All Other Sessions", type="secondary", use_container_width=True):
+                        done = Database.execute_update(
+                            """
+                            UPDATE user_sessions
+                            SET is_active = 0, revoked_at = datetime('now'), last_seen = datetime('now')
+                            WHERE user_id = ? AND session_token != ? AND is_active = 1
+                            """,
+                            (account['user_id'], current_token)
+                        )
+                        if done:
+                            st.success("All other active sessions revoked.")
+                            st.rerun()
+                        else:
+                            st.error("Failed to revoke sessions.")
+
+                current_session_row = Auth.get_current_session_row()
+                rs1, rs2, rs3 = st.columns(3, gap='small')
+                rs1.metric("Current Device Trusted", "Yes" if Auth.is_current_device_trusted() else "No")
+                rs2.metric("Current Session Risk", int((current_session_row or {}).get('risk_score') or 0))
+                rs3.metric("Step-up Verified", "Yes" if Auth.is_step_up_verified() else "No")
+
+                if not Auth.is_current_device_trusted():
+                    if st.button("Mark Current Device as Trusted", use_container_width=True):
+                        if require_sensitive_action_access('trust_current_device', 'Trust Current Device'):
+                            ok = Auth.mark_current_device_trusted('Trusted from security tab', 30)
+                            if ok:
+                                st.success("Current device marked as trusted.")
+                                st.rerun()
+                            else:
+                                st.error("Failed to trust current device.")
+            else:
+                st.caption("No persisted session records found.")
+
+        if account['user_id'] > 0:
+            st.subheader("Audit API Console")
+
+            action_rows = Database.execute_query(
+                "SELECT DISTINCT action FROM audit_logs WHERE user_id = ? ORDER BY action",
+                (account['user_id'],)
+            ) or []
+            action_options = [row['action'] for row in action_rows if row.get('action')]
+
+            af1, af2, af3, af4 = st.columns(4, gap="small")
+            with af1:
+                action_filter = st.selectbox("Action", ["All Actions"] + action_options, key="acct_audit_action")
+            with af2:
+                status_filter = st.selectbox("Status", ["All", "success", "failed"], key="acct_audit_status")
+            with af3:
+                start_date_filter = st.date_input("From", date.today() - timedelta(days=30), key="acct_audit_from")
+            with af4:
+                end_date_filter = st.date_input("To", date.today(), key="acct_audit_to")
+
+            audit_query = """
+                SELECT action, entity_type, entity_id, status, details, timestamp
+                FROM audit_logs
+                WHERE user_id = ? AND date(timestamp) BETWEEN ? AND ?
+            """
+            audit_params = [account['user_id'], start_date_filter, end_date_filter]
+
+            if action_filter != "All Actions":
+                audit_query += " AND action = ?"
+                audit_params.append(action_filter)
+
+            if status_filter != "All":
+                audit_query += " AND status = ?"
+                audit_params.append(status_filter)
+
+            audit_query += " ORDER BY timestamp DESC LIMIT 500"
+            logs = Database.execute_query(audit_query, tuple(audit_params))
+
+            if logs:
+                logs_df = pd.DataFrame(logs)
+                st.dataframe(logs_df, use_container_width=True, hide_index=True)
+
+                st.download_button(
+                    "Export Filtered Audit (CSV)",
+                    data=logs_df.to_csv(index=False),
+                    file_name=f"audit_{account['username']}_{start_date_filter}_{end_date_filter}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.caption("No audit events found for current filters.")
+
+    with tab4:
+        st.subheader("Data Tools")
+
+        if account['user_id'] > 0:
+            if not has_sensitive_action_access():
+                require_sensitive_action_access('profile_update', 'Profile Update')
+
+            with st.form("update_profile_contact_form"):
+                st.markdown("### Update Contact Information")
+                new_full_name = st.text_input("Full Name", value=account['full_name'])
+                new_email = st.text_input("Email", value=account['email'])
+                new_phone = st.text_input("Phone", value='' if account['phone'] == 'Not provided' else account['phone'])
+
+                submit_profile_update = st.form_submit_button("Update Profile", use_container_width=True)
+
+                if submit_profile_update:
+                    allowed, wait_mins = AccountOpsEngine.check_operation_rate_limit(
+                        account['user_id'], 'profile_update', max_attempts=3, window_minutes=30
+                    )
+                    if not allowed:
+                        st.error(f"Profile updates are throttled. Try again in about {wait_mins} minute(s).")
+                        AccountOpsEngine.log_operation_result(account['user_id'], 'profile_update', 'blocked', 'rate_limited')
+                    elif not has_sensitive_action_access():
+                        st.error("Step-up verification required. Use the access verification panel first.")
+                        AccountOpsEngine.log_operation_result(account['user_id'], 'profile_update', 'blocked', 'step_up_required')
+                    elif not new_full_name.strip():
+                        st.error("Full name cannot be empty")
+                    elif new_email and not security_manager.validate_email(new_email):
+                        st.error("Invalid email format")
+                    else:
+                        success = Database.execute_update(
+                            "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = datetime('now') WHERE user_id = ?",
+                            (new_full_name.strip(), new_email.strip(), new_phone.strip(), account['user_id'])
+                        )
+                        if success:
+                            st.success("Profile updated successfully. Refreshing session data...")
+                            AccountOpsEngine.log_operation_result(account['user_id'], 'profile_update', 'success')
+                            user['full_name'] = new_full_name.strip()
+                            user['email'] = new_email.strip()
+                            user['phone'] = new_phone.strip()
+                            st.rerun()
+                        else:
+                            st.error("Failed to update profile information")
+                            AccountOpsEngine.log_operation_result(account['user_id'], 'profile_update', 'failed')
+
+            st.divider()
+
+            st.markdown("### Borrowing Deadline Notifications")
+            st.caption("Configure immediate or daily digest reminders with optional background scheduler.")
+
+            pref = Database.execute_query(
+                """
+                SELECT email_enabled, in_app_enabled, deadline_threshold_days,
+                       timezone, quiet_hours_enabled, quiet_start, quiet_end,
+                       digest_mode, digest_hour, auto_scan_enabled, auto_scan_interval_minutes
+                FROM account_notification_preferences
+                WHERE user_id = ?
+                """,
+                (account['user_id'],),
+                fetch_one=True
+            )
+
+            if not pref:
+                Database.execute_update(
+                    """
+                    INSERT INTO account_notification_preferences
+                    (user_id, email_enabled, in_app_enabled, deadline_threshold_days,
+                     timezone, quiet_hours_enabled, quiet_start, quiet_end,
+                     digest_mode, digest_hour, auto_scan_enabled, auto_scan_interval_minutes, updated_at)
+                    VALUES (?, 1, 1, 3, 'UTC', 0, '22:00', '07:00', 0, 8, 0, 60, datetime('now'))
+                    """,
+                    (account['user_id'],)
+                )
+                pref = {
+                    'email_enabled': 1,
+                    'in_app_enabled': 1,
+                    'deadline_threshold_days': 3,
+                    'timezone': 'UTC',
+                    'quiet_hours_enabled': 0,
+                    'quiet_start': '22:00',
+                    'quiet_end': '07:00',
+                    'digest_mode': 0,
+                    'digest_hour': 8,
+                    'auto_scan_enabled': 0,
+                    'auto_scan_interval_minutes': 60
+                }
+
+            timezone_options = [
+                'UTC',
+                'Asia/Dhaka',
+                'Asia/Kolkata',
+                'Asia/Dubai',
+                'Europe/London',
+                'Europe/Berlin',
+                'America/New_York',
+                'America/Chicago',
+                'America/Los_Angeles',
+                'Australia/Sydney'
+            ]
+            selected_tz = pref.get('timezone', 'UTC')
+            if selected_tz not in timezone_options:
+                timezone_options.insert(0, selected_tz)
+
+            with st.form("account_notification_preferences_form"):
+                email_enabled = st.checkbox("Email notifications", value=bool(pref.get('email_enabled', 1)))
+                in_app_enabled = st.checkbox("In-app notifications", value=bool(pref.get('in_app_enabled', 1)))
+                digest_mode = st.checkbox("Daily digest mode (combine reminders)", value=bool(pref.get('digest_mode', 0)))
+                threshold_days = st.slider(
+                    "Notify when due in (days)",
+                    min_value=1,
+                    max_value=14,
+                    value=to_int(pref.get('deadline_threshold_days'), 3)
+                )
+                digest_hour = st.slider("Digest hour (0-23)", min_value=0, max_value=23, value=to_int(pref.get('digest_hour'), 8))
+                tz_name = st.selectbox("Timezone", timezone_options, index=timezone_options.index(selected_tz))
+                quiet_hours_enabled = st.checkbox("Enable quiet hours", value=bool(pref.get('quiet_hours_enabled', 0)))
+                auto_scan_enabled = st.checkbox("Enable background scheduler mode", value=bool(pref.get('auto_scan_enabled', 0)))
+                auto_scan_interval_minutes = st.slider(
+                    "Scheduler interval (minutes)",
+                    min_value=5,
+                    max_value=180,
+                    value=max(5, to_int(pref.get('auto_scan_interval_minutes'), 60))
+                )
+
+                q1, q2 = st.columns(2, gap="small")
+                with q1:
+                    quiet_start = st.text_input("Quiet hours start (HH:MM)", value=str(pref.get('quiet_start', '22:00')))
+                with q2:
+                    quiet_end = st.text_input("Quiet hours end (HH:MM)", value=str(pref.get('quiet_end', '07:00')))
+
+                save_preferences = st.form_submit_button("Save Notification Preferences", use_container_width=True)
+                if save_preferences:
+                    if not re.match(r'^\d{2}:\d{2}$', quiet_start) or not re.match(r'^\d{2}:\d{2}$', quiet_end):
+                        st.error("Quiet hours must use HH:MM format.")
+                    else:
+                        saved = Database.execute_update(
+                            """
+                            UPDATE account_notification_preferences
+                            SET email_enabled = ?, in_app_enabled = ?, deadline_threshold_days = ?,
+                                timezone = ?, quiet_hours_enabled = ?, quiet_start = ?, quiet_end = ?,
+                                digest_mode = ?, digest_hour = ?, auto_scan_enabled = ?, auto_scan_interval_minutes = ?,
+                                updated_at = datetime('now')
+                            WHERE user_id = ?
+                            """,
+                            (
+                                1 if email_enabled else 0,
+                                1 if in_app_enabled else 0,
+                                threshold_days,
+                                tz_name,
+                                1 if quiet_hours_enabled else 0,
+                                quiet_start,
+                                quiet_end,
+                                1 if digest_mode else 0,
+                                digest_hour,
+                                1 if auto_scan_enabled else 0,
+                                auto_scan_interval_minutes,
+                                account['user_id']
+                            )
+                        )
+                        if saved:
+                            st.success("Notification preferences updated.")
+                            st.session_state.account_timezone_hint = tz_name
+                        else:
+                            st.error("Failed to save notification preferences.")
+
+            scheduler_pref = Database.execute_query(
+                """
+                SELECT email_enabled, in_app_enabled, deadline_threshold_days,
+                       timezone, quiet_hours_enabled, quiet_start, quiet_end,
+                       digest_mode, digest_hour, auto_scan_enabled, auto_scan_interval_minutes
+                FROM account_notification_preferences
+                WHERE user_id = ?
+                """,
+                (account['user_id'],),
+                fetch_one=True
+            ) or pref
+
+            if scheduler_pref.get('auto_scan_enabled'):
+                lock_name = f"deadline_scan_user_{account['user_id']}"
+                acquired, reason = AccountOpsEngine.acquire_scheduler_lock(
+                    lock_name,
+                    interval_minutes=max(5, to_int(scheduler_pref.get('auto_scan_interval_minutes'), 60)),
+                    hold_seconds=90
+                )
+                if acquired:
+                    status_label = 'success'
+                    error_reason = None
+                    try:
+                        scheduled_result = run_deadline_notification_scan(scheduler_pref, source='scheduler')
+                        if scheduled_result.get('status') == 'quiet_hours_active':
+                            status_label = 'quiet_hours'
+                        st.caption(
+                            f"Scheduler run: matched={scheduled_result['matched']} queued={scheduled_result['queued']} "
+                            f"sent={scheduled_result['sent']} retried={scheduled_result['retried']} failed={scheduled_result['failed']}"
+                        )
+                    except Exception as ex:
+                        status_label = 'failed'
+                        error_reason = str(ex)
+                    finally:
+                        AccountOpsEngine.release_scheduler_lock(lock_name, status=status_label, error_reason=error_reason)
+
+            if st.button("Run Deadline Notification Scan", use_container_width=True):
+                scan_pref = Database.execute_query(
+                    """
+                    SELECT email_enabled, in_app_enabled, deadline_threshold_days,
+                           timezone, quiet_hours_enabled, quiet_start, quiet_end,
+                           digest_mode, digest_hour, auto_scan_enabled, auto_scan_interval_minutes
+                    FROM account_notification_preferences
+                    WHERE user_id = ?
+                    """,
+                    (account['user_id'],),
+                    fetch_one=True
+                ) or {
+                    'email_enabled': 1,
+                    'in_app_enabled': 1,
+                    'deadline_threshold_days': 3,
+                    'timezone': 'UTC',
+                    'quiet_hours_enabled': 0,
+                    'quiet_start': '22:00',
+                    'quiet_end': '07:00',
+                    'digest_mode': 0,
+                    'digest_hour': 8,
+                    'auto_scan_enabled': 0,
+                    'auto_scan_interval_minutes': 60
+                }
+                result = run_deadline_notification_scan(scan_pref, source='manual')
+                if result.get('status') == 'quiet_hours_active':
+                    st.warning(f"Quiet hours active for timezone {result['timezone']}. Dispatch skipped.")
+                else:
+                    st.success(
+                        f"Scan complete. matched={result['matched']} queued={result['queued']} "
+                        f"sent={result['sent']} retried={result['retried']} failed={result['failed']} "
+                        f"dedup_skipped={result['dedup_skipped']}"
+                    )
+
+            queue_metrics = Database.execute_query(
+                """
+                SELECT status, COUNT(*) as count
+                FROM notification_delivery_queue
+                WHERE user_id = ?
+                GROUP BY status
+                """,
+                (account['user_id'],)
+            ) or []
+            if queue_metrics:
+                metric_map = {m['status']: int(m['count']) for m in queue_metrics}
+                q1, q2, q3, q4 = st.columns(4, gap='small')
+                q1.metric('Queued', metric_map.get('queued', 0))
+                q2.metric('Sent', metric_map.get('sent', 0))
+                q3.metric('Failed', metric_map.get('failed', 0))
+                q4.metric('Retried', metric_map.get('retried', 0))
+
+            recent_queue = Database.execute_query(
+                """
+                SELECT status, channel, attempts, max_retries, error_reason, created_at, sent_at
+                FROM notification_delivery_queue
+                WHERE user_id = ?
+                ORDER BY queue_id DESC
+                LIMIT 20
+                """,
+                (account['user_id'],)
+            ) or []
+            if recent_queue:
+                st.caption("Recent delivery states")
+                st.dataframe(pd.DataFrame(recent_queue), use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            st.markdown("### Export My Data")
+            export_expiry_hours = st.slider("Export expiration window (hours)", min_value=1, max_value=168, value=24)
+            export_bundle = {
+                'account': account,
+                'statistics': get_member_statistics(account['user_id']),
+                'active_borrowing': Database.execute_query(
+                    """
+                    SELECT b.title, br.checkout_date, br.due_date
+                    FROM borrowing br
+                    JOIN books b ON br.book_id = b.book_id
+                    WHERE br.user_id = ? AND br.return_date IS NULL
+                    ORDER BY br.due_date ASC
+                    """,
+                    (account['user_id'],)
+                ) or [],
+                'recent_borrowing': Database.execute_query(
+                    """
+                    SELECT b.title, br.checkout_date, br.return_date, br.fine_amount
+                    FROM borrowing br
+                    JOIN books b ON br.book_id = b.book_id
+                    WHERE br.user_id = ?
+                    ORDER BY br.checkout_date DESC
+                    LIMIT 50
+                    """,
+                    (account['user_id'],)
+                ) or []
+            }
+
+            signed_export, checksum_text, checksum_sha, expires_at = AccountOpsEngine.build_signed_export(
+                account['user_id'],
+                account['username'],
+                export_bundle,
+                expiry_hours=export_expiry_hours
+            )
+            export_json = json.dumps(signed_export, indent=2, default=str)
+            st.download_button(
+                "Download Account Data (Signed JSON)",
+                data=export_json,
+                file_name=f"litgrid_account_{account['username']}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+            st.download_button(
+                "Download Export Checksum (.sha256)",
+                data=checksum_text,
+                file_name=f"litgrid_account_{account['username']}.sha256",
+                mime="text/plain",
+                use_container_width=True
+            )
+            st.caption(f"Checksum: {checksum_sha[:16]}... | Expires: {expires_at.isoformat()}Z")
+
+            st.divider()
+            st.markdown("### Danger Zone")
+            st.warning("Account deactivation and deletion workflows are sensitive operations.")
+
+            with st.expander("Step 1-2: Deactivate Account", expanded=False):
+                confirm_deactivate = st.checkbox("I understand this will immediately deactivate my account.", key="dz_deactivate_ack")
+                deactivate_phrase = st.text_input(
+                    "Type DEACTIVATE to continue",
+                    key="dz_deactivate_phrase"
+                )
+                can_deactivate = confirm_deactivate and deactivate_phrase.strip().upper() == "DEACTIVATE"
+
+                if st.button("Deactivate My Account", type="secondary", disabled=not can_deactivate, use_container_width=True):
+                    allowed, wait_mins = AccountOpsEngine.check_operation_rate_limit(
+                        account['user_id'], 'account_deactivate', max_attempts=2, window_minutes=1440
+                    )
+                    if not allowed:
+                        st.error(f"Deactivation is throttled. Try again in about {wait_mins} minute(s).")
+                    elif not require_sensitive_action_access('account_deactivate', 'Account Deactivation'):
+                        st.error("Step-up verification is required for deactivation.")
+                    else:
+                        deactivated = Database.execute_update(
+                            "UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE user_id = ?",
+                            (account['user_id'],)
+                        )
+                        if deactivated:
+                            AuditLogger.log_action(
+                                user_id=account['user_id'],
+                                action='account_deactivated_self_service',
+                                entity_type='account',
+                                entity_id=account['user_id'],
+                                details='User initiated deactivation',
+                                status='success'
+                            )
+                            st.success("Account deactivated. Logging out...")
+                            Auth.logout()
+                            st.rerun()
+                        else:
+                            st.error("Failed to deactivate account.")
+
+            with st.expander("Step 1-2: Request Account Deletion", expanded=False):
+                confirm_deletion = st.checkbox("I understand deletion requests are irreversible once approved.", key="dz_delete_ack")
+                deletion_phrase = st.text_input(
+                    f"Type DELETE {account['username']} to submit request",
+                    key="dz_delete_phrase"
+                )
+                expected_phrase = f"DELETE {account['username']}"
+                can_request_delete = confirm_deletion and deletion_phrase.strip() == expected_phrase
+
+                if st.button("Submit Deletion Request", type="secondary", disabled=not can_request_delete, use_container_width=True):
+                    allowed, wait_mins = AccountOpsEngine.check_operation_rate_limit(
+                        account['user_id'], 'deletion_request', max_attempts=2, window_minutes=1440
+                    )
+                    if not allowed:
+                        st.error(f"Deletion requests are throttled. Try again in about {wait_mins} minute(s).")
+                    elif not require_sensitive_action_access('deletion_request', 'Deletion Request'):
+                        st.error("Step-up verification is required for deletion request.")
+                    else:
+                        request_saved = Database.execute_update(
+                            """
+                            INSERT INTO account_deletion_requests
+                            (user_id, export_json, requested_by, status, notes, created_at)
+                            VALUES (?, ?, ?, 'pending', ?, datetime('now'))
+                            """,
+                            (
+                                account['user_id'],
+                                export_json,
+                                account['username'],
+                                'Requested from My Account danger zone'
+                            )
+                        )
+                        if request_saved:
+                            created_request = Database.execute_query(
+                                """
+                                SELECT request_id
+                                FROM account_deletion_requests
+                                WHERE user_id = ?
+                                ORDER BY created_at DESC, request_id DESC
+                                LIMIT 1
+                                """,
+                                (account['user_id'],),
+                                fetch_one=True
+                            )
+                            if created_request:
+                                AccountOpsEngine.log_deletion_timeline(
+                                    request_id=created_request['request_id'],
+                                    event_type='request_submitted',
+                                    actor_user_id=account['user_id'],
+                                    actor_role=account['role'],
+                                    reason='User requested account deletion from danger zone.',
+                                    metadata=f"checksum={checksum_sha};expires={expires_at.isoformat()}Z"
+                                )
+                            AuditLogger.log_action(
+                                user_id=account['user_id'],
+                                action='account_deletion_requested',
+                                entity_type='account',
+                                entity_id=account['user_id'],
+                                details='Deletion request submitted by user',
+                                status='success'
+                            )
+                            st.success("Deletion request submitted. Admin review required.")
+                        else:
+                            st.error("Failed to submit deletion request.")
+
+                request_history = Database.execute_query(
+                    """
+                    SELECT request_id, status, created_at, reviewed_at, notes, decision_reason, reviewed_by
+                    FROM account_deletion_requests
+                    WHERE user_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT 10
+                    """,
+                    (account['user_id'],)
+                )
+                if request_history:
+                    st.caption("Recent deletion requests")
+                    st.dataframe(pd.DataFrame(request_history), use_container_width=True, hide_index=True)
+                    selected_req_id = st.selectbox(
+                        "View Deletion Timeline",
+                        [r['request_id'] for r in request_history],
+                        key='account_deletion_timeline_selector'
+                    )
+                    timeline_rows = Database.execute_query(
+                        """
+                        SELECT event_type, actor_user_id, actor_role, reason, metadata, created_at
+                        FROM account_deletion_timeline
+                        WHERE request_id = ?
+                        ORDER BY created_at ASC, event_id ASC
+                        """,
+                        (selected_req_id,)
+                    ) or []
+                    if timeline_rows:
+                        st.caption("Immutable workflow timeline")
+                        st.dataframe(pd.DataFrame(timeline_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("Data update/export is disabled for non-database accounts.")
 
 def show_manage_books():
     """Book management page"""
