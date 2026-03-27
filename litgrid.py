@@ -11318,8 +11318,12 @@ def show_my_library():
     st.title(" My Library")
     
     user = Auth.get_user()
+    is_management_user = user['role'] in ['admin', 'librarian', 'superadmin']
     
-    tabs = st.tabs([" My PDFs & Upload", " Privacy Settings", " Browse Community"])
+    tab_labels = [" My PDFs & Upload", " Privacy Settings", " Browse Community"]
+    if is_management_user:
+        tab_labels.extend([" Manage Books", " Manage Members"])
+    tabs = st.tabs(tab_labels)
     
     # Tab 1: My PDFs & Upload PDF
     with tabs[0]:
@@ -11470,6 +11474,14 @@ def show_my_library():
     # Tab 3: Browse Community
     with tabs[2]:
         show_community_library(embedded=True)
+
+    # Tab 4/5: Management (admin/librarian/superadmin)
+    if is_management_user:
+        with tabs[3]:
+            show_manage_books()
+
+        with tabs[4]:
+            show_manage_members()
 
 def show_community_library(embedded=False):
     """Browse Community Library"""
@@ -12603,7 +12615,7 @@ def main():
             menu = ["Dashboard", "Browse Books", "My Account", " My Library"]
             
             if user['role'] in ['admin', 'librarian', 'superadmin']:
-                menu.extend(["Manage Books", "Manage Members", "Borrowing & Returns", "Reports", " System Tools"])
+                menu.extend(["Borrowing & Returns", "Reports", " System Tools"])
             
             choice = st.radio(" Navigation", menu, label_visibility="collapsed")
             
@@ -12641,10 +12653,6 @@ def main():
             show_account()
         elif choice == " My Library":
             show_my_library()
-        elif choice == "Manage Books":
-            show_manage_books()
-        elif choice == "Manage Members":
-            show_manage_members()
         elif choice == "Borrowing & Returns":
             show_borrowing_returns()
         elif choice == "Reports":
