@@ -8668,56 +8668,71 @@ def show_account():
 
     with tab6:
         st.subheader("Feature Studio (50 Dynamic Controls)")
-
-        if account['user_id'] <= 0:
-            st.info("Feature Studio is available for persisted database accounts only.")
-        else:
+        storage_mode = "database"
+        if account['user_id'] > 0:
             dyn_pref = ensure_dynamic_preferences_row() or {}
-            raw_feature_json = dyn_pref.get('feature_json')
-            try:
-                persisted_features = json.loads(raw_feature_json) if raw_feature_json else {}
-                if not isinstance(persisted_features, dict):
-                    persisted_features = {}
-            except Exception:
+        else:
+            storage_mode = "session"
+            if 'feature_studio_ephemeral' not in st.session_state:
+                st.session_state.feature_studio_ephemeral = {
+                    'anonymous_mode_enabled': 0,
+                    'anonymous_alias': generate_anonymous_alias(),
+                    'anonymous_avatar_style': 'geometric',
+                    'anonymous_rotation_hours': 72,
+                    'profile_theme': 'adaptive',
+                    'feature_json': json.dumps(default_feature_flags)
+                }
+            dyn_pref = st.session_state.feature_studio_ephemeral
+
+        raw_feature_json = dyn_pref.get('feature_json')
+        try:
+            persisted_features = json.loads(raw_feature_json) if raw_feature_json else {}
+            if not isinstance(persisted_features, dict):
                 persisted_features = {}
+        except Exception:
+            persisted_features = {}
 
-            feature_flags = dict(default_feature_flags)
-            feature_flags.update({k: bool(v) for k, v in persisted_features.items()})
+        feature_flags = dict(default_feature_flags)
+        feature_flags.update({k: bool(v) for k, v in persisted_features.items()})
 
-            st.caption("Toggle advanced controls that shape your account behavior, privacy, UX, and automation.")
-            st.write(f"Configured features: **{len(dynamic_feature_catalog)}**")
+        if storage_mode == "session":
+            st.info("Feature Studio is active for this account in session mode (settings persist until logout/browser reset).")
 
-            preset_col1, preset_col2, preset_col3 = st.columns(3, gap='small')
-            if preset_col1.button("Apply Privacy-First Preset", use_container_width=True):
-                for k in feature_flags.keys():
-                    feature_flags[k] = False
-                for k in ['signed_exports_only', 'step_up_profile_edit', 'step_up_data_export', 'trusted_only_sensitive', 'hide_last_seen', 'anonymous_reviews', 'anonymous_alias_rotation', 'impossible_travel_lock', 'high_churn_lock']:
-                    feature_flags[k] = True
-            if preset_col2.button("Apply Social Preset", use_container_width=True):
-                for k in feature_flags.keys():
-                    feature_flags[k] = False
-                for k in ['allow_friend_requests', 'show_online_status', 'share_reading_velocity', 'weekly_activity_digest', 'availability_watch_alerts', 'search_personalization_boost']:
-                    feature_flags[k] = True
-            if preset_col3.button("Apply Productivity Preset", use_container_width=True):
-                for k in feature_flags.keys():
-                    feature_flags[k] = False
-                for k in ['personal_kpi_dashboard', 'reading_goal_tracker', 'calendar_due_sync', 'smart_due_bundles', 'daily_deadline_digest', 'one_click_reborrow', 'waitlist_auto_join']:
-                    feature_flags[k] = True
+        st.caption("Toggle advanced controls that shape your account behavior, privacy, UX, and automation.")
+        st.write(f"Configured features: **{len(dynamic_feature_catalog)}**")
 
-            with st.form("feature_studio_form"):
-                draft_flags = {}
-                left_col, right_col = st.columns(2, gap='small')
-                midpoint = len(dynamic_feature_catalog) // 2
+        preset_col1, preset_col2, preset_col3 = st.columns(3, gap='small')
+        if preset_col1.button("Apply Privacy-First Preset", use_container_width=True):
+            for k in feature_flags.keys():
+                feature_flags[k] = False
+            for k in ['signed_exports_only', 'step_up_profile_edit', 'step_up_data_export', 'trusted_only_sensitive', 'hide_last_seen', 'anonymous_reviews', 'anonymous_alias_rotation', 'impossible_travel_lock', 'high_churn_lock']:
+                feature_flags[k] = True
+        if preset_col2.button("Apply Social Preset", use_container_width=True):
+            for k in feature_flags.keys():
+                feature_flags[k] = False
+            for k in ['allow_friend_requests', 'show_online_status', 'share_reading_velocity', 'weekly_activity_digest', 'availability_watch_alerts', 'search_personalization_boost']:
+                feature_flags[k] = True
+        if preset_col3.button("Apply Productivity Preset", use_container_width=True):
+            for k in feature_flags.keys():
+                feature_flags[k] = False
+            for k in ['personal_kpi_dashboard', 'reading_goal_tracker', 'calendar_due_sync', 'smart_due_bundles', 'daily_deadline_digest', 'one_click_reborrow', 'waitlist_auto_join']:
+                feature_flags[k] = True
 
-                for key, label in dynamic_feature_catalog[:midpoint]:
-                    with left_col:
-                        draft_flags[key] = st.checkbox(label, value=bool(feature_flags.get(key, False)), key=f"studio_{key}")
-                for key, label in dynamic_feature_catalog[midpoint:]:
-                    with right_col:
-                        draft_flags[key] = st.checkbox(label, value=bool(feature_flags.get(key, False)), key=f"studio_{key}")
+        with st.form("feature_studio_form"):
+            draft_flags = {}
+            left_col, right_col = st.columns(2, gap='small')
+            midpoint = len(dynamic_feature_catalog) // 2
 
-                save_studio = st.form_submit_button("Save Feature Studio", use_container_width=True)
-                if save_studio:
+            for key, label in dynamic_feature_catalog[:midpoint]:
+                with left_col:
+                    draft_flags[key] = st.checkbox(label, value=bool(feature_flags.get(key, False)), key=f"studio_{key}")
+            for key, label in dynamic_feature_catalog[midpoint:]:
+                with right_col:
+                    draft_flags[key] = st.checkbox(label, value=bool(feature_flags.get(key, False)), key=f"studio_{key}")
+
+            save_studio = st.form_submit_button("Save Feature Studio", use_container_width=True)
+            if save_studio:
+                if storage_mode == "database":
                     done = Database.execute_update(
                         """
                         INSERT INTO account_dynamic_preferences
@@ -8741,23 +8756,27 @@ def show_account():
                         st.success("Feature Studio preferences saved.")
                     else:
                         st.error("Failed to save Feature Studio settings.")
+                else:
+                    st.session_state.feature_studio_ephemeral['feature_json'] = json.dumps(draft_flags)
+                    st.success("Feature Studio preferences saved in session mode.")
 
-            enabled_count = sum(1 for _, _label in dynamic_feature_catalog if bool(feature_flags.get(_, False)))
-            st.metric("Enabled Dynamic Controls", enabled_count)
+        enabled_count = sum(1 for key, _label in dynamic_feature_catalog if bool(feature_flags.get(key, False)))
+        st.metric("Enabled Dynamic Controls", enabled_count)
 
-            enabled_rows = []
-            for key, label in dynamic_feature_catalog:
-                if bool(feature_flags.get(key, False)):
-                    enabled_rows.append({'feature_key': key, 'feature_label': label, 'state': 'enabled'})
-            if enabled_rows:
-                st.caption("Currently enabled controls")
-                st.dataframe(pd.DataFrame(enabled_rows), use_container_width=True, hide_index=True)
-            else:
-                st.caption("No controls enabled yet. Use presets or custom toggles above.")
+        enabled_rows = []
+        for key, label in dynamic_feature_catalog:
+            if bool(feature_flags.get(key, False)):
+                enabled_rows.append({'feature_key': key, 'feature_label': label, 'state': 'enabled'})
+        if enabled_rows:
+            st.caption("Currently enabled controls")
+            st.dataframe(pd.DataFrame(enabled_rows), use_container_width=True, hide_index=True)
+        else:
+            st.caption("No controls enabled yet. Use presets or custom toggles above.")
 
-            if bool(feature_flags.get('anonymous_alias_rotation')):
-                if st.button("Rotate Anonymous Alias Now", use_container_width=True):
-                    new_alias = generate_anonymous_alias()
+        if bool(feature_flags.get('anonymous_alias_rotation')):
+            if st.button("Rotate Anonymous Alias Now", use_container_width=True):
+                new_alias = generate_anonymous_alias()
+                if storage_mode == "database":
                     Database.execute_update(
                         """
                         UPDATE account_dynamic_preferences
@@ -8766,8 +8785,10 @@ def show_account():
                         """,
                         (new_alias, account['user_id'])
                     )
-                    st.success(f"New anonymous alias: {new_alias}")
-                    st.rerun()
+                else:
+                    st.session_state.feature_studio_ephemeral['anonymous_alias'] = new_alias
+                st.success(f"New anonymous alias: {new_alias}")
+                st.rerun()
 
 def show_manage_books():
     """Book management page"""
