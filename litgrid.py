@@ -7799,7 +7799,7 @@ def show_account():
     tab6 = tab5
 
     with tab1:
-        col1, col2 = st.columns(2, gap="small")
+        col1, col2, col3 = st.columns(3, gap="small")
 
         with col1:
             st.subheader("Identity")
@@ -7833,6 +7833,59 @@ def show_account():
                 st.error(f"Outstanding Fine: {format_currency(account['fine_balance'])}")
             else:
                 st.success("No Outstanding Fines")
+
+        with col3:
+            st.subheader("Password Rotation")
+
+            if not has_sensitive_action_access():
+                require_sensitive_action_access('password_change', 'Password Change')
+
+            def validate_local_password_strength(password):
+                if len(password) < 12:
+                    return False, "Password must be at least 12 characters"
+                if password.lower() == password:
+                    return False, "Password must contain uppercase letters"
+                if password.upper() == password:
+                    return False, "Password must contain lowercase letters"
+                if not any(c.isdigit() for c in password):
+                    return False, "Password must contain numbers"
+                if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password):
+                    return False, "Password must contain special characters"
+                return True, "Strong password"
+
+            with st.form("change_password_form"):
+                current_password = st.text_input("Current Password", type="password")
+                new_password = st.text_input("New Password", type="password")
+                confirm_password = st.text_input("Confirm New Password", type="password")
+                submit_change = st.form_submit_button("Change Password", use_container_width=True)
+
+                if submit_change:
+                    allowed, wait_mins = AccountOpsEngine.check_operation_rate_limit(
+                        account['user_id'], 'password_change', max_attempts=5, window_minutes=60
+                    )
+                    if not allowed:
+                        st.error(f"Password changes are temporarily throttled. Try again in about {wait_mins} minute(s).")
+                        AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'blocked', 'rate_limited')
+                    elif not has_sensitive_action_access():
+                        st.error("Step-up verification required. Use the access verification panel first.")
+                        AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'blocked', 'step_up_required')
+                    elif not all([current_password, new_password, confirm_password]):
+                        st.error("Please fill all fields")
+                    elif new_password != confirm_password:
+                        st.error("New passwords do not match")
+                    else:
+                        strong, message = validate_local_password_strength(new_password)
+                        if not strong:
+                            st.error(message)
+                            AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'failed', message)
+                        else:
+                            success, msg = Auth.change_password(account['user_id'], current_password, new_password)
+                            if success:
+                                st.success(msg)
+                                AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'success')
+                            else:
+                                st.error(msg)
+                                AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'failed', msg)
 
         st.divider()
         st.subheader("Profile Health")
@@ -8038,58 +8091,6 @@ def show_account():
                             st.error("Current security password is incorrect")
 
             st.divider()
-
-        st.markdown("### Password Rotation")
-
-        if not has_sensitive_action_access():
-            require_sensitive_action_access('password_change', 'Password Change')
-
-        def validate_local_password_strength(password):
-            if len(password) < 12:
-                return False, "Password must be at least 12 characters"
-            if password.lower() == password:
-                return False, "Password must contain uppercase letters"
-            if password.upper() == password:
-                return False, "Password must contain lowercase letters"
-            if not any(c.isdigit() for c in password):
-                return False, "Password must contain numbers"
-            if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password):
-                return False, "Password must contain special characters"
-            return True, "Strong password"
-
-        with st.form("change_password_form"):
-            current_password = st.text_input("Current Password", type="password")
-            new_password = st.text_input("New Password", type="password")
-            confirm_password = st.text_input("Confirm New Password", type="password")
-            submit_change = st.form_submit_button("Change Password", use_container_width=True)
-
-            if submit_change:
-                allowed, wait_mins = AccountOpsEngine.check_operation_rate_limit(
-                    account['user_id'], 'password_change', max_attempts=5, window_minutes=60
-                )
-                if not allowed:
-                    st.error(f"Password changes are temporarily throttled. Try again in about {wait_mins} minute(s).")
-                    AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'blocked', 'rate_limited')
-                elif not has_sensitive_action_access():
-                    st.error("Step-up verification required. Use the access verification panel first.")
-                    AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'blocked', 'step_up_required')
-                elif not all([current_password, new_password, confirm_password]):
-                    st.error("Please fill all fields")
-                elif new_password != confirm_password:
-                    st.error("New passwords do not match")
-                else:
-                    strong, message = validate_local_password_strength(new_password)
-                    if not strong:
-                        st.error(message)
-                        AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'failed', message)
-                    else:
-                        success, msg = Auth.change_password(account['user_id'], current_password, new_password)
-                        if success:
-                            st.success(msg)
-                            AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'success')
-                        else:
-                            st.error(msg)
-                            AccountOpsEngine.log_operation_result(account['user_id'], 'password_change', 'failed', msg)
 
         st.divider()
         st.subheader("Session Diagnostics")
