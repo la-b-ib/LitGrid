@@ -7142,68 +7142,368 @@ def show_account():
         'badges': 'public'
     }
 
-    dynamic_feature_catalog = [
-        ('profile_search_visibility', 'Profile appears in search'),
-        ('allow_friend_requests', 'Allow incoming friend requests'),
-        ('show_online_status', 'Show online status to friends'),
-        ('hide_last_seen', 'Hide last seen from non-friends'),
-        ('share_reading_velocity', 'Share reading velocity metrics'),
-        ('share_fine_status', 'Share fine status with friends'),
-        ('anonymous_reviews', 'Publish reviews anonymously'),
-        ('anonymous_recommendations', 'Hide identity in recommendations'),
-        ('mask_borrow_titles', 'Mask borrowed titles in public feed'),
-        ('hide_due_date_feed', 'Hide due dates from activity feed'),
-        ('public_export_links', 'Allow public profile export links'),
-        ('step_up_profile_edit', 'Require step-up auth for profile edits'),
-        ('step_up_data_export', 'Require step-up auth for exports'),
-        ('auto_revoke_idle_sessions', 'Auto revoke idle sessions'),
-        ('new_device_alerts', 'Alert on new device login'),
-        ('impossible_travel_lock', 'Auto lock impossible travel sessions'),
-        ('high_churn_lock', 'Auto lock high session churn'),
-        ('trusted_only_sensitive', 'Trusted devices for sensitive actions'),
-        ('password_rotation_reminders', 'Password rotation reminders'),
-        ('step_up_new_devices', 'Step-up challenge on new devices'),
-        ('weekly_privacy_digest', 'Weekly privacy digest'),
-        ('daily_deadline_digest', 'Daily deadline digest summary'),
-        ('weekly_activity_digest', 'Weekly activity digest'),
-        ('mute_marketing_messages', 'Mute marketing messages'),
-        ('timezone_auto_detect', 'Auto-detect timezone'),
-        ('strict_quiet_hours', 'Strict quiet-hours enforcement'),
-        ('multi_channel_bundling', 'Bundle multi-channel alerts'),
-        ('enable_snooze_actions', 'Enable reminder snooze actions'),
-        ('calendar_due_sync', 'Sync due dates to calendar'),
-        ('smart_due_bundles', 'Smartly bundle due-date reminders'),
-        ('personal_kpi_dashboard', 'Personal KPI dashboard'),
-        ('reading_goal_tracker', 'Reading goal tracker'),
-        ('streak_recovery_mode', 'Streak recovery grace mode'),
-        ('recommendation_diversity', 'Diversified recommendations'),
-        ('adaptive_home_layout', 'Adaptive home layout'),
-        ('compact_density_mode', 'Compact UI density mode'),
-        ('high_contrast_accessibility', 'High contrast accessibility'),
-        ('dyslexia_font_mode', 'Dyslexia-friendly typography'),
-        ('reduced_motion_mode', 'Reduced motion mode'),
-        ('keyboard_first_mode', 'Keyboard-first navigation mode'),
-        ('api_audit_webhooks', 'Audit webhook forwarding'),
-        ('signed_exports_only', 'Allow only signed exports'),
-        ('auto_delete_old_exports', 'Auto-delete old exports'),
-        ('retention_policy_controls', 'Data retention policy controls'),
-        ('activity_heatmap', 'Account activity heatmap'),
-        ('search_personalization_boost', 'Personalized search boost'),
-        ('availability_watch_alerts', 'Shelf availability watch alerts'),
-        ('waitlist_auto_join', 'Auto-join waitlists'),
-        ('one_click_reborrow', 'One-click reborrow actions'),
-        ('anonymous_alias_rotation', 'Automatic anonymous alias rotation')
-    ]
+    # Feature Studio: Groupwise Dynamic Features with Descriptions
+    dynamic_feature_groups = {
+        "Privacy Controls": {
+            'profile_search_visibility': {
+                'label': 'Profile in Search Results',
+                'description': 'Allow your profile to appear in search results across the platform',
+                'default': True
+            },
+            'hide_last_seen': {
+                'label': 'Hide Last Seen from Non-Friends',
+                'description': 'Only friends can see when you last accessed the platform',
+                'default': False
+            },
+            'anonymous_reviews': {
+                'label': 'Publish Reviews Anonymously',
+                'description': 'Your reviews are attributed to an anonymous alias instead of your name',
+                'default': False
+            },
+            'mask_borrow_titles': {
+                'label': 'Mask Borrowed Titles in Feed',
+                'description': 'Hide specific book titles you borrow from public activity feeds',
+                'default': False
+            },
+            'anonymous_recommendations': {
+                'label': 'Hide Identity in Recommendations',
+                'description': 'Your recommendation engine contributions remain anonymous',
+                'default': False
+            },
+            'anonymous_alias_rotation': {
+                'label': 'Auto-Rotate Anonymous Alias',
+                'description': 'Automatically rotate your anonymous alias every 24-72 hours for enhanced anonymity',
+                'default': False
+            }
+        },
+        "Social Features": {
+            'allow_friend_requests': {
+                'label': 'Allow Incoming Friend Requests',
+                'description': 'Enable other users to send you friend requests and see your profile',
+                'default': True
+            },
+            'show_online_status': {
+                'label': 'Show Online Status to Friends',
+                'description': 'Friends can see whether you are currently active on the platform',
+                'default': True
+            },
+            'share_reading_velocity': {
+                'label': 'Share Reading Velocity Metrics',
+                'description': 'Friends can see your pages-per-day and completion trends',
+                'default': True
+            },
+            'share_fine_status': {
+                'label': 'Share Fine Status with Friends',
+                'description': 'Friends can see if you have pending fines or overdue books',
+                'default': False
+            }
+        },
+        "Security & Device Management": {
+            'step_up_profile_edit': {
+                'label': 'Step-Up Auth for Profile Edits',
+                'description': 'Require multi-factor verification before changing profile information',
+                'default': True
+            },
+            'step_up_data_export': {
+                'label': 'Step-Up Auth for Data Exports',
+                'description': 'Require multi-factor verification before exporting personal data',
+                'default': True
+            },
+            'trusted_only_sensitive': {
+                'label': 'Restrict Sensitive Actions to Trusted Devices',
+                'description': 'Password changes and exports only allowed from marked trusted devices',
+                'default': True
+            },
+            'auto_revoke_idle_sessions': {
+                'label': 'Auto-Revoke Idle Sessions',
+                'description': 'Automatically log out inactive sessions after 24 hours of inactivity',
+                'default': True
+            },
+            'new_device_alerts': {
+                'label': 'Alert on New Device Login',
+                'description': 'Receive notifications when your account logs in from a new device',
+                'default': True
+            },
+            'impossible_travel_lock': {
+                'label': 'Lock Sessions with Impossible Travel Detected',
+                'description': 'Auto-lock sessions showing geographically impossible location changes',
+                'default': True
+            },
+            'high_churn_lock': {
+                'label': 'Lock High Session Churn',
+                'description': 'Auto-lock sessions showing excessive rapid disconnects/reconnects',
+                'default': False
+            },
+            'step_up_new_devices': {
+                'label': 'Step-Up Challenge on New Device Login',
+                'description': 'Require MFA verification the first time you log in from a new device',
+                'default': True
+            },
+            'password_rotation_reminders': {
+                'label': 'Enable Password Rotation Reminders',
+                'description': 'Receive periodic reminders to update your account password',
+                'default': True
+            }
+        },
+        "Notifications & Quiet Time": {
+            'weekly_privacy_digest': {
+                'label': 'Weekly Privacy Digest',
+                'description': 'Get a weekly summary of profile access and privacy-related activities',
+                'default': False
+            },
+            'daily_deadline_digest': {
+                'label': 'Daily Deadline Digest Summary',
+                'description': 'Consolidated daily notification of all upcoming book deadlines',
+                'default': True
+            },
+            'weekly_activity_digest': {
+                'label': 'Weekly Activity Digest',
+                'description': 'Get a weekly summary of your reading and platform activities',
+                'default': True
+            },
+            'mute_marketing_messages': {
+                'label': 'Mute Marketing & Promotional Messages',
+                'description': 'Do not send promotional emails or in-app notifications about new features',
+                'default': False
+            },
+            'strict_quiet_hours': {
+                'label': 'Enforce Strict Quiet Hours',
+                'description': 'No notifications will be sent during configured quiet hours—even digests',
+                'default': False
+            },
+            'multi_channel_bundling': {
+                'label': 'Bundle Alerts Across Multiple Channels',
+                'description': 'Group related notifications into single emails/SMS instead of individual messages',
+                'default': True
+            },
+            'enable_snooze_actions': {
+                'label': 'Enable Snooze/Postpone on Notifications',
+                'description': 'One-click snooze actions on all notifications to defer temporarily',
+                'default': True
+            }
+        },
+        "Deadline & Reminder Management": {
+            'calendar_due_sync': {
+                'label': 'Sync Due Dates to External Calendar',
+                'description': 'Automatically create entries in iCal/Google Calendar for book due dates',
+                'default': False
+            },
+            'smart_due_bundles': {
+                'label': 'Smartly Bundle Due-Date Reminders',
+                'description': 'Intelligently group multiple due-date notifications by due date clusters',
+                'default': True
+            },
+            'hide_due_date_feed': {
+                'label': 'Hide Due Dates from Activity Feed',
+                'description': 'Do not show upcoming deadlines in your public activity feed',
+                'default': False
+            },
+            'public_export_links': {
+                'label': 'Allow Public Profile Export Links (Signed)',
+                'description': 'Generate shareable signed links to export your profile data—requires signed exports',
+                'default': False
+            }
+        },
+        "Analytics & Insights": {
+            'personal_kpi_dashboard': {
+                'label': 'Personal KPI Dashboard',
+                'description': 'View personalized key performance indicators for reading habits and engagement',
+                'default': True
+            },
+            'reading_goal_tracker': {
+                'label': 'Reading Goal Tracker',
+                'description': 'Set and track monthly/yearly reading goals with progress visualization',
+                'default': True
+            },
+            'activity_heatmap': {
+                'label': 'Account Activity Heatmap',
+                'description': 'Visualize your platform activity patterns across days and times',
+                'default': False
+            },
+            'search_personalization_boost': {
+                'label': 'Personalized Search Results',
+                'description': 'Boost search results based on your reading history and preferences',
+                'default': True
+            },
+            'streak_recovery_mode': {
+                'label': 'Streak Recovery Grace Mode',
+                'description': 'Automatically continue reading streaks if you miss by only 1-2 days',
+                'default': False
+            },
+            'recommendation_diversity': {
+                'label': 'Diversified Recommendations',
+                'description': 'Mix mainstream and niche recommendations to expand your reading horizon',
+                'default': True
+            }
+        },
+        "Discovery & Automation": {
+            'availability_watch_alerts': {
+                'label': 'Shelf Availability Watch Alerts',
+                'description': 'Get notified when books you\'re waiting for become available',
+                'default': True
+            },
+            'waitlist_auto_join': {
+                'label': 'Auto-Join Waitlists for Recommended Books',
+                'description': 'Automatically join waitlists for personalized book recommendations',
+                'default': False
+            },
+            'one_click_reborrow': {
+                'label': 'One-Click Reborrow Actions',
+                'description': 'Quick action button to instantly renew or reborrow books before they are due',
+                'default': True
+            },
+            'timezone_auto_detect': {
+                'label': 'Auto-Detect Timezone',
+                'description': 'Automatically detect and update your timezone for accurate deadline calculations',
+                'default': True
+            }
+        },
+        "Accessibility & User Interface": {
+            'compact_density_mode': {
+                'label': 'Compact UI Density Mode',
+                'description': 'Reduce spacing between elements to fit more information on screen',
+                'default': False
+            },
+            'high_contrast_accessibility': {
+                'label': 'High Contrast Accessibility Mode',
+                'description': 'Enhance color contrast for improved readability and visibility',
+                'default': False
+            },
+            'dyslexia_font_mode': {
+                'label': 'Dyslexia-Friendly Typography',
+                'description': 'Use OpenDyslexic font and layout optimizations for enhanced readability',
+                'default': False
+            },
+            'reduced_motion_mode': {
+                'label': 'Reduced Motion & Animations',
+                'description': 'Minimize animations and transitions throughout the platform',
+                'default': False
+            },
+            'keyboard_first_mode': {
+                'label': 'Keyboard-First Navigation',
+                'description': 'Optimize interface for keyboard navigation without touching mouse/trackpad',
+                'default': False
+            },
+            'adaptive_home_layout': {
+                'label': 'Adaptive Home Layout',
+                'description': 'Dynamically adjust home page layout based on your screen size and preferences',
+                'default': True
+            }
+        },
+        "Data Management & Compliance": {
+            'api_audit_webhooks': {
+                'label': 'API Audit Webhook Forwarding',
+                'description': 'Forward account audit events to external webhook URLs for compliance tracking',
+                'default': False
+            },
+            'signed_exports_only': {
+                'label': 'Allow Only Signed Exports',
+                'description': 'All data exports must be digitally signed with your private key for verification',
+                'default': True
+            },
+            'auto_delete_old_exports': {
+                'label': 'Auto-Delete Old Exports',
+                'description': 'Automatically remove exported data older than 90 days to reduce storage',
+                'default': True
+            },
+            'retention_policy_controls': {
+                'label': 'Granular Data Retention Policies',
+                'description': 'Set custom retention periods for different types of account data',
+                'default': False
+            }
+        }
+    }
 
-    default_feature_flags = {key: False for key, _ in dynamic_feature_catalog}
-    default_feature_flags.update({
-        'allow_friend_requests': True,
-        'personal_kpi_dashboard': True,
-        'reading_goal_tracker': True,
-        'new_device_alerts': True,
-        'signed_exports_only': True,
-        'trusted_only_sensitive': True
-    })
+    # Flatten for quick lookups
+    def get_all_features():
+        features = {}
+        for group_name, group_features in dynamic_feature_groups.items():
+            features.update({key: {**val, 'group': group_name} for key, val in group_features.items()})
+        return features
+
+    def get_default_feature_flags():
+        flags = {}
+        for group_features in dynamic_feature_groups.values():
+            for key, config in group_features.items():
+                flags[key] = bool(config.get('default', False))
+        return flags
+
+    default_feature_flags = get_default_feature_flags()
+
+    def check_feature_compatibility(proposed_flags):
+        """Cross-check feature compatibility and return incompatibilities + auto-corrections."""
+        issues = []
+        corrections = {}
+        
+        # Check 1: Signed exports required for public export links
+        if proposed_flags.get('public_export_links') and not proposed_flags.get('signed_exports_only'):
+            issues.append({
+                'severity': 'warning',
+                'message': 'Public export links require signed exports to be enabled',
+                'auto_fix': True,
+                'action': 'enable signed_exports_only'
+            })
+            corrections['signed_exports_only'] = True
+        
+        # Check 2: Step-up auth required for sensitive operations with trusted devices
+        if proposed_flags.get('trusted_only_sensitive'):
+            if not proposed_flags.get('step_up_profile_edit'):
+                issues.append({
+                    'severity': 'info',
+                    'message': 'Trusted-devices-only setting works best when step-up profile edit is enabled',
+                    'auto_fix': False
+                })
+            if not proposed_flags.get('step_up_data_export'):
+                issues.append({
+                    'severity': 'info',
+                    'message': 'Trusted-devices-only setting works best when step-up data export is enabled',
+                    'auto_fix': False
+                })
+        
+        # Check 3: Anonymous reviews incompatible with social sharing
+        if proposed_flags.get('anonymous_reviews') and proposed_flags.get('share_reading_velocity'):
+            issues.append({
+                'severity': 'info',
+                'message': 'Anonymous reviews + sharing reading velocity may leak reading patterns',
+                'auto_fix': False
+            })
+        
+        # Check 4: Strict quiet hours limits digest emails
+        if proposed_flags.get('strict_quiet_hours'):
+            digest_flags = ['weekly_privacy_digest', 'daily_deadline_digest', 'weekly_activity_digest']
+            active_digests = sum(1 for d in digest_flags if proposed_flags.get(d))
+            if active_digests > 0:
+                issues.append({
+                    'severity': 'warning',
+                    'message': f'Strict quiet hours will suppress {active_digests} active digest(s), keeping them queued',
+                    'auto_fix': False
+                })
+        
+        # Check 5: Accessibility mode conflicts
+        if proposed_flags.get('compact_density_mode') and proposed_flags.get('high_contrast_accessibility'):
+            issues.append({
+                'severity': 'info',
+                'message': 'Compact density mode + high contrast may reduce visual spacing for some components',
+                'auto_fix': False
+            })
+        
+        # Check 6: Automation conflicts
+        if proposed_flags.get('waitlist_auto_join') and not proposed_flags.get('availability_watch_alerts'):
+            issues.append({
+                'severity': 'info',
+                'message': 'Auto-join waitlist works best when paired with availability alerts',
+                'auto_fix': False
+            })
+        
+        # Check 7: Alias rotation requires anonymous mode consideration
+        if proposed_flags.get('anonymous_alias_rotation') and not proposed_flags.get('anonymous_reviews'):
+            issues.append({
+                'severity': 'info',
+                'message': 'Alias rotation is most useful when combined with anonymous reviews',
+                'auto_fix': False
+            })
+        
+        return issues, corrections
 
     def generate_anonymous_alias():
         adjectives = ['Silent', 'Hidden', 'Masked', 'Steady', 'Nimble', 'Calm', 'Sharp', 'Quiet', 'Cipher', 'Nova']
@@ -7224,14 +7524,7 @@ def show_account():
         if row:
             return row
 
-        seed = {
-            'allow_friend_requests': True,
-            'new_device_alerts': True,
-            'personal_kpi_dashboard': True,
-            'reading_goal_tracker': True,
-            'signed_exports_only': True,
-            'trusted_only_sensitive': True
-        }
+        seed = get_default_feature_flags()
         Database.execute_update(
             """
             INSERT INTO account_dynamic_preferences
@@ -8667,7 +8960,7 @@ def show_account():
                 st.dataframe(pd.DataFrame(accepted_friends), use_container_width=True, hide_index=True)
 
     with tab6:
-        st.subheader("Feature Studio (50 Dynamic Controls)")
+        st.subheader("Feature Studio (Groupwise Dynamic Controls)")
         storage_mode = "database"
         if account['user_id'] > 0:
             dyn_pref = ensure_dynamic_preferences_row() or {}
@@ -8680,7 +8973,7 @@ def show_account():
                     'anonymous_avatar_style': 'geometric',
                     'anonymous_rotation_hours': 72,
                     'profile_theme': 'adaptive',
-                    'feature_json': json.dumps(default_feature_flags)
+                    'feature_json': json.dumps(get_default_feature_flags())
                 }
             dyn_pref = st.session_state.feature_studio_ephemeral
 
@@ -8692,46 +8985,66 @@ def show_account():
         except Exception:
             persisted_features = {}
 
-        feature_flags = dict(default_feature_flags)
+        feature_flags = dict(get_default_feature_flags())
         feature_flags.update({k: bool(v) for k, v in persisted_features.items()})
 
         if storage_mode == "session":
-            st.info("Feature Studio is active for this account in session mode (settings persist until logout/browser reset).")
+            st.info("🔄 **Session Mode**: Feature settings persist until logout/browser reset. Create an account to save permanently.")
 
-        st.caption("Toggle advanced controls that shape your account behavior, privacy, UX, and automation.")
-        st.write(f"Configured features: **{len(dynamic_feature_catalog)}**")
-
-        preset_col1, preset_col2, preset_col3 = st.columns(3, gap='small')
-        if preset_col1.button("Apply Privacy-First Preset", use_container_width=True):
-            for k in feature_flags.keys():
-                feature_flags[k] = False
-            for k in ['signed_exports_only', 'step_up_profile_edit', 'step_up_data_export', 'trusted_only_sensitive', 'hide_last_seen', 'anonymous_reviews', 'anonymous_alias_rotation', 'impossible_travel_lock', 'high_churn_lock']:
-                feature_flags[k] = True
-        if preset_col2.button("Apply Social Preset", use_container_width=True):
-            for k in feature_flags.keys():
-                feature_flags[k] = False
-            for k in ['allow_friend_requests', 'show_online_status', 'share_reading_velocity', 'weekly_activity_digest', 'availability_watch_alerts', 'search_personalization_boost']:
-                feature_flags[k] = True
-        if preset_col3.button("Apply Productivity Preset", use_container_width=True):
-            for k in feature_flags.keys():
-                feature_flags[k] = False
-            for k in ['personal_kpi_dashboard', 'reading_goal_tracker', 'calendar_due_sync', 'smart_due_bundles', 'daily_deadline_digest', 'one_click_reborrow', 'waitlist_auto_join']:
-                feature_flags[k] = True
+        st.markdown("Select and customize features for your account. Each group offers related controls with smart compatibility checks.")
 
         with st.form("feature_studio_form"):
+            all_features = get_all_features()
             draft_flags = {}
-            left_col, right_col = st.columns(2, gap='small')
-            midpoint = len(dynamic_feature_catalog) // 2
-
-            for key, label in dynamic_feature_catalog[:midpoint]:
-                with left_col:
-                    draft_flags[key] = st.checkbox(label, value=bool(feature_flags.get(key, False)), key=f"studio_{key}")
-            for key, label in dynamic_feature_catalog[midpoint:]:
-                with right_col:
-                    draft_flags[key] = st.checkbox(label, value=bool(feature_flags.get(key, False)), key=f"studio_{key}")
-
-            save_studio = st.form_submit_button("Save Feature Studio", use_container_width=True)
+            
+            for group_name, group_features in dynamic_feature_groups.items():
+                with st.expander(f"**{group_name}** ({sum(1 for k in group_features if feature_flags.get(k))} enabled)", expanded=True):
+                    group_info_cols = st.columns([3, 1])
+                    with group_info_cols[1]:
+                        st.caption(f"{len(group_features)} features")
+                    
+                    for feature_key, feature_config in group_features.items():
+                        col1, col2 = st.columns([3, 1], gap='small')
+                        
+                        with col1:
+                            st.markdown(f"**{feature_config['label']}**")
+                            st.caption(feature_config['description'])
+                        
+                        with col2:
+                            # Radio button: Off/On (displayed as toggle)
+                            radio_state = st.radio(
+                                f"Toggle {feature_key}",
+                                ['Off', 'On'],
+                                index=1 if bool(feature_flags.get(feature_key, False)) else 0,
+                                horizontal=True,
+                                label_visibility='collapsed',
+                                key=f"studio_{feature_key}"
+                            )
+                            draft_flags[feature_key] = (radio_state == 'On')
+                        
+                        st.divider()
+            
+            # Save button
+            save_studio = st.form_submit_button("💾 Save Feature Configuration", use_container_width=True)
+            
             if save_studio:
+                # Perform cross-check validation
+                issues, corrections = check_feature_compatibility(draft_flags)
+                
+                # Apply auto-corrections
+                draft_flags.update(corrections)
+                
+                # Display compatibility warnings
+                if issues:
+                    st.divider()
+                    st.subheader("Compatibility Review")
+                    for issue in issues:
+                        if issue['severity'] == 'warning':
+                            st.warning(f"⚠️ {issue['message']}")
+                        elif issue['severity'] == 'info':
+                            st.info(f"ℹ️ {issue['message']}")
+                
+                # Perform save
                 if storage_mode == "database":
                     done = Database.execute_update(
                         """
@@ -8753,28 +9066,57 @@ def show_account():
                         )
                     )
                     if done:
-                        st.success("Feature Studio preferences saved.")
+                        st.success("✅ Feature configuration saved to database.")
                     else:
-                        st.error("Failed to save Feature Studio settings.")
+                        st.error("❌ Failed to save feature configuration.")
                 else:
                     st.session_state.feature_studio_ephemeral['feature_json'] = json.dumps(draft_flags)
-                    st.success("Feature Studio preferences saved in session mode.")
-
-        enabled_count = sum(1 for key, _label in dynamic_feature_catalog if bool(feature_flags.get(key, False)))
-        st.metric("Enabled Dynamic Controls", enabled_count)
-
-        enabled_rows = []
-        for key, label in dynamic_feature_catalog:
-            if bool(feature_flags.get(key, False)):
-                enabled_rows.append({'feature_key': key, 'feature_label': label, 'state': 'enabled'})
-        if enabled_rows:
-            st.caption("Currently enabled controls")
-            st.dataframe(pd.DataFrame(enabled_rows), use_container_width=True, hide_index=True)
+                    st.success("✅ Feature configuration saved in session mode.")
+                
+                st.rerun()
+        
+        # Summary section
+        st.divider()
+        st.subheader("📊 Configuration Summary")
+        
+        enabled_count = sum(1 for key in draft_flags if draft_flags.get(key, False)) if 'draft_flags' in locals() else sum(1 for key in feature_flags if feature_flags.get(key, False))
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Enabled Features", enabled_count)
+        
+        with col2:
+            total_features = sum(len(group) for group in dynamic_feature_groups.values())
+            st.metric("Total Available Features", total_features)
+        
+        with col3:
+            coverage = (enabled_count / total_features * 100) if total_features > 0 else 0
+            st.metric("Coverage %", f"{coverage:.1f}%")
+        
+        # Display enabled features by group
+        st.subheader("Active Features by Group")
+        enabled_by_group = {}
+        current_flags = draft_flags if 'draft_flags' in locals() else feature_flags
+        
+        for group_name, group_features in dynamic_feature_groups.items():
+            enabled_in_group = [key for key in group_features if bool(current_flags.get(key, False))]
+            if enabled_in_group:
+                enabled_by_group[group_name] = enabled_in_group
+        
+        if enabled_by_group:
+            for group_name, features in enabled_by_group.items():
+                st.markdown(f"**{group_name}** ({len(features)})")
+                for feature_key in features:
+                    feature_info = dynamic_feature_groups[group_name][feature_key]
+                    st.caption(f"✓ {feature_info['label']}")
         else:
-            st.caption("No controls enabled yet. Use presets or custom toggles above.")
-
-        if bool(feature_flags.get('anonymous_alias_rotation')):
-            if st.button("Rotate Anonymous Alias Now", use_container_width=True):
+            st.caption("No features enabled yet. Select features above to customize your experience.")
+        
+        # Alias rotation action (if enabled)
+        if current_flags.get('anonymous_alias_rotation'):
+            st.divider()
+            st.subheader("Anonymous Alias Management")
+            if st.button("🔄 Rotate Anonymous Alias Now", use_container_width=True):
                 new_alias = generate_anonymous_alias()
                 if storage_mode == "database":
                     Database.execute_update(
@@ -8787,7 +9129,7 @@ def show_account():
                     )
                 else:
                     st.session_state.feature_studio_ephemeral['anonymous_alias'] = new_alias
-                st.success(f"New anonymous alias: {new_alias}")
+                st.success(f"✅ Anonymous alias rotated to: **{new_alias}**")
                 st.rerun()
 
 def show_manage_books():
