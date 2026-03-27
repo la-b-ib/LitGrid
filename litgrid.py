@@ -5126,95 +5126,97 @@ def show_login_page():
 
                     # Legal & Consent Section
                     st.divider()
-                    st.markdown("#### **Legal & Consent**")
+                    legal_col, agreement_col = st.columns(2, gap="medium")
 
-                    with st.expander("Terms of Service", expanded=False):
-                        st.markdown("""
-                        **TERMS OF SERVICE**
+                    with legal_col:
+                        st.markdown("#### **Legal & Consent**")
 
-                        By registering for an account with LitGrid Library, you agree to the following terms:
+                        with st.expander("Terms of Service", expanded=False):
+                            st.markdown("""
+                            **TERMS OF SERVICE**
 
-                        1. **Account Responsibility**: You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
+                            By registering for an account with LitGrid Library, you agree to the following terms:
 
-                        2. **Library Code of Conduct**: Members must follow all library rules and policies, including treating library materials with respect and returning items on time.
+                            1. **Account Responsibility**: You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
 
-                        3. **Collection Policy**: Items may only be borrowed for authorized personal use. Resale or commercial use is prohibited.
+                            2. **Library Code of Conduct**: Members must follow all library rules and policies, including treating library materials with respect and returning items on time.
 
-                        4. **Fine & Fee Policy**: Late fees and damage charges apply per library policy. You accept responsibility for items borrowed under your account.
+                            3. **Collection Policy**: Items may only be borrowed for authorized personal use. Resale or commercial use is prohibited.
 
-                        5. **Membership**: Membership is non-transferable and personal. Sharing credentials is prohibited.
+                            4. **Fine & Fee Policy**: Late fees and damage charges apply per library policy. You accept responsibility for items borrowed under your account.
 
-                        6. **Compliance**: You agree to comply with all applicable laws and library policies.
-                        """)
+                            5. **Membership**: Membership is non-transferable and personal. Sharing credentials is prohibited.
 
-                    with st.expander("Usage Guide", expanded=False):
-                        st.markdown("""
-                        **HOW TO USE LITGRID LIBRARY**
+                            6. **Compliance**: You agree to comply with all applicable laws and library policies.
+                            """)
 
-                        **Getting Started:**
-                        - Browse our catalog using the search feature or category filters
-                        - Click "Borrow" to check out items (max 10 items per member)
-                        - View your active borrowings and due dates in your library dashboard
+                        with st.expander("Usage Guide", expanded=False):
+                            st.markdown("""
+                            **HOW TO USE LITGRID LIBRARY**
 
-                        **Borrowing:**
-                        - Standard loan period: 30 days
-                        - Renewals: Available for items with no pending reservations
-                        - Maximum renewals: 2 times per item
+                            **Getting Started:**
+                            - Browse our catalog using the search feature or category filters
+                            - Click "Borrow" to check out items (max 10 items per member)
+                            - View your active borrowings and due dates in your library dashboard
 
-                        **Returning:**
-                        - Return items by their due date to avoid late fees
-                        - Use the check-in process in your dashboard
-                        - Late fees: $1.00 per day per item
+                            **Borrowing:**
+                            - Standard loan period: 30 days
+                            - Renewals: Available for items with no pending reservations
+                            - Maximum renewals: 2 times per item
 
-                        **Dashboard Features:**
-                        - View borrowed items and due dates
-                        - Renew items before they're due
-                        - Check your reading statistics
-                        - Manage account preferences
-                        """)
+                            **Returning:**
+                            - Return items by their due date to avoid late fees
+                            - Use the check-in process in your dashboard
+                            - Late fees: $1.00 per day per item
 
-                    with st.expander("Privacy & Legal Disclaimer", expanded=False):
-                        st.markdown("""
-                        **PRIVACY POLICY & LEGAL DISCLAIMER**
+                            **Dashboard Features:**
+                            - View borrowed items and due dates
+                            - Renew items before they're due
+                            - Check your reading statistics
+                            - Manage account preferences
+                            """)
 
-                        **Data Protection:**
-                        - We collect only necessary information for library services
-                        - Your data is encrypted and securely stored
-                        - We do not share your information with third parties
-                        - You may request data deletion by contacting support
+                        with st.expander("Privacy & Legal Disclaimer", expanded=False):
+                            st.markdown("""
+                            **PRIVACY POLICY & LEGAL DISCLAIMER**
 
-                        **Library Responsibility:**
-                        - LitGrid is not responsible for loss or damage to items provided by members
-                        - Items borrowed remain library property
-                        - Member is responsible for damage beyond normal wear
+                            **Data Protection:**
+                            - We collect only necessary information for library services
+                            - Your data is encrypted and securely stored
+                            - We do not share your information with third parties
+                            - You may request data deletion by contacting support
 
-                        **Limitation of Liability:**
-                        - The library service is provided "as is"
-                        - We are not liable for service interruptions or data loss
-                        - Maximum liability is limited to account fees paid
+                            **Library Responsibility:**
+                            - LitGrid is not responsible for loss or damage to items provided by members
+                            - Items borrowed remain library property
+                            - Member is responsible for damage beyond normal wear
 
-                        **Termination:**
-                        - Accounts may be suspended for policy violations
-                        - Outstanding fines must be paid before re-registration
+                            **Limitation of Liability:**
+                            - The library service is provided "as is"
+                            - We are not liable for service interruptions or data loss
+                            - Maximum liability is limited to account fees paid
 
-                        **Updates:**
-                        - Terms may be updated at any time
-                        - Continued use implies acceptance of updated terms
-                        """)
+                            **Termination:**
+                            - Accounts may be suspended for policy violations
+                            - Outstanding fines must be paid before re-registration
 
-                    # Agreements
-                    st.divider()
-                    st.markdown("#### **Your Agreement**")
+                            **Updates:**
+                            - Terms may be updated at any time
+                            - Continued use implies acceptance of updated terms
+                            """)
 
-                    agree_terms = st.radio(
-                        "I have read and agree to all terms:",
-                        ["I do not agree", "I agree to all Terms, Usage Guide, and Legal Disclaimer"],
-                        help="You must agree to all terms to register",
-                        key="member_agree_terms"
-                    )
+                    with agreement_col:
+                        st.markdown("#### **Your Agreement**")
 
-                    agree_data = st.checkbox("I understand my data will be securely stored and used only for library services", key="member_agree_data")
-                    agree_contact = st.checkbox("I agree to receive library notifications (overdue reminders, new book alerts)", key="member_agree_contact")
+                        agree_terms = st.radio(
+                            "I have read and agree to all terms:",
+                            ["I do not agree", "I agree to all Terms, Usage Guide, and Legal Disclaimer"],
+                            help="You must agree to all terms to register",
+                            key="member_agree_terms"
+                        )
+
+                        agree_data = st.checkbox("I understand my data will be securely stored and used only for library services", key="member_agree_data")
+                        agree_contact = st.checkbox("I agree to receive library notifications (overdue reminders, new book alerts)", key="member_agree_contact")
 
                     member_password_ready = (
                         bool(password_reg)
