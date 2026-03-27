@@ -5111,16 +5111,18 @@ def show_login_page():
                         library_interests = st.multiselect("Library Interests",
                             ["Fiction", "Non-Fiction", "Science", "History", "Biography", "Self-Help", "Poetry", "Children's Books"])
 
-                    # Password Security
-                    st.markdown("#### **Password Security**")
-                    st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars (!@#$%^&*), no repetition")
-                    password_reg = st.text_input("Password *", type="password", help="Min 12 chars, mixed case, numbers, special chars", key="member_pass")
-                    confirm_pass = st.text_input("Confirm Password *", type="password", key="member_confirm")
-                    is_member_password_strong = show_password_feedback(password_reg, confirm_pass)
+                    security_col, photo_col = st.columns(2, gap="medium")
 
-                    # Photo Upload
-                    st.markdown("#### **Profile Photo**")
-                    profile_photo = st.file_uploader("Upload Profile Photo *", type=["jpg", "jpeg", "png"], help="Max 5MB, square image preferred", key="member_photo")
+                    with security_col:
+                        st.markdown("#### **Password Security**")
+                        st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars (!@#$%^&*), no repetition")
+                        password_reg = st.text_input("Password *", type="password", help="Min 12 chars, mixed case, numbers, special chars", key="member_pass")
+                        confirm_pass = st.text_input("Confirm Password *", type="password", key="member_confirm")
+                        is_member_password_strong = show_password_feedback(password_reg, confirm_pass)
+
+                    with photo_col:
+                        st.markdown("#### **Profile Photo**")
+                        profile_photo = st.file_uploader("Upload Profile Photo *", type=["jpg", "jpeg", "png"], help="Max 5MB, square image preferred", key="member_photo")
 
                     # Legal & Consent Section
                     st.divider()
