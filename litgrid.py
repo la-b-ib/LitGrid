@@ -5060,8 +5060,6 @@ def show_login_page():
                 """, (username, email))
                 return existing is not None and len(existing) > 0
 
-            st.markdown("#### **Unified Registration Form**")
-
             # Show remaining member slots for capacity-aware validation
             count_result = Database.execute_query(
                 "SELECT COUNT(*) as count FROM users WHERE role = 'member'",
@@ -5069,8 +5067,6 @@ def show_login_page():
             )
             current_count = count_result['count'] if count_result else 0
             remaining = Config.MAX_MEMBER_ACCOUNTS - current_count
-            st.caption(f"Member slots available: {max(0, remaining)} of {Config.MAX_MEMBER_ACCOUNTS}")
-
             with st.form("register_unified_form"):
                 account_type = st.radio(
                     "Register As",
