@@ -4979,16 +4979,6 @@ def show_login_page():
                         else:
                             st.warning("Please enter username and password")
 
-                # Show hints based on mode
-                if mode == 'admin':
-                    with st.expander("Admin Access"):
-                        st.info("**Demo Admin:** username: `demo` | password: `demo123`")
-                        st.caption("Demo admin has view-only access")
-                else:
-                    with st.expander("Member Login"):
-                        st.info("Login with your member credentials")
-                        st.caption("Don't have an account? Register in the next tab")
-
             with reset_col:
                 render_dynamic_password_reset_panel()
         
@@ -5070,24 +5060,22 @@ def show_login_page():
             with st.form("register_unified_form"):
                 account_type = st.session_state.get("unified_account_type", "Member")
 
+                st.markdown("#### **Information**")
                 section_col1, section_col2, section_col3 = st.columns(3, gap="medium")
 
                 with section_col1:
-                    st.markdown("#### **Personal Information**")
                     full_name = st.text_input("Full Name *", placeholder="John Doe")
                     date_of_birth = st.date_input("Date of Birth *")
                     phone = st.text_input("Phone Number *", placeholder="+1-555-0000")
                     gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"])
 
                 with section_col2:
-                    st.markdown("#### **Address Information**")
                     street = st.text_input("Street Address *")
                     city = st.text_input("City *")
                     state = st.text_input("State/Province *")
                     zip_code = st.text_input("Zip/Postal Code *")
 
                 with section_col3:
-                    st.markdown("#### **Account Information**")
                     username_reg = st.text_input("Username *", placeholder="johndoe123", help="Alphanumeric, 4-20 characters")
                     email = st.text_input("Email *", placeholder="john@example.com")
 
