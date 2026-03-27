@@ -8847,21 +8847,43 @@ def show_account():
         st.divider()
         st.markdown("### Field-Level Privacy Matrix")
         st.caption("Set each field to public, private, or friends-only visibility.")
-
+        
         with st.form("field_privacy_form"):
             updated_privacy = {}
-            for field_name in privacy_fields:
-                label = field_name.replace('_', ' ').title()
-                value = privacy_map.get(field_name, default_privacy[field_name])
-                idx = ['public', 'friends', 'private'].index(value) if value in ['public', 'friends', 'private'] else 2
-                updated_privacy[field_name] = st.selectbox(
-                    label,
-                    ['public', 'friends', 'private'],
-                    index=idx,
-                    key=f"privacy_{field_name}"
-                )
+        
+            # Create 3-column layout with multiple rows
+            field_list = list(privacy_fields)
+            for row_idx in range(0, len(field_list), 3):
+                cols = st.columns(3, gap='medium')
+            
+                # Process up to 3 fields per row
+                for col_idx in range(3):
+                    field_idx = row_idx + col_idx
+                    if field_idx >= len(field_list):
+                        break
+                
+                    field_name = field_list[field_idx]
+                    label = field_name.replace('_', ' ').title()
+                    current_value = privacy_map.get(field_name, default_privacy[field_name])
+                
+                    with cols[col_idx]:
+                        st.markdown(f"**{label}**")
+                    
+                        # Radio button for privacy level
+                        privacy_choice = st.radio(
+                            f"Privacy for {field_name}",
+                            ['Public', 'Friends', 'Private'],
+                            index=['public', 'friends', 'private'].index(current_value) if current_value in ['public', 'friends', 'private'] else 2,
+                            horizontal=False,
+                            label_visibility='collapsed',
+                            key=f"privacy_{field_name}"
+                        )
+                    
+                        # Map radio choice to lowercase
+                        updated_privacy[field_name] = privacy_choice.lower()
 
-            save_privacy = st.form_submit_button("Save Privacy Matrix", use_container_width=True)
+                save_privacy = st.form_submit_button("💾 Save Privacy Matrix", use_container_width=True)
+        
             if save_privacy:
                 if privacy_storage_mode == "database":
                     save_privacy_map(updated_privacy)
