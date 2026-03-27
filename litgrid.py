@@ -8877,24 +8877,17 @@ def show_account():
                     enabled_by_group[group_name] = enabled_in_group
 
             if enabled_by_group:
-                group_list = list(enabled_by_group.items())
-                for i in range(0, len(group_list), 2):
-                    cols = st.columns(2, gap='medium')
+                selected_active_group = st.selectbox(
+                    "Select Active Feature Category",
+                    list(enabled_by_group.keys()),
+                    key="active_features_group_dropdown",
+                    format_func=lambda g: f"{g} ({len(enabled_by_group[g])})"
+                )
 
-                    group_name, features = group_list[i]
-                    with cols[0]:
-                        st.markdown(f"**{group_name}** ({len(features)})")
-                        for feature_key in features:
-                            feature_info = dynamic_feature_groups[group_name][feature_key]
-                            st.caption(f"✓ {feature_info['label']}")
-
-                    if i + 1 < len(group_list):
-                        group_name, features = group_list[i + 1]
-                        with cols[1]:
-                            st.markdown(f"**{group_name}** ({len(features)})")
-                            for feature_key in features:
-                                feature_info = dynamic_feature_groups[group_name][feature_key]
-                                st.caption(f"✓ {feature_info['label']}")
+                st.markdown(f"**{selected_active_group}** ({len(enabled_by_group[selected_active_group])})")
+                for feature_key in enabled_by_group[selected_active_group]:
+                    feature_info = dynamic_feature_groups[selected_active_group][feature_key]
+                    st.caption(f"✓ {feature_info['label']}")
             else:
                 st.caption("No features enabled yet. Select features below to customize your experience.")
 
