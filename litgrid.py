@@ -7789,13 +7789,13 @@ def show_account():
     if account['is_demo']:
         st.info("Demo account detected: account updates and exports are limited.")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        " Profile & Health",
+    tab1, tab2, tab4, tab5 = st.tabs([
+        " Profile",
         " Reading Analytics",
-        " Security & Access",
         " Data Tools",
         " Feature Studio"
     ])
+    tab3 = tab1
     tab6 = tab5
 
     with tab1:
