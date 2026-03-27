@@ -6912,6 +6912,9 @@ def show_account():
             account['max_books_allowed'] = to_int(user.get('max_books_allowed'), defaults['max_books_allowed'])
             account['borrowing_days'] = to_int(user.get('borrowing_days'), defaults['borrowing_days'])
 
+    is_superadmin_privileged = bool(user.get('is_superadmin')) or str(account.get('role', '')).lower() == 'superadmin'
+    can_use_persisted_features = account['user_id'] > 0 or is_superadmin_privileged
+
     privacy_fields = [
         'full_name', 'email', 'phone', 'address', 'member_since',
         'last_login', 'member_tier', 'fine_balance', 'reading_stats',
@@ -7701,9 +7704,12 @@ def show_account():
                 session_remaining = f"{left} min"
             st.metric("Session Timeout Remaining", session_remaining)
         with m3:
-            st.metric("Auth Context", "Real User" if account['user_id'] > 0 else "Functional Account")
+            st.metric(
+                "Auth Context",
+                "Superadmin (Highest Privilege)" if is_superadmin_privileged else ("Real User" if account['user_id'] > 0 else "Functional Account")
+            )
 
-        if account['user_id'] > 0:
+        if can_use_persisted_features:
             borrow_health = Database.execute_query(
                 """
                 SELECT
@@ -7762,7 +7768,7 @@ def show_account():
     with tab2:
         st.subheader("Reading Analytics")
 
-        if account['user_id'] <= 0:
+        if not can_use_persisted_features:
             st.info("Detailed analytics are not available for functional/demo accounts.")
         else:
             stats = get_member_statistics(account['user_id'])
@@ -8045,7 +8051,7 @@ def show_account():
     with tab4:
         st.subheader("Data Tools")
 
-        if account['user_id'] > 0:
+        if can_use_persisted_features:
             if not has_sensitive_action_access():
                 require_sensitive_action_access('profile_update', 'Profile Update')
 
@@ -8513,7 +8519,7 @@ def show_account():
                         st.caption("Immutable workflow timeline")
                         st.dataframe(pd.DataFrame(timeline_rows), use_container_width=True, hide_index=True)
         else:
-            st.info("Data update/export is disabled for non-database accounts.")
+            st.info("Data update/export is disabled for non-database accounts unless using superadmin privileges.")
 
     with tab5:
         st.subheader("Privacy, Visibility, and Anonymous Mode")
