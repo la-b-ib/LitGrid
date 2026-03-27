@@ -4649,7 +4649,7 @@ def show_login_page():
             return
         
         # Normal login/register page
-        tab1, tab2, tab3 = st.tabs(["Login", "Register", "Reset Password"])
+        tab1, tab2 = st.tabs(["Login", "Register"])
 
         def render_dynamic_password_reset_panel():
             st.markdown("### Reset Password")
@@ -4941,7 +4941,7 @@ def show_login_page():
             cred_col, reset_col = st.columns(2, gap="medium")
 
             with cred_col:
-                st.markdown("### Or Login with Credentials")
+                st.markdown("### Login with Credentials")
 
                 with st.form("login_form"):
                     username = st.text_input("Username or Email")
@@ -5417,10 +5417,6 @@ def show_login_page():
                             except Exception as e:
                                 st.error(f"❌ Registration error: {str(e)}")
 
-
-        with tab3:
-            st.markdown("### Reset Password")
-            st.info("Reset Password is available beside Login Credentials in the Login tab.")
 
 def show_dashboard():
     """Dashboard page"""
