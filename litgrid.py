@@ -11332,81 +11332,83 @@ def show_my_library():
     
     # Tab 1: My PDFs & Upload PDF
     with tabs[0]:
-        st.subheader("**My PDF Collection**")
-        
-        pdfs = PeerLibraryManager.get_user_library(user['user_id'])
-        
-        if pdfs:
-            for pdf in pdfs:
-                with st.expander(f" {pdf['title']}"):
-                    col1, col2 = st.columns([3, 1], gap="small")
-                    
-                    with col1:
-                        st.write(f"**Author:** {pdf['author'] or 'Unknown'}")
-                        st.write(f"**Genre:** {pdf['genre'] or 'Unknown'}")
-                        st.write(f"**Description:** {pdf['description'] or 'No description'}")
-                        st.write(f"**Visibility:** {' Public' if pdf['is_public'] else ' Private'}")
-                        st.write(f"**Uploaded:** {pdf['upload_date']}")
-                        st.write(f"**Views:** {pdf['views_count']}")
-                    
-                    with col2:
-                        if st.button(" View", key=f"view_{pdf['pdf_id']}"):
-                            pdf_data = PeerLibraryManager.get_pdf_file(pdf['pdf_id'])
-                            if pdf_data:
-                                PeerLibraryManager.increment_pdf_views(pdf['pdf_id'])
-                                st.download_button(
-                                    " Download PDF",
-                                    pdf_data['pdf_file'],
-                                    pdf_data['pdf_filename'],
-                                    mime="application/pdf"
-                                )
-                        
-                        # Toggle visibility
-                        new_visibility = st.checkbox(
-                            "Make Public",
-                            value=pdf['is_public'],
-                            key=f"vis_{pdf['pdf_id']}"
-                        )
-                        if new_visibility != pdf['is_public']:
-                            Database.execute_update(
-                                "UPDATE pdf_library SET is_public = ? WHERE pdf_id = ?",
-                                (new_visibility, pdf['pdf_id'])
+        left_col, right_col = st.columns(2, gap="large")
+
+        with left_col:
+            st.subheader("**My PDF Collection**")
+
+            pdfs = PeerLibraryManager.get_user_library(user['user_id'])
+
+            if pdfs:
+                for pdf in pdfs:
+                    with st.expander(f" {pdf['title']}"):
+                        col1, col2 = st.columns([3, 1], gap="small")
+
+                        with col1:
+                            st.write(f"**Author:** {pdf['author'] or 'Unknown'}")
+                            st.write(f"**Genre:** {pdf['genre'] or 'Unknown'}")
+                            st.write(f"**Description:** {pdf['description'] or 'No description'}")
+                            st.write(f"**Visibility:** {' Public' if pdf['is_public'] else ' Private'}")
+                            st.write(f"**Uploaded:** {pdf['upload_date']}")
+                            st.write(f"**Views:** {pdf['views_count']}")
+
+                        with col2:
+                            if st.button(" View", key=f"view_{pdf['pdf_id']}"):
+                                pdf_data = PeerLibraryManager.get_pdf_file(pdf['pdf_id'])
+                                if pdf_data:
+                                    PeerLibraryManager.increment_pdf_views(pdf['pdf_id'])
+                                    st.download_button(
+                                        " Download PDF",
+                                        pdf_data['pdf_file'],
+                                        pdf_data['pdf_filename'],
+                                        mime="application/pdf"
+                                    )
+
+                            # Toggle visibility
+                            new_visibility = st.checkbox(
+                                "Make Public",
+                                value=pdf['is_public'],
+                                key=f"vis_{pdf['pdf_id']}"
                             )
-                            st.success("Visibility updated!")
-                            st.rerun()
-        else:
-            st.info("Your library is empty. Upload PDFs to get started!")
+                            if new_visibility != pdf['is_public']:
+                                Database.execute_update(
+                                    "UPDATE pdf_library SET is_public = ? WHERE pdf_id = ?",
+                                    (new_visibility, pdf['pdf_id'])
+                                )
+                                st.success("Visibility updated!")
+                                st.rerun()
+            else:
+                st.info("Your library is empty. Upload PDFs to get started!")
 
-        st.divider()
+        with right_col:
+            st.subheader(" Upload New PDF")
 
-        st.subheader(" Upload New PDF")
-        
-        with st.form("upload_pdf_form"):
-            uploaded_file = st.file_uploader("Choose PDF file", type=['pdf'])
-            title = st.text_input("Title*", max_chars=500)
-            author = st.text_input("Author", max_chars=300)
-            genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", 
-                                           "History", "Biography", "Self-Help", "Other"])
-            description = st.text_area("Description", max_chars=1000)
-            is_public = st.checkbox("Make this PDF publicly visible")
-            
-            submitted = st.form_submit_button(" Upload PDF")
-            
-            if submitted:
-                if not uploaded_file or not title:
-                    st.error("Please provide PDF file and title")
-                else:
-                    success, message = PeerLibraryManager.upload_pdf_to_library(
-                        user['user_id'], uploaded_file, title, author, genre, description, is_public
-                    )
-                    
-                    if success:
-                        st.success(message)
-                        st.balloons()
-                        time.sleep(1)
-                        st.rerun()
+            with st.form("upload_pdf_form"):
+                uploaded_file = st.file_uploader("Choose PDF file", type=['pdf'])
+                title = st.text_input("Title*", max_chars=500)
+                author = st.text_input("Author", max_chars=300)
+                genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", 
+                                               "History", "Biography", "Self-Help", "Other"])
+                description = st.text_area("Description", max_chars=1000)
+                is_public = st.checkbox("Make this PDF publicly visible")
+
+                submitted = st.form_submit_button(" Upload PDF")
+
+                if submitted:
+                    if not uploaded_file or not title:
+                        st.error("Please provide PDF file and title")
                     else:
-                        st.error(message)
+                        success, message = PeerLibraryManager.upload_pdf_to_library(
+                            user['user_id'], uploaded_file, title, author, genre, description, is_public
+                        )
+
+                        if success:
+                            st.success(message)
+                            st.balloons()
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(message)
 
         if is_management_user:
             st.divider()
