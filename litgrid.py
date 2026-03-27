@@ -8787,14 +8787,15 @@ def show_account():
                 max_value=336,
                 value=max(12, to_int(dyn_pref.get('anonymous_rotation_hours'), 72))
             )
-            profile_theme = st.selectbox(
+            profile_theme = st.radio(
                 "Profile theme mode",
                 ["adaptive", "privacy-first", "social", "productivity", "minimal"],
                 index=["adaptive", "privacy-first", "social", "productivity", "minimal"].index(
                     str(dyn_pref.get('profile_theme', 'adaptive'))
                     if str(dyn_pref.get('profile_theme', 'adaptive')) in ["adaptive", "privacy-first", "social", "productivity", "minimal"]
                     else "adaptive"
-                )
+                ),
+                horizontal=True
             )
             save_anon = st.form_submit_button("Save Anonymous Preferences", use_container_width=True)
 
