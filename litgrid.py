@@ -11319,9 +11319,9 @@ def show_my_library():
     
     user = Auth.get_user()
     
-    tabs = st.tabs([" My PDFs", " Upload PDF", " Privacy Settings", " My Profile", " Browse Community"])
+    tabs = st.tabs([" My PDFs & Upload", " Privacy Settings", " Browse Community"])
     
-    # Tab 1: My PDFs
+    # Tab 1: My PDFs & Upload PDF
     with tabs[0]:
         st.subheader("**My PDF Collection**")
         
@@ -11367,9 +11367,9 @@ def show_my_library():
                             st.rerun()
         else:
             st.info("Your library is empty. Upload PDFs to get started!")
-    
-    # Tab 2: Upload PDF
-    with tabs[1]:
+
+        st.divider()
+
         st.subheader(" Upload New PDF")
         
         with st.form("upload_pdf_form"):
@@ -11399,8 +11399,8 @@ def show_my_library():
                     else:
                         st.error(message)
     
-    # Tab 3: Privacy Settings
-    with tabs[2]:
+    # Tab 2: Privacy Settings
+    with tabs[1]:
         st.subheader(" Privacy & Anonymous Mode")
         
         privacy = PrivacyManager.get_privacy_settings(user['user_id'])
@@ -11466,44 +11466,9 @@ def show_my_library():
             profile = PrivacyManager.preview_public_profile(user['user_id'])
             if profile:
                 st.json(profile)
-    
-    # Tab 4: My Profile
-    with tabs[3]:
-        st.subheader(" My Profile")
-        
-        # User profile information
-        st.write(f"**Full Name:** {user['full_name']}")
-        st.write(f"**Username:** {user['username']}")
-        st.write(f"**Email:** {user['email']}")
-        st.write(f"**Role:** {user['role'].title()}")
-        st.write(f"**Member Tier:** {user['member_tier'].title()}")
 
-        # Only show unique ID and QR code for real database users (not functional admin or demo users)
-        if not user.get('is_demo') and isinstance(user['user_id'], int) and user['user_id'] > 0:
-            # Unique ID
-            unique_id = Database.execute_query(
-                "SELECT user_unique_code FROM users WHERE user_id = ?",
-                (user['user_id'],)
-            )
-            unique_code = unique_id[0]['user_unique_code'] if unique_id and unique_id[0]['user_unique_code'] else None
-            
-            if unique_code:
-                st.write(f"**Unique ID:** {unique_code}")
-            else:
-                if st.button(" Generate Unique ID"):
-                    new_id = EnhancedUserManager.generate_user_unique_id(user['user_id'])
-                    if new_id:
-                        st.success(f"Generated: {new_id}")
-                        st.rerun()
-            
-            # QR Code
-            if st.button(" Generate My QR Code"):
-                qr_data = SmartUtilities.generate_user_qr(user['user_id'])
-                if qr_data:
-                    st.image(qr_data, width=200)
-
-    # Tab 5: Browse Community
-    with tabs[4]:
+    # Tab 3: Browse Community
+    with tabs[2]:
         show_community_library(embedded=True)
 
 def show_community_library(embedded=False):
