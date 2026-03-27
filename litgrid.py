@@ -11753,17 +11753,21 @@ def show_community_library():
             st.rerun()
 
 def show_system_tools():
-    """System Tools for admins"""
+    """System Tools for admins and superadmins."""
     st.title(" System Tools")
     
     user = Auth.get_user()
-    
-    if user['role'] not in ['admin']:
-        st.error("Admin access required")
+
+    role_value = str(user.get('role', '')).lower()
+    is_superadmin = bool(user.get('is_superadmin')) or role_value == 'superadmin'
+    has_admin_access = role_value in ['admin', 'superadmin']
+
+    if not has_admin_access:
+        st.error("Admin or Super Admin access required")
         return
     
     # Add Smart Tools and Data Management tabs for functional admin
-    if user.get('is_functional_admin'):
+    if user.get('is_functional_admin') or is_superadmin:
         tabs = st.tabs([" Backup & Restore", " Data Integrity", " Export Data", " System Stats", " Smart Tools", " Data Management", " Send Reminders"])
     else:
         tabs = st.tabs([" Backup & Restore", " Data Integrity", " Export Data", " System Stats", " Send Reminders"])
