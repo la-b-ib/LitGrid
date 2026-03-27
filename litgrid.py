@@ -9050,14 +9050,14 @@ def show_manage_books():
         # Enhanced search with fuzzy option
         col1, col2, col3, col4 = st.columns(4, gap="small")
         with col1:
-            search = st.text_input(" Search by title or ISBN")
+            search = st.text_input(" Search by title or ISBN", key="mb_search")
         with col2:
-            use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos")
+            use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos", key="mb_use_fuzzy")
         with col3:
-            status_filter = st.selectbox("Status", ["All", "Active", "Inactive"])
+            status_filter = st.selectbox("Status", ["All", "Active", "Inactive"], key="mb_status_filter")
         with col4:
             st.write("")
-            if st.button(" Refresh", use_container_width=True):
+            if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
                 st.rerun()
         
         # Get books
@@ -9315,11 +9315,11 @@ def show_manage_members():
         # Filters
         col1, col2, col3 = st.columns(3, gap="small")
         with col1:
-            search = st.text_input(" Search by name or email")
+            search = st.text_input(" Search by name or email", key="mm_search")
         with col2:
-            role_filter = st.selectbox("Role", ["All", "Admin", "Librarian", "Member"])
+            role_filter = st.selectbox("Role", ["All", "Admin", "Librarian", "Member"], key="mm_role_filter")
         with col3:
-            status_filter = st.selectbox("Status", ["All", "Active", "Inactive"])
+            status_filter = st.selectbox("Status", ["All", "Active", "Inactive"], key="mm_status_filter")
         
         # Build query
         query = """
