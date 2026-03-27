@@ -3932,6 +3932,47 @@ def show_login_page():
                     return False, "Password contains too many repeated characters"
                 return True, "Strong password ✓"
 
+            def get_password_criteria(password):
+                """Return granular password checks for live feedback."""
+                value = password or ""
+                return {
+                    'length': len(value) >= 12,
+                    'uppercase': any(c.isupper() for c in value),
+                    'lowercase': any(c.islower() for c in value),
+                    'digit': any(c.isdigit() for c in value),
+                    'special': any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in value),
+                    'repeat_limit': not any(value.count(c) > 3 for c in set(value)) if value else False,
+                }
+
+            def show_password_feedback(password, confirm_password=None):
+                """Render dynamic password-strength feedback."""
+                checks = get_password_criteria(password)
+                passed = sum(1 for ok in checks.values() if ok)
+                total = len(checks)
+                is_strong = passed == total
+
+                if password:
+                    labels = [
+                        (checks['length'], "At least 12 characters"),
+                        (checks['uppercase'], "Contains uppercase letter"),
+                        (checks['lowercase'], "Contains lowercase letter"),
+                        (checks['digit'], "Contains number"),
+                        (checks['special'], "Contains special character"),
+                        (checks['repeat_limit'], "No character repeated more than 3 times"),
+                    ]
+                    for ok, text in labels:
+                        st.caption(f"{'✅' if ok else '❌'} {text}")
+
+                    if confirm_password is not None and confirm_password:
+                        st.caption(f"{'✅' if password == confirm_password else '❌'} Passwords match")
+
+                    if is_strong:
+                        st.success("Password strength: Strong")
+                    else:
+                        st.warning(f"Password strength: {passed}/{total} requirements met")
+
+                return is_strong
+
             # Check for duplicate credentials (defined once for both tabs)
             def check_duplicate_credentials(username, email):
                 """Check if username or email already exists"""
@@ -3998,6 +4039,7 @@ def show_login_page():
                     st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars (!@#$%^&*), no repetition")
                     password_reg = st.text_input("Password *", type="password", help="Min 12 chars, mixed case, numbers, special chars", key="member_pass")
                     confirm_pass = st.text_input("Confirm Password *", type="password", key="member_confirm")
+                    is_member_password_strong = show_password_feedback(password_reg, confirm_pass)
 
                     # Photo Upload
                     st.markdown("#### **Profile Photo**")
@@ -4095,7 +4137,18 @@ def show_login_page():
                     agree_data = st.checkbox("I understand my data will be securely stored and used only for library services", key="member_agree_data")
                     agree_contact = st.checkbox("I agree to receive library notifications (overdue reminders, new book alerts)", key="member_agree_contact")
 
-                    submit_reg = st.form_submit_button("Complete Member Registration", use_container_width=True, disabled=(remaining <= 0))
+                    member_password_ready = (
+                        bool(password_reg)
+                        and bool(confirm_pass)
+                        and is_member_password_strong
+                        and password_reg == confirm_pass
+                    )
+
+                    submit_reg = st.form_submit_button(
+                        "Complete Member Registration",
+                        use_container_width=True,
+                        disabled=(remaining <= 0 or not member_password_ready)
+                    )
 
                     if submit_reg:
                         # Validation
@@ -4113,7 +4166,7 @@ def show_login_page():
                         if password_reg != confirm_pass:
                             errors.append("Passwords do not match")
 
-                        if password_reg:
+                        if password_reg and not is_member_password_strong:
                             is_strong, msg = validate_password_strength(password_reg)
                             if not is_strong:
                                 errors.append(f"Password too weak: {msg}")
@@ -4198,6 +4251,7 @@ def show_login_page():
                     st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars, no repetition")
                     reg_password = st.text_input("Password *", type="password", key="staff_pass", help="Min 12 chars, mixed case, numbers, special chars")
                     reg_confirm_pass = st.text_input("Confirm Password *", type="password", key="staff_confirm_pass")
+                    is_staff_password_strong = show_password_feedback(reg_password, reg_confirm_pass)
 
                     # Photo Upload
                     st.markdown("#### **Staff Photo**")
@@ -4216,7 +4270,18 @@ def show_login_page():
                         key="staff_agree"
                     )
 
-                    submit_reg = st.form_submit_button("Create Staff Account", use_container_width=True)
+                    staff_password_ready = (
+                        bool(reg_password)
+                        and bool(reg_confirm_pass)
+                        and is_staff_password_strong
+                        and reg_password == reg_confirm_pass
+                    )
+
+                    submit_reg = st.form_submit_button(
+                        "Create Staff Account",
+                        use_container_width=True,
+                        disabled=(not staff_password_ready)
+                    )
 
                     if submit_reg:
                         errors = []
@@ -4233,7 +4298,7 @@ def show_login_page():
                         if reg_password != reg_confirm_pass:
                             errors.append("Passwords do not match")
 
-                        if reg_password:
+                        if reg_password and not is_staff_password_strong:
                             is_strong, msg = validate_password_strength(reg_password)
                             if not is_strong:
                                 errors.append(f"Password too weak: {msg}")
@@ -4548,7 +4613,7 @@ def show_dashboard():
             role_filter = role_map[user_type_filter]
 
             # Build query
-            query = "SELECT user_id, username, full_name, email, role, is_active, registration_date FROM users WHERE 1=1"
+            query = "SELECT user_id, username, full_name, email, role, is_active, created_at as registration_date FROM users WHERE 1=1"
             params = []
 
             if role_filter:
@@ -4564,7 +4629,7 @@ def show_dashboard():
                 query += " AND (username LIKE ? OR full_name LIKE ? OR email LIKE ?)"
                 params.extend([f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"])
 
-            query += " ORDER BY registration_date DESC"
+            query += " ORDER BY created_at DESC"
             all_users = Database.execute_query(query, params) if params else Database.execute_query(query)
 
             if all_users:
@@ -5407,10 +5472,10 @@ def show_dashboard():
             with col1:
                 st.write("**New Members (Last 12 Months)**")
                 new_members = Database.execute_query("""
-                    SELECT strftime('%Y-%m', registration_date) as month,
+                    SELECT strftime('%Y-%m', created_at) as month,
                            COUNT(*) as new_members
                     FROM users
-                    WHERE role = 'member' AND registration_date >= date('now', '-12 months')
+                    WHERE role = 'member' AND created_at >= date('now', '-12 months')
                     GROUP BY month
                     ORDER BY month
                 """)
@@ -6539,6 +6604,47 @@ def show_manage_members():
                 return False, "Password contains too many repeated characters"
             return True, "Strong password ✓"
 
+        def get_password_criteria(password):
+            """Return granular password checks for live feedback."""
+            value = password or ""
+            return {
+                'length': len(value) >= 12,
+                'uppercase': any(c.isupper() for c in value),
+                'lowercase': any(c.islower() for c in value),
+                'digit': any(c.isdigit() for c in value),
+                'special': any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in value),
+                'repeat_limit': not any(value.count(c) > 3 for c in set(value)) if value else False,
+            }
+
+        def show_password_feedback(password, confirm_password=None):
+            """Render dynamic password-strength feedback."""
+            checks = get_password_criteria(password)
+            passed = sum(1 for ok in checks.values() if ok)
+            total = len(checks)
+            is_strong = passed == total
+
+            if password:
+                labels = [
+                    (checks['length'], "At least 12 characters"),
+                    (checks['uppercase'], "Contains uppercase letter"),
+                    (checks['lowercase'], "Contains lowercase letter"),
+                    (checks['digit'], "Contains number"),
+                    (checks['special'], "Contains special character"),
+                    (checks['repeat_limit'], "No character repeated more than 3 times"),
+                ]
+                for ok, text in labels:
+                    st.caption(f"{'✅' if ok else '❌'} {text}")
+
+                if confirm_password is not None and confirm_password:
+                    st.caption(f"{'✅' if password == confirm_password else '❌'} Passwords match")
+
+                if is_strong:
+                    st.success("Password strength: Strong")
+                else:
+                    st.warning(f"Password strength: {passed}/{total} requirements met")
+
+            return is_strong
+
         def check_duplicate_credentials(username, email):
             """Check if username or email already exists"""
             existing = Database.execute_query("""
@@ -6592,6 +6698,7 @@ def show_manage_members():
                 reg_password = st.text_input("Password *", type="password", key="reg_pass", help="Min 12 chars, mixed case, numbers, special chars")
             with col8:
                 reg_confirm_pass = st.text_input("Confirm Password *", type="password", key="reg_confirm_pass")
+            is_register_password_strong = show_password_feedback(reg_password, reg_confirm_pass)
 
             # Photo Upload
             st.markdown("#### **Staff Photo**")
@@ -6610,7 +6717,18 @@ def show_manage_members():
                 key="agree_emp"
             )
 
-            submit_reg = st.form_submit_button("Create Staff Account", use_container_width=True)
+            register_password_ready = (
+                bool(reg_password)
+                and bool(reg_confirm_pass)
+                and is_register_password_strong
+                and reg_password == reg_confirm_pass
+            )
+
+            submit_reg = st.form_submit_button(
+                "Create Staff Account",
+                use_container_width=True,
+                disabled=(not register_password_ready)
+            )
 
             if submit_reg:
                 errors = []
@@ -6627,7 +6745,7 @@ def show_manage_members():
                 if reg_password != reg_confirm_pass:
                     errors.append("Passwords do not match")
 
-                if reg_password:
+                if reg_password and not is_register_password_strong:
                     is_strong, msg = validate_password_strength(reg_password)
                     if not is_strong:
                         errors.append(f"Password too weak: {msg}")
