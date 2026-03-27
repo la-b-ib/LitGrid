@@ -9178,35 +9178,41 @@ def show_manage_books(embedded=False):
         st.subheader("**Add New Book**")
         
         with st.form("add_book_form"):
-            col1, col2 = st.columns(2, gap="small")
-            
-            with col1:
+            # Get publishers
+            publishers = Database.execute_query("SELECT publisher_id, name FROM publishers ORDER BY name")
+            publisher_options = {p['name']: p['publisher_id'] for p in publishers} if publishers else {}
+
+            row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4, gap="small")
+            with row1_col1:
                 isbn = st.text_input("ISBN * (will be validated)", placeholder="978-0-123456-78-9")
+            with row1_col2:
                 title = st.text_input("Title *")
+            with row1_col3:
                 subtitle = st.text_input("Subtitle")
+            with row1_col4:
                 edition = st.text_input("Edition", placeholder="1st Edition")
-            
-            with col2:
+
+            row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4, gap="small")
+            with row2_col1:
                 publication_year = st.number_input("Publication Year", min_value=1800, max_value=2025, value=2024)
+            with row2_col2:
                 pages = st.number_input("Number of Pages", min_value=1, value=200)
+            with row2_col3:
                 language = st.selectbox("Language", ["English", "Hindi", "Spanish", "French", "German", "Other"])
-                
-                # Get publishers
-                publishers = Database.execute_query("SELECT publisher_id, name FROM publishers ORDER BY name")
-                publisher_options = {p['name']: p['publisher_id'] for p in publishers} if publishers else {}
+            with row2_col4:
                 publisher_name = st.selectbox("Publisher", ["Select..."] + list(publisher_options.keys()))
-            
-            # Simple author field
-            author = st.text_input("Author *")
-            
-            # Simple genre field
-            genre = st.text_input("Genre *")
-            
-            # Keywords
-            keywords = st.text_input("Keywords (comma-separated)", placeholder="fiction, mystery, thriller")
-            
+
+            row3_col1, row3_col2, row3_col3, row3_col4 = st.columns(4, gap="small")
+            with row3_col1:
+                author = st.text_input("Author *")
+            with row3_col2:
+                genre = st.text_input("Genre *")
+            with row3_col3:
+                keywords = st.text_input("Keywords (comma-separated)", placeholder="fiction, mystery, thriller")
+            with row3_col4:
+                copies = st.number_input("Number of Copies", min_value=1, value=1)
+
             description = st.text_area("Description")
-            copies = st.number_input("Number of Copies", min_value=1, value=1)
             
             submit = st.form_submit_button(" Add Book", use_container_width=True)
             
