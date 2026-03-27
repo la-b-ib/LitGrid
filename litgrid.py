@@ -8991,38 +8991,54 @@ def show_account():
         if storage_mode == "session":
             st.info("🔄 **Session Mode**: Feature settings persist until logout/browser reset. Create an account to save permanently.")
 
-        st.markdown("Select and customize features for your account. Each group offers related controls with smart compatibility checks.")
+        st.markdown("Select and customize features for your account. Each group offers related controls.")
 
         with st.form("feature_studio_form"):
-            all_features = get_all_features()
             draft_flags = {}
             
             for group_name, group_features in dynamic_feature_groups.items():
-                with st.expander(f"**{group_name}** ({sum(1 for k in group_features if feature_flags.get(k))} enabled)", expanded=True):
-                    group_info_cols = st.columns([3, 1])
-                    with group_info_cols[1]:
-                        st.caption(f"{len(group_features)} features")
+                enabled_count = sum(1 for k in group_features if feature_flags.get(k))
+                with st.expander(f"**{group_name}** ({enabled_count} enabled / {len(group_features)} total)", expanded=True):
                     
-                    for feature_key, feature_config in group_features.items():
-                        col1, col2 = st.columns([3, 1], gap='small')
+                    # Create 2-column layout for features
+                    group_items = list(group_features.items())
+                    for i in range(0, len(group_items), 2):
+                        cols = st.columns(2, gap='medium')
                         
-                        with col1:
-                            st.markdown(f"**{feature_config['label']}**")
-                            st.caption(feature_config['description'])
+                        # First feature in row
+                        feature_key, feature_config = group_items[i]
+                        with cols[0]:
+                            col_left, col_right = st.columns([4, 1], gap='small')
+                            with col_left:
+                                st.markdown(feature_config['label'])
+                            with col_right:
+                                radio_state = st.radio(
+                                    f"Toggle {feature_key}",
+                                    ['Off', 'On'],
+                                    index=1 if bool(feature_flags.get(feature_key, False)) else 0,
+                                    horizontal=True,
+                                    label_visibility='collapsed',
+                                    key=f"studio_{feature_key}"
+                                )
+                                draft_flags[feature_key] = (radio_state == 'On')
                         
-                        with col2:
-                            # Radio button: Off/On (displayed as toggle)
-                            radio_state = st.radio(
-                                f"Toggle {feature_key}",
-                                ['Off', 'On'],
-                                index=1 if bool(feature_flags.get(feature_key, False)) else 0,
-                                horizontal=True,
-                                label_visibility='collapsed',
-                                key=f"studio_{feature_key}"
-                            )
-                            draft_flags[feature_key] = (radio_state == 'On')
-                        
-                        st.divider()
+                        # Second feature in row (if exists)
+                        if i + 1 < len(group_items):
+                            feature_key, feature_config = group_items[i + 1]
+                            with cols[1]:
+                                col_left, col_right = st.columns([4, 1], gap='small')
+                                with col_left:
+                                    st.markdown(feature_config['label'])
+                                with col_right:
+                                    radio_state = st.radio(
+                                        f"Toggle {feature_key}",
+                                        ['Off', 'On'],
+                                        index=1 if bool(feature_flags.get(feature_key, False)) else 0,
+                                        horizontal=True,
+                                        label_visibility='collapsed',
+                                        key=f"studio_{feature_key}"
+                                    )
+                                    draft_flags[feature_key] = (radio_state == 'On')
             
             # Save button
             save_studio = st.form_submit_button("💾 Save Feature Configuration", use_container_width=True)
