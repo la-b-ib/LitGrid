@@ -6634,9 +6634,12 @@ def show_dashboard():
         else:
             st.info("You don't have any borrowed books")
 
-def show_books():
+def show_books(embedded=False):
     """Enhanced Books browsing page with advanced search and filters"""
-    st.markdown('<h1 class="litgrid-header"> Browse Books</h1>', unsafe_allow_html=True)
+    if embedded:
+        st.subheader(" Browse Books")
+    else:
+        st.markdown('<h1 class="litgrid-header"> Browse Books</h1>', unsafe_allow_html=True)
     
     # Advanced Search & Filter Section
     with st.expander(" Advanced Search & Filters", expanded=True):
@@ -6816,13 +6819,13 @@ def show_books():
                 
                 with col3:
                     # Action buttons
-                    if st.button(" View Details", key=f"view_{book['book_id']}", use_container_width=True):
+                    if st.button(" View Details", key=f"browse_view_{book['book_id']}", use_container_width=True):
                         st.session_state[f'book_details_{book["book_id"]}'] = True
                     
                     # Reserve button (for members)
                     user = Auth.get_user()
                     if user['role'] == 'member' and available and available > 0:
-                        if st.button(" Reserve", key=f"reserve_{book['book_id']}", use_container_width=True):
+                        if st.button(" Reserve", key=f"browse_reserve_{book['book_id']}", use_container_width=True):
                             st.info("Reservation feature coming soon!")
                 
                 st.divider()
@@ -11332,6 +11335,9 @@ def show_my_library():
     
     # Tab 1: My PDFs & Upload PDF
     with tabs[0]:
+        show_books(embedded=True)
+        st.divider()
+
         left_col, right_col = st.columns(2, gap="large")
 
         with left_col:
@@ -12623,7 +12629,7 @@ def main():
             st.divider()
             
             # Menu
-            menu = ["Dashboard", "Browse Books", "My Account", " My Library"]
+            menu = ["Dashboard", "My Account", " My Library"]
             
             if user['role'] in ['admin', 'librarian', 'superadmin']:
                 menu.extend(["Borrowing & Returns", "Reports", " System Tools"])
@@ -12658,8 +12664,6 @@ def main():
         # Main content
         if choice == "Dashboard":
             show_dashboard()
-        elif choice == "Browse Books":
-            show_books()
         elif choice == "My Account":
             show_account()
         elif choice == " My Library":
