@@ -8771,14 +8771,15 @@ def show_account():
             )
             alias_default = dyn_pref.get('anonymous_alias') or generate_anonymous_alias()
             anon_alias = st.text_input("Anonymous Alias", value=alias_default)
-            avatar_style = st.selectbox(
+            avatar_style = st.radio(
                 "Anonymous avatar style",
                 ["geometric", "abstract", "minimal", "monochrome", "retro"],
                 index=["geometric", "abstract", "minimal", "monochrome", "retro"].index(
                     str(dyn_pref.get('anonymous_avatar_style', 'geometric'))
                     if str(dyn_pref.get('anonymous_avatar_style', 'geometric')) in ["geometric", "abstract", "minimal", "monochrome", "retro"]
                     else "geometric"
-                )
+                ),
+                horizontal=True
             )
             rotation_hours = st.slider(
                 "Alias rotation interval (hours)",
