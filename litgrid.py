@@ -4650,13 +4650,241 @@ def show_login_page():
         
         # Normal login/register page
         tab1, tab2, tab3 = st.tabs(["Login", "Register", "Reset Password"])
+
+        def render_dynamic_password_reset_panel():
+            st.markdown("### Reset Password")
+            st.caption("Secure password recovery with real-time OTP verification")
+
+            # Initialize session states for password reset
+            if 'reset_email' not in st.session_state:
+                st.session_state.reset_email = None
+            if 'reset_otp' not in st.session_state:
+                st.session_state.reset_otp = None
+            if 'reset_step' not in st.session_state:
+                st.session_state.reset_step = 'email'  # Steps: email -> otp -> password
+            if 'otp_attempts' not in st.session_state:
+                st.session_state.otp_attempts = 0
+            if 'otp_timestamp' not in st.session_state:
+                st.session_state.otp_timestamp = None
+
+            # Helper function to generate OTP
+            def generate_otp():
+                """Generate 6-digit OTP"""
+                import random
+                return ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+            # Helper function to send OTP (simulated with display)
+            def send_otp_email(email, otp):
+                """Simulate sending OTP to email"""
+                # In production, integrate with email service (SendGrid, AWS SES, etc.)
+                return True, f"OTP sent to {email}"
+
+            # ===== STEP 1: EMAIL VERIFICATION =====
+            if st.session_state.reset_step == 'email':
+                st.markdown("#### Step 1: Verify Your Email")
+                st.caption("Enter your registered email address")
+
+                with st.form("email_verification_form"):
+                    reset_email = st.text_input(
+                        "Email Address *",
+                        placeholder="your.email@example.com",
+                        help="Enter the email associated with your account"
+                    )
+
+                    send_otp_btn = st.form_submit_button("Send OTP", use_container_width=True)
+
+                    if send_otp_btn:
+                        if not reset_email:
+                            st.error("Please enter your email address")
+                        elif "@" not in reset_email:
+                            st.error("Invalid email format")
+                        else:
+                            user_check = Database.execute_query(
+                                "SELECT user_id FROM users WHERE LOWER(email) = LOWER(?) AND is_active = 1",
+                                (reset_email,),
+                                fetch_one=True
+                            )
+
+                            if user_check:
+                                otp = generate_otp()
+                                success, msg = send_otp_email(reset_email, otp)
+
+                                if success:
+                                    st.session_state.reset_email = reset_email
+                                    st.session_state.reset_otp = otp
+                                    st.session_state.reset_step = 'otp'
+                                    st.session_state.otp_attempts = 0
+                                    st.session_state.otp_timestamp = datetime.now()
+
+                                    st.success("OTP sent successfully")
+                                    st.info(f"One-Time Password sent to: `{reset_email}`")
+                                    st.caption("The 6-digit OTP will expire in 10 minutes")
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    st.error(f"Could not send OTP: {msg}")
+                            else:
+                                st.error("Email not found or account is inactive")
+                                st.caption("Make sure you entered the correct registered email")
+
+            # ===== STEP 2: OTP VERIFICATION =====
+            elif st.session_state.reset_step == 'otp':
+                st.markdown("#### Step 2: Verify OTP")
+                st.info(f"OTP sent to: `{st.session_state.reset_email}`")
+
+                if st.session_state.otp_timestamp:
+                    elapsed = (datetime.now() - st.session_state.otp_timestamp).total_seconds()
+                    remaining_time = 600 - elapsed
+                    minutes = int(remaining_time // 60)
+                    seconds = int(remaining_time % 60)
+
+                    if remaining_time <= 0:
+                        st.error("OTP has expired. Please request a new one.")
+                        if st.button("Get New OTP", use_container_width=True):
+                            st.session_state.reset_step = 'email'
+                            st.rerun()
+                    else:
+                        st.caption(f"OTP expires in: {minutes}m {seconds}s")
+
+                        with st.form("otp_verification_form"):
+                            otp_input = st.text_input(
+                                "Enter 6-Digit OTP *",
+                                placeholder="000000",
+                                max_chars=6,
+                                help="Check your email for the OTP"
+                            )
+
+                            col_otp1, col_otp2 = st.columns(2, gap="small")
+
+                            with col_otp1:
+                                verify_otp_btn = st.form_submit_button("Verify OTP", use_container_width=True)
+
+                            with col_otp2:
+                                resend_otp_btn = st.form_submit_button("Resend OTP", use_container_width=True)
+
+                            if resend_otp_btn:
+                                new_otp = generate_otp()
+                                success, msg = send_otp_email(st.session_state.reset_email, new_otp)
+
+                                if success:
+                                    st.session_state.reset_otp = new_otp
+                                    st.session_state.otp_attempts = 0
+                                    st.session_state.otp_timestamp = datetime.now()
+                                    st.success("New OTP sent")
+                                    st.rerun()
+
+                            if verify_otp_btn:
+                                if not otp_input:
+                                    st.error("Please enter the OTP")
+                                elif len(otp_input) != 6 or not otp_input.isdigit():
+                                    st.error("OTP must be 6 digits")
+                                elif otp_input == st.session_state.reset_otp:
+                                    st.success("OTP verified successfully")
+                                    st.session_state.reset_step = 'password'
+                                    st.session_state.otp_attempts = 0
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    st.session_state.otp_attempts += 1
+                                    remaining_attempts = 3 - st.session_state.otp_attempts
+
+                                    st.error("Incorrect OTP")
+                                    st.warning(f"Attempts remaining: {remaining_attempts}")
+
+                                    if st.session_state.otp_attempts >= 3:
+                                        st.error("Maximum attempts exceeded. Please request a new OTP.")
+                                        if st.button("Get New OTP", use_container_width=True):
+                                            st.session_state.reset_step = 'email'
+                                            st.rerun()
+
+            # ===== STEP 3: PASSWORD RESET =====
+            elif st.session_state.reset_step == 'password':
+                st.markdown("#### Step 3: Set New Password")
+                st.success("Email and OTP verified")
+
+                def validate_password_strength(password):
+                    """Check password strength"""
+                    if len(password) < 12:
+                        return False, "Password must be at least 12 characters"
+                    if password.lower() == password:
+                        return False, "Password must contain uppercase letters"
+                    if password.upper() == password:
+                        return False, "Password must contain lowercase letters"
+                    if not any(c.isdigit() for c in password):
+                        return False, "Password must contain numbers"
+                    if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password):
+                        return False, "Password must contain special characters"
+                    if any(password.count(c) > 3 for c in set(password)):
+                        return False, "Password contains too many repeated characters"
+                    return True, "Strong password"
+
+                with st.form("new_password_form"):
+                    st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars, no repetition")
+
+                    new_password = st.text_input(
+                        "New Password *",
+                        type="password",
+                        placeholder="Enter strong password",
+                        help="Min 12 characters with mixed case, numbers, special chars"
+                    )
+                    confirm_new_password = st.text_input(
+                        "Confirm Password *",
+                        type="password",
+                        placeholder="Re-enter password"
+                    )
+
+                    submit_reset = st.form_submit_button("Reset Password", use_container_width=True)
+
+                    if submit_reset:
+                        errors = []
+
+                        if not new_password or not confirm_new_password:
+                            errors.append("Please enter and confirm your new password")
+
+                        if new_password != confirm_new_password:
+                            errors.append("Passwords do not match")
+
+                        if new_password:
+                            is_strong, msg = validate_password_strength(new_password)
+                            if not is_strong:
+                                errors.append(f"Password too weak: {msg}")
+
+                        if errors:
+                            for error in errors:
+                                st.error(error)
+                        else:
+                            try:
+                                password_hash = Auth.hash_password(new_password)
+
+                                success = Database.execute_update(
+                                    "UPDATE users SET password_hash = ? WHERE LOWER(email) = LOWER(?) AND is_active = 1",
+                                    (password_hash, st.session_state.reset_email)
+                                )
+
+                                if success:
+                                    st.success("Password reset successfully")
+                                    st.info("You can now login with your new password")
+
+                                    st.session_state.reset_email = None
+                                    st.session_state.reset_otp = None
+                                    st.session_state.reset_step = 'email'
+                                    st.session_state.otp_attempts = 0
+                                    st.session_state.otp_timestamp = None
+
+                                    st.balloons()
+                                    time.sleep(2)
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to reset password. Please try again.")
+                            except Exception as e:
+                                st.error(f"Error resetting password: {str(e)}")
         
         with tab1:
             login_col, demo_col = st.columns(2, gap="medium")
 
             with login_col:
                 # Mode selection
-                st.markdown("### Select Login Mode")
+                st.markdown("### Login Mode")
                 login_mode = st.radio(
                     "I am logging in as:",
                     ["Member", "Administrator"],
@@ -4710,54 +4938,59 @@ def show_login_page():
                         st.rerun()
 
             st.divider()
-            st.markdown("**Or Login with Credentials**")
+            cred_col, reset_col = st.columns(2, gap="medium")
 
-            with st.form("login_form"):
-                username = st.text_input("Username or Email")
-                password = st.text_input("Password", type="password")
-                submit = st.form_submit_button("Login", use_container_width=True)
-                
-                if submit:
-                    if username and password:
-                        user = Auth.login(username, password, mode)
+            with cred_col:
+                st.markdown("### Or Login with Credentials")
 
-                        if user and isinstance(user, dict) and user.get('error'):
-                            st.error(user['error'])
+                with st.form("login_form"):
+                    username = st.text_input("Username or Email")
+                    password = st.text_input("Password", type="password")
+                    submit = st.form_submit_button("Login", use_container_width=True)
 
-                        # Check if needs super admin second factor
-                        elif user and isinstance(user, dict) and user.get('needs_superadmin_security_key'):
-                            st.session_state.superadmin_second_factor_pending = True
-                            st.session_state.superadmin_second_factor_username = user['username']
-                            st.rerun()
-                        
-                        # Check if needs second password (functional admin)
-                        elif user and isinstance(user, dict) and user.get('needs_second_password'):
-                            # Set second password pending
-                            st.session_state.second_password_pending = True
-                            st.session_state.second_password_username = user['username']
-                            st.rerun()
-                        
-                        elif user:
-                            Auth.set_user(user)
-                            if user.get('is_demo'):
-                                st.warning(" Demo Admin Mode - View Only Access")
-                            st.success(f"Welcome, {user['full_name']}!")
-                            time.sleep(1)
-                            st.rerun()
+                    if submit:
+                        if username and password:
+                            user = Auth.login(username, password, mode)
+
+                            if user and isinstance(user, dict) and user.get('error'):
+                                st.error(user['error'])
+
+                            # Check if needs super admin second factor
+                            elif user and isinstance(user, dict) and user.get('needs_superadmin_security_key'):
+                                st.session_state.superadmin_second_factor_pending = True
+                                st.session_state.superadmin_second_factor_username = user['username']
+                                st.rerun()
+
+                            # Check if needs second password (functional admin)
+                            elif user and isinstance(user, dict) and user.get('needs_second_password'):
+                                st.session_state.second_password_pending = True
+                                st.session_state.second_password_username = user['username']
+                                st.rerun()
+
+                            elif user:
+                                Auth.set_user(user)
+                                if user.get('is_demo'):
+                                    st.warning(" Demo Admin Mode - View Only Access")
+                                st.success(f"Welcome, {user['full_name']}!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error(f"Invalid credentials for {mode} login")
                         else:
-                            st.error(f"Invalid credentials for {mode} login")
-                    else:
-                        st.warning("Please enter username and password")
-            
-            # Show hints based on mode
-            if mode == 'admin':
-                with st.expander("Admin Access"):
-                    st.info("**Demo Admin:** username: `demo` | password: `demo123`")
-                    st.caption("Demo admin has view-only access")
-            else:
-                with st.expander("Member Login"):
-                    st.info("Login with your member credentials")
-                    st.caption("Don't have an account? Register in the next tab")
+                            st.warning("Please enter username and password")
+
+                # Show hints based on mode
+                if mode == 'admin':
+                    with st.expander("Admin Access"):
+                        st.info("**Demo Admin:** username: `demo` | password: `demo123`")
+                        st.caption("Demo admin has view-only access")
+                else:
+                    with st.expander("Member Login"):
+                        st.info("Login with your member credentials")
+                        st.caption("Don't have an account? Register in the next tab")
+
+            with reset_col:
+                render_dynamic_password_reset_panel()
         
         with tab2:
             st.markdown("### **User Registration**")
@@ -5186,241 +5419,8 @@ def show_login_page():
 
 
         with tab3:
-            st.markdown("### **Dynamic Password Reset**")
-            st.caption("Secure password recovery with real-time OTP verification")
-
-            # Initialize session states for password reset
-            if 'reset_email' not in st.session_state:
-                st.session_state.reset_email = None
-            if 'reset_otp' not in st.session_state:
-                st.session_state.reset_otp = None
-            if 'reset_step' not in st.session_state:
-                st.session_state.reset_step = 'email'  # Steps: email -> otp -> password
-            if 'otp_attempts' not in st.session_state:
-                st.session_state.otp_attempts = 0
-            if 'otp_timestamp' not in st.session_state:
-                st.session_state.otp_timestamp = None
-
-            # Helper function to generate OTP
-            def generate_otp():
-                """Generate 6-digit OTP"""
-                import random
-                return ''.join([str(random.randint(0, 9)) for _ in range(6)])
-
-            # Helper function to send OTP (simulated with display)
-            def send_otp_email(email, otp):
-                """Simulate sending OTP to email"""
-                # In production, integrate with email service (SendGrid, AWS SES, etc.)
-                return True, f"OTP sent to {email}"
-
-            # ===== STEP 1: EMAIL VERIFICATION =====
-            if st.session_state.reset_step == 'email':
-                st.markdown("#### **Step 1: Verify Your Email**")
-                st.caption("Enter your registered email address")
-
-                with st.form("email_verification_form"):
-                    reset_email = st.text_input(
-                        "Email Address *",
-                        placeholder="your.email@example.com",
-                        help="Enter the email associated with your account"
-                    )
-
-                    col_email_1, col_email_2 = st.columns([2, 1], gap="small")
-                    with col_email_1:
-                        send_otp_btn = st.form_submit_button("Send OTP", use_container_width=True)
-
-                    if send_otp_btn:
-                        if not reset_email:
-                            st.error("❌ Please enter your email address")
-                        elif "@" not in reset_email:
-                            st.error("❌ Invalid email format")
-                        else:
-                            # Check if email exists
-                            user_check = Database.execute_query(
-                                "SELECT user_id FROM users WHERE LOWER(email) = LOWER(?) AND is_active = 1",
-                                (reset_email,),
-                                fetch_one=True
-                            )
-
-                            if user_check:
-                                # Generate and send OTP
-                                otp = generate_otp()
-                                success, msg = send_otp_email(reset_email, otp)
-
-                                if success:
-                                    st.session_state.reset_email = reset_email
-                                    st.session_state.reset_otp = otp
-                                    st.session_state.reset_step = 'otp'
-                                    st.session_state.otp_attempts = 0
-                                    st.session_state.otp_timestamp = datetime.now()
-
-                                    st.success("✅ OTP sent successfully!")
-                                    st.info(f"📧 One-Time Password sent to: `{reset_email}`")
-                                    st.caption("The 6-digit OTP will expire in 10 minutes")
-                                    time.sleep(1)
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ Could not send OTP: {msg}")
-                            else:
-                                st.error("❌ Email not found or account is inactive")
-                                st.caption("Make sure you entered the correct registered email")
-
-            # ===== STEP 2: OTP VERIFICATION =====
-            elif st.session_state.reset_step == 'otp':
-                st.markdown("#### **Step 2: Verify OTP**")
-                st.info(f"📧 OTP sent to: `{st.session_state.reset_email}`")
-
-                # Check if OTP expired (10 minutes)
-                if st.session_state.otp_timestamp:
-                    elapsed = (datetime.now() - st.session_state.otp_timestamp).total_seconds()
-                    remaining_time = 600 - elapsed  # 10 minutes
-                    minutes = int(remaining_time // 60)
-                    seconds = int(remaining_time % 60)
-
-                    if remaining_time <= 0:
-                        st.error("❌ OTP has expired. Please request a new one.")
-                        if st.button("Get New OTP", use_container_width=True):
-                            st.session_state.reset_step = 'email'
-                            st.rerun()
-                    else:
-                        st.caption(f"⏱️ OTP expires in: {minutes}m {seconds}s")
-
-                        with st.form("otp_verification_form"):
-                            otp_input = st.text_input(
-                                "Enter 6-Digit OTP *",
-                                placeholder="000000",
-                                max_chars=6,
-                                help="Check your email for the OTP"
-                            )
-
-                            col_otp1, col_otp2, col_otp3 = st.columns(3, gap="small")
-
-                            with col_otp1:
-                                verify_otp_btn = st.form_submit_button("Verify OTP", use_container_width=True)
-
-                            with col_otp2:
-                                if st.form_submit_button("Resend OTP", use_container_width=True):
-                                    # Generate new OTP
-                                    new_otp = generate_otp()
-                                    success, msg = send_otp_email(st.session_state.reset_email, new_otp)
-
-                                    if success:
-                                        st.session_state.reset_otp = new_otp
-                                        st.session_state.otp_attempts = 0
-                                        st.session_state.otp_timestamp = datetime.now()
-                                        st.success("✅ New OTP sent!")
-                                        st.rerun()
-
-                            if verify_otp_btn:
-                                if not otp_input:
-                                    st.error("❌ Please enter the OTP")
-                                elif len(otp_input) != 6 or not otp_input.isdigit():
-                                    st.error("❌ OTP must be 6 digits")
-                                elif otp_input == st.session_state.reset_otp:
-                                    st.success("✅ OTP verified successfully!")
-                                    st.session_state.reset_step = 'password'
-                                    st.session_state.otp_attempts = 0
-                                    time.sleep(1)
-                                    st.rerun()
-                                else:
-                                    st.session_state.otp_attempts += 1
-                                    remaining_attempts = 3 - st.session_state.otp_attempts
-
-                                    st.error(f"❌ Incorrect OTP")
-                                    st.warning(f"Attempts remaining: {remaining_attempts}")
-
-                                    if st.session_state.otp_attempts >= 3:
-                                        st.error("❌ Maximum attempts exceeded. Please request a new OTP.")
-                                        if st.button("Get New OTP", use_container_width=True):
-                                            st.session_state.reset_step = 'email'
-                                            st.rerun()
-
-            # ===== STEP 3: PASSWORD RESET =====
-            elif st.session_state.reset_step == 'password':
-                st.markdown("#### **Step 3: Set New Password**")
-                st.success(f"✅ Email and OTP verified!")
-
-                def validate_password_strength(password):
-                    """Check password strength"""
-                    if len(password) < 12:
-                        return False, "Password must be at least 12 characters"
-                    if password.lower() == password:
-                        return False, "Password must contain uppercase letters"
-                    if password.upper() == password:
-                        return False, "Password must contain lowercase letters"
-                    if not any(c.isdigit() for c in password):
-                        return False, "Password must contain numbers"
-                    if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?" for c in password):
-                        return False, "Password must contain special characters"
-                    if any(password.count(c) > 3 for c in set(password)):
-                        return False, "Password contains too many repeated characters"
-                    return True, "Strong password ✓"
-
-                with st.form("new_password_form"):
-                    st.caption("Password Requirements: 12+ chars, uppercase, lowercase, numbers, special chars, no repetition")
-
-                    col_pwd1, col_pwd2 = st.columns(2, gap="small")
-                    with col_pwd1:
-                        new_password = st.text_input(
-                            "New Password *",
-                            type="password",
-                            placeholder="Enter strong password",
-                            help="Min 12 characters with mixed case, numbers, special chars"
-                        )
-                    with col_pwd2:
-                        confirm_new_password = st.text_input(
-                            "Confirm Password *",
-                            type="password",
-                            placeholder="Re-enter password"
-                        )
-
-                    submit_reset = st.form_submit_button("Reset Password", use_container_width=True)
-
-                    if submit_reset:
-                        errors = []
-
-                        if not new_password or not confirm_new_password:
-                            errors.append("Please enter and confirm your new password")
-
-                        if new_password != confirm_new_password:
-                            errors.append("Passwords do not match")
-
-                        if new_password:
-                            is_strong, msg = validate_password_strength(new_password)
-                            if not is_strong:
-                                errors.append(f"Password too weak: {msg}")
-
-                        if errors:
-                            for error in errors:
-                                st.error(f"❌ {error}")
-                        else:
-                            # Update password in database
-                            try:
-                                password_hash = Auth.hash_password(new_password)
-
-                                success = Database.execute_update(
-                                    "UPDATE users SET password_hash = ? WHERE LOWER(email) = LOWER(?) AND is_active = 1",
-                                    (password_hash, st.session_state.reset_email)
-                                )
-
-                                if success:
-                                    st.success("✅ Password reset successfully!")
-                                    st.info("You can now login with your new password")
-
-                                    # Reset session state
-                                    st.session_state.reset_email = None
-                                    st.session_state.reset_otp = None
-                                    st.session_state.reset_step = 'email'
-                                    st.session_state.otp_attempts = 0
-                                    st.session_state.otp_timestamp = None
-
-                                    st.balloons()
-                                    time.sleep(2)
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Failed to reset password. Please try again.")
-                            except Exception as e:
-                                st.error(f"❌ Error resetting password: {str(e)}")
+            st.markdown("### Reset Password")
+            st.info("Reset Password is available beside Login Credentials in the Login tab.")
 
 def show_dashboard():
     """Dashboard page"""
