@@ -5068,11 +5068,7 @@ def show_login_page():
             current_count = count_result['count'] if count_result else 0
             remaining = Config.MAX_MEMBER_ACCOUNTS - current_count
             with st.form("register_unified_form"):
-                account_type = st.radio(
-                    "Register As",
-                    ["Member", "Staff"],
-                    horizontal=True
-                )
+                account_type = st.session_state.get("unified_account_type", "Member")
 
                 section_col1, section_col2, section_col3 = st.columns(3, gap="medium")
 
@@ -5124,6 +5120,12 @@ def show_login_page():
 
                 with legal_col:
                     st.markdown("#### **Legal & Consent**")
+                    account_type = st.radio(
+                        "Register As",
+                        ["Member", "Staff"],
+                        horizontal=True,
+                        key="unified_account_type"
+                    )
                     with st.expander("Terms of Service", expanded=False):
                         st.markdown("Read and accept terms before registration.")
                     with st.expander("Usage Guide", expanded=False):
