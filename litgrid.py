@@ -8851,13 +8851,13 @@ def show_account():
         with st.form("field_privacy_form"):
             updated_privacy = {}
         
-            # Create 3-column layout with multiple rows
+            # Create 5-column layout with multiple rows
             field_list = list(privacy_fields)
-            for row_idx in range(0, len(field_list), 3):
-                cols = st.columns(3, gap='medium')
+            for row_idx in range(0, len(field_list), 5):
+                cols = st.columns(5, gap='medium')
             
-                # Process up to 3 fields per row
-                for col_idx in range(3):
+                # Process up to 5 fields per row
+                for col_idx in range(5):
                     field_idx = row_idx + col_idx
                     if field_idx >= len(field_list):
                         break
