@@ -8907,64 +8907,67 @@ def show_account():
                 return viewer == 'private'
             return viewer in ['friends', 'private']
 
-        st.markdown("### Visibility Preview")
-        preview_cols = st.columns(3, gap='small')
-        viewers = ['public', 'friends', 'private']
-        for i, viewer in enumerate(viewers):
-            with preview_cols[i]:
-                st.write(f"**{viewer.title()} View**")
-                shown = [f for f in privacy_fields if profile_view(f, viewer)]
-                hidden = [f for f in privacy_fields if f not in shown]
-                st.caption("Visible: " + (', '.join(shown) if shown else 'none'))
-                st.caption("Hidden: " + (', '.join(hidden) if hidden else 'none'))
+        section_col1, section_col2 = st.columns(2, gap='medium')
 
-        st.divider()
-        st.markdown("### Friends & Access Graph")
+        with section_col1:
+            st.markdown("### Visibility Preview")
+            preview_cols = st.columns(3, gap='small')
+            viewers = ['public', 'friends', 'private']
+            for i, viewer in enumerate(viewers):
+                with preview_cols[i]:
+                    st.write(f"**{viewer.title()} View**")
+                    shown = [f for f in privacy_fields if profile_view(f, viewer)]
+                    hidden = [f for f in privacy_fields if f not in shown]
+                    st.caption("Visible: " + (', '.join(shown) if shown else 'none'))
+                    st.caption("Hidden: " + (', '.join(hidden) if hidden else 'none'))
 
-        fr1, fr2 = st.columns(2, gap='small')
-        with fr1:
-            target_username = st.text_input("Send friend request to username", key="friends_target_username")
-            if st.button("Send Friend Request", use_container_width=True):
-                if not target_username.strip():
-                    st.error("Enter a username.")
-                else:
-                    target = Database.execute_query(
-                        "SELECT user_id, username FROM users WHERE LOWER(username) = LOWER(?) AND is_active = 1",
-                        (target_username.strip(),),
-                        fetch_one=True
-                    )
-                    if not target:
-                        st.error("User not found.")
-                    elif privacy_storage_mode == "session":
-                        st.error("Friend requests are only available for persisted accounts.")
-                    elif to_int(target['user_id']) == account['user_id']:
-                        st.error("You cannot send a friend request to yourself.")
+        with section_col2:
+            st.markdown("### Friends & Access Graph")
+
+            fr1, fr2 = st.columns(2, gap='small')
+            with fr1:
+                target_username = st.text_input("Send friend request to username", key="friends_target_username")
+                if st.button("Send Friend Request", use_container_width=True):
+                    if not target_username.strip():
+                        st.error("Enter a username.")
                     else:
-                        exists = Database.execute_query(
-                            """
-                            SELECT friendship_id FROM friendships
-                            WHERE (requester_user_id = ? AND addressee_user_id = ?)
-                               OR (requester_user_id = ? AND addressee_user_id = ?)
-                            """,
-                            (account['user_id'], target['user_id'], target['user_id'], account['user_id']),
+                        target = Database.execute_query(
+                            "SELECT user_id, username FROM users WHERE LOWER(username) = LOWER(?) AND is_active = 1",
+                            (target_username.strip(),),
                             fetch_one=True
                         )
-                        if exists:
-                            st.warning("Friend relationship already exists or is pending.")
+                        if not target:
+                            st.error("User not found.")
+                        elif privacy_storage_mode == "session":
+                            st.error("Friend requests are only available for persisted accounts.")
+                        elif to_int(target['user_id']) == account['user_id']:
+                            st.error("You cannot send a friend request to yourself.")
                         else:
-                            sent = Database.execute_update(
+                            exists = Database.execute_query(
                                 """
-                                INSERT INTO friendships
-                                (requester_user_id, addressee_user_id, status, created_at)
-                                VALUES (?, ?, 'pending', datetime('now'))
+                                SELECT friendship_id FROM friendships
+                                WHERE (requester_user_id = ? AND addressee_user_id = ?)
+                                   OR (requester_user_id = ? AND addressee_user_id = ?)
                                 """,
-                                (account['user_id'], target['user_id'])
+                                (account['user_id'], target['user_id'], target['user_id'], account['user_id']),
+                                fetch_one=True
                             )
-                            if sent:
-                                st.success(f"Friend request sent to {target['username']}.")
-                                st.rerun()
+                            if exists:
+                                st.warning("Friend relationship already exists or is pending.")
                             else:
-                                st.error("Failed to send friend request.")
+                                sent = Database.execute_update(
+                                    """
+                                    INSERT INTO friendships
+                                    (requester_user_id, addressee_user_id, status, created_at)
+                                    VALUES (?, ?, 'pending', datetime('now'))
+                                    """,
+                                    (account['user_id'], target['user_id'])
+                                )
+                                if sent:
+                                    st.success(f"Friend request sent to {target['username']}.")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to send friend request.")
 
             with fr2:
                 incoming = Database.execute_query(
