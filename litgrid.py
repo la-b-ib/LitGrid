@@ -8993,62 +8993,77 @@ def show_account():
 
         st.markdown("Select and customize features for your account. Each group offers related controls.")
 
+        # Feature Group Selector Dropdown
+        group_list = list(dynamic_feature_groups.keys())
+        selected_group = st.selectbox(
+            "📋 Select Feature Group",
+            group_list,
+            index=0,
+            format_func=lambda g: f"{g} ({sum(1 for k in dynamic_feature_groups[g] if feature_flags.get(k))}/{len(dynamic_feature_groups[g])})"
+        )
+
         with st.form("feature_studio_form"):
             draft_flags = {}
             
-            for group_name, group_features in dynamic_feature_groups.items():
-                enabled_count = sum(1 for k in group_features if feature_flags.get(k))
-                with st.expander(f"**{group_name}** ({enabled_count} enabled / {len(group_features)} total)", expanded=True):
-                    
-                    # Create 2-column layout for features
-                    group_items = list(group_features.items())
-                    for i in range(0, len(group_items), 2):
-                        cols = st.columns(2, gap='medium')
-                        
-                        # First feature in row
-                        feature_key, feature_config = group_items[i]
-                        with cols[0]:
-                            col_left, col_right = st.columns([4, 1], gap='small')
-                            with col_left:
-                                st.markdown(feature_config['label'])
-                            with col_right:
-                                radio_state = st.radio(
-                                    f"Toggle {feature_key}",
-                                    ['Off', 'On'],
-                                    index=1 if bool(feature_flags.get(feature_key, False)) else 0,
-                                    horizontal=True,
-                                    label_visibility='collapsed',
-                                    key=f"studio_{feature_key}"
-                                )
-                                draft_flags[feature_key] = (radio_state == 'On')
-                        
-                        # Second feature in row (if exists)
-                        if i + 1 < len(group_items):
-                            feature_key, feature_config = group_items[i + 1]
-                            with cols[1]:
-                                col_left, col_right = st.columns([4, 1], gap='small')
-                                with col_left:
-                                    st.markdown(feature_config['label'])
-                                with col_right:
-                                    radio_state = st.radio(
-                                        f"Toggle {feature_key}",
-                                        ['Off', 'On'],
-                                        index=1 if bool(feature_flags.get(feature_key, False)) else 0,
-                                        horizontal=True,
-                                        label_visibility='collapsed',
-                                        key=f"studio_{feature_key}"
-                                    )
-                                    draft_flags[feature_key] = (radio_state == 'On')
+            # Display only the selected group
+            group_features = dynamic_feature_groups[selected_group]
+            enabled_count = sum(1 for k in group_features if feature_flags.get(k))
+            
+            st.write(f"**{selected_group}** • {enabled_count} enabled of {len(group_features)}")
+            
+            # Create 2-column layout for features
+            group_items = list(group_features.items())
+            for i in range(0, len(group_items), 2):
+                cols = st.columns(2, gap='medium')
+                
+                # First feature in row
+                feature_key, feature_config = group_items[i]
+                with cols[0]:
+                    col_left, col_right = st.columns([4, 1], gap='small')
+                    with col_left:
+                        st.markdown(feature_config['label'])
+                    with col_right:
+                        radio_state = st.radio(
+                            f"Toggle {feature_key}",
+                            ['Off', 'On'],
+                            index=1 if bool(feature_flags.get(feature_key, False)) else 0,
+                            horizontal=True,
+                            label_visibility='collapsed',
+                            key=f"studio_{feature_key}"
+                        )
+                        draft_flags[feature_key] = (radio_state == 'On')
+                
+                # Second feature in row (if exists)
+                if i + 1 < len(group_items):
+                    feature_key, feature_config = group_items[i + 1]
+                    with cols[1]:
+                        col_left, col_right = st.columns([4, 1], gap='small')
+                        with col_left:
+                            st.markdown(feature_config['label'])
+                        with col_right:
+                            radio_state = st.radio(
+                                f"Toggle {feature_key}",
+                                ['Off', 'On'],
+                                index=1 if bool(feature_flags.get(feature_key, False)) else 0,
+                                horizontal=True,
+                                label_visibility='collapsed',
+                                key=f"studio_{feature_key}"
+                            )
+                            draft_flags[feature_key] = (radio_state == 'On')
             
             # Save button
             save_studio = st.form_submit_button("💾 Save Feature Configuration", use_container_width=True)
             
             if save_studio:
+                # Merge draft_flags with existing features from other groups
+                all_draft_flags = dict(feature_flags)
+                all_draft_flags.update(draft_flags)
+                
                 # Perform cross-check validation
-                issues, corrections = check_feature_compatibility(draft_flags)
+                issues, corrections = check_feature_compatibility(all_draft_flags)
                 
                 # Apply auto-corrections
-                draft_flags.update(corrections)
+                all_draft_flags.update(corrections)
                 
                 # Display compatibility warnings
                 if issues:
@@ -9078,7 +9093,7 @@ def show_account():
                             dyn_pref.get('anonymous_avatar_style') or 'geometric',
                             max(12, to_int(dyn_pref.get('anonymous_rotation_hours'), 72)),
                             dyn_pref.get('profile_theme') or 'adaptive',
-                            json.dumps(draft_flags)
+                            json.dumps(all_draft_flags)
                         )
                     )
                     if done:
@@ -9086,7 +9101,7 @@ def show_account():
                     else:
                         st.error("❌ Failed to save feature configuration.")
                 else:
-                    st.session_state.feature_studio_ephemeral['feature_json'] = json.dumps(draft_flags)
+                    st.session_state.feature_studio_ephemeral['feature_json'] = json.dumps(all_draft_flags)
                     st.success("✅ Feature configuration saved in session mode.")
                 
                 st.rerun()
@@ -9095,7 +9110,8 @@ def show_account():
         st.divider()
         st.subheader("📊 Configuration Summary")
         
-        enabled_count = sum(1 for key in draft_flags if draft_flags.get(key, False)) if 'draft_flags' in locals() else sum(1 for key in feature_flags if feature_flags.get(key, False))
+        current_flags = feature_flags
+        enabled_count = sum(1 for key in current_flags if current_flags.get(key, False))
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -9109,10 +9125,9 @@ def show_account():
             coverage = (enabled_count / total_features * 100) if total_features > 0 else 0
             st.metric("Coverage %", f"{coverage:.1f}%")
         
-        # Display enabled features by group
+        # Display enabled features by group in 2-column layout
         st.subheader("Active Features by Group")
         enabled_by_group = {}
-        current_flags = draft_flags if 'draft_flags' in locals() else feature_flags
         
         for group_name, group_features in dynamic_feature_groups.items():
             enabled_in_group = [key for key in group_features if bool(current_flags.get(key, False))]
@@ -9120,11 +9135,27 @@ def show_account():
                 enabled_by_group[group_name] = enabled_in_group
         
         if enabled_by_group:
-            for group_name, features in enabled_by_group.items():
-                st.markdown(f"**{group_name}** ({len(features)})")
-                for feature_key in features:
-                    feature_info = dynamic_feature_groups[group_name][feature_key]
-                    st.caption(f"✓ {feature_info['label']}")
+            # Display in 2-column layout
+            group_list = list(enabled_by_group.items())
+            for i in range(0, len(group_list), 2):
+                cols = st.columns(2, gap='medium')
+                
+                # First group
+                group_name, features = group_list[i]
+                with cols[0]:
+                    st.markdown(f"**{group_name}** ({len(features)})")
+                    for feature_key in features:
+                        feature_info = dynamic_feature_groups[group_name][feature_key]
+                        st.caption(f"✓ {feature_info['label']}")
+                
+                # Second group (if exists)
+                if i + 1 < len(group_list):
+                    group_name, features = group_list[i + 1]
+                    with cols[1]:
+                        st.markdown(f"**{group_name}** ({len(features)})")
+                        for feature_key in features:
+                            feature_info = dynamic_feature_groups[group_name][feature_key]
+                            st.caption(f"✓ {feature_info['label']}")
         else:
             st.caption("No features enabled yet. Select features above to customize your experience.")
         
