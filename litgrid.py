@@ -4668,11 +4668,11 @@ def show_login_page():
 
             with demo_col:
                 # Demo mode quick access buttons
-                st.markdown("### Quick Demo Access")
+                st.markdown("### Demo Access")
                 demo_col1, demo_col2 = st.columns(2, gap="small")
 
                 with demo_col1:
-                    if st.button("Enter as Demo Member", use_container_width=True, key="demo_member_btn"):
+                    if st.button("Demo Member", use_container_width=True, key="demo_member_btn"):
                         # Create demo member session
                         demo_user = {
                             'user_id': 'demo_member_001',
@@ -4691,7 +4691,7 @@ def show_login_page():
                         st.rerun()
 
                 with demo_col2:
-                    if st.button("Enter as Demo Admin", use_container_width=True, key="demo_admin_btn"):
+                    if st.button("Demo Admin", use_container_width=True, key="demo_admin_btn"):
                         # Create demo admin session
                         demo_user = {
                             'user_id': 'demo_admin_001',
