@@ -8764,88 +8764,139 @@ def show_account():
         else:
             privacy_map = st.session_state.privacy_map_ephemeral
 
-        st.markdown("### Advanced Anonymous Mode")
-        with st.form("anonymous_mode_form"):
-            anon_enabled = st.checkbox(
-                "Enable advanced anonymous mode",
-                value=bool(dyn_pref.get('anonymous_mode_enabled', 0))
-            )
-            alias_default = dyn_pref.get('anonymous_alias') or generate_anonymous_alias()
-            anon_alias = st.text_input("Anonymous Alias", value=alias_default)
-            avatar_style = st.radio(
-                "Anonymous avatar style",
-                ["geometric", "abstract", "minimal", "monochrome", "retro"],
-                index=["geometric", "abstract", "minimal", "monochrome", "retro"].index(
-                    str(dyn_pref.get('anonymous_avatar_style', 'geometric'))
-                    if str(dyn_pref.get('anonymous_avatar_style', 'geometric')) in ["geometric", "abstract", "minimal", "monochrome", "retro"]
-                    else "geometric"
-                ),
-                horizontal=True
-            )
-            rotation_hours = st.slider(
-                "Alias rotation interval (hours)",
-                min_value=12,
-                max_value=336,
-                value=max(12, to_int(dyn_pref.get('anonymous_rotation_hours'), 72))
-            )
-            profile_theme = st.radio(
-                "Profile theme mode",
-                ["adaptive", "privacy-first", "social", "productivity", "minimal"],
-                index=["adaptive", "privacy-first", "social", "productivity", "minimal"].index(
-                    str(dyn_pref.get('profile_theme', 'adaptive'))
-                    if str(dyn_pref.get('profile_theme', 'adaptive')) in ["adaptive", "privacy-first", "social", "productivity", "minimal"]
-                    else "adaptive"
-                ),
-                horizontal=True
-            )
-            save_anon = st.form_submit_button("Save Anonymous Preferences", use_container_width=True)
+        anon_col, summary_col = st.columns(2, gap='medium')
 
-            if save_anon:
-                final_alias = anon_alias.strip() or generate_anonymous_alias()
-                if privacy_storage_mode == "database":
-                    done = Database.execute_update(
-                        """
-                        INSERT INTO account_dynamic_preferences
-                        (user_id, anonymous_mode_enabled, anonymous_alias, anonymous_avatar_style,
-                         anonymous_rotation_hours, profile_theme, feature_json, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                        ON CONFLICT(user_id)
-                        DO UPDATE SET
-                            anonymous_mode_enabled = excluded.anonymous_mode_enabled,
-                            anonymous_alias = excluded.anonymous_alias,
-                            anonymous_avatar_style = excluded.anonymous_avatar_style,
-                            anonymous_rotation_hours = excluded.anonymous_rotation_hours,
-                            profile_theme = excluded.profile_theme,
-                            feature_json = COALESCE(account_dynamic_preferences.feature_json, excluded.feature_json),
-                            updated_at = datetime('now')
-                        """,
-                        (
-                            account['user_id'],
-                            1 if anon_enabled else 0,
-                            final_alias,
-                            avatar_style,
-                            rotation_hours,
-                            profile_theme,
-                            json.dumps(feature_flags)
+        with anon_col:
+            st.markdown("### Advanced Anonymous Mode")
+            with st.form("anonymous_mode_form"):
+                anon_enabled = st.checkbox(
+                    "Enable advanced anonymous mode",
+                    value=bool(dyn_pref.get('anonymous_mode_enabled', 0))
+                )
+                alias_default = dyn_pref.get('anonymous_alias') or generate_anonymous_alias()
+                anon_alias = st.text_input("Anonymous Alias", value=alias_default)
+                avatar_style = st.radio(
+                    "Anonymous avatar style",
+                    ["geometric", "abstract", "minimal", "monochrome", "retro"],
+                    index=["geometric", "abstract", "minimal", "monochrome", "retro"].index(
+                        str(dyn_pref.get('anonymous_avatar_style', 'geometric'))
+                        if str(dyn_pref.get('anonymous_avatar_style', 'geometric')) in ["geometric", "abstract", "minimal", "monochrome", "retro"]
+                        else "geometric"
+                    ),
+                    horizontal=True
+                )
+                rotation_hours = st.slider(
+                    "Alias rotation interval (hours)",
+                    min_value=12,
+                    max_value=336,
+                    value=max(12, to_int(dyn_pref.get('anonymous_rotation_hours'), 72))
+                )
+                profile_theme = st.radio(
+                    "Profile theme mode",
+                    ["adaptive", "privacy-first", "social", "productivity", "minimal"],
+                    index=["adaptive", "privacy-first", "social", "productivity", "minimal"].index(
+                        str(dyn_pref.get('profile_theme', 'adaptive'))
+                        if str(dyn_pref.get('profile_theme', 'adaptive')) in ["adaptive", "privacy-first", "social", "productivity", "minimal"]
+                        else "adaptive"
+                    ),
+                    horizontal=True
+                )
+                save_anon = st.form_submit_button("Save Anonymous Preferences", use_container_width=True)
+
+                if save_anon:
+                    final_alias = anon_alias.strip() or generate_anonymous_alias()
+                    if privacy_storage_mode == "database":
+                        done = Database.execute_update(
+                            """
+                            INSERT INTO account_dynamic_preferences
+                            (user_id, anonymous_mode_enabled, anonymous_alias, anonymous_avatar_style,
+                             anonymous_rotation_hours, profile_theme, feature_json, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                            ON CONFLICT(user_id)
+                            DO UPDATE SET
+                                anonymous_mode_enabled = excluded.anonymous_mode_enabled,
+                                anonymous_alias = excluded.anonymous_alias,
+                                anonymous_avatar_style = excluded.anonymous_avatar_style,
+                                anonymous_rotation_hours = excluded.anonymous_rotation_hours,
+                                profile_theme = excluded.profile_theme,
+                                feature_json = COALESCE(account_dynamic_preferences.feature_json, excluded.feature_json),
+                                updated_at = datetime('now')
+                            """,
+                            (
+                                account['user_id'],
+                                1 if anon_enabled else 0,
+                                final_alias,
+                                avatar_style,
+                                rotation_hours,
+                                profile_theme,
+                                json.dumps(feature_flags)
+                            )
                         )
-                    )
-                    if done:
-                        st.success("✅ Anonymous mode settings updated.")
+                        if done:
+                            st.success("✅ Anonymous mode settings updated.")
+                        else:
+                            st.error("❌ Failed to update anonymous mode settings.")
                     else:
-                        st.error("❌ Failed to update anonymous mode settings.")
-                else:
-                    st.session_state.privacy_settings_ephemeral['anonymous_mode_enabled'] = 1 if anon_enabled else 0
-                    st.session_state.privacy_settings_ephemeral['anonymous_alias'] = final_alias
-                    st.session_state.privacy_settings_ephemeral['anonymous_avatar_style'] = avatar_style
-                    st.session_state.privacy_settings_ephemeral['anonymous_rotation_hours'] = rotation_hours
-                    st.session_state.privacy_settings_ephemeral['profile_theme'] = profile_theme
-                    st.success("✅ Anonymous mode settings saved in session mode.")
+                        st.session_state.privacy_settings_ephemeral['anonymous_mode_enabled'] = 1 if anon_enabled else 0
+                        st.session_state.privacy_settings_ephemeral['anonymous_alias'] = final_alias
+                        st.session_state.privacy_settings_ephemeral['anonymous_avatar_style'] = avatar_style
+                        st.session_state.privacy_settings_ephemeral['anonymous_rotation_hours'] = rotation_hours
+                        st.session_state.privacy_settings_ephemeral['profile_theme'] = profile_theme
+                        st.success("✅ Anonymous mode settings saved in session mode.")
 
-        if bool(dyn_pref.get('anonymous_mode_enabled', 0)):
-            st.info(
-                f"Anonymous profile active as '{dyn_pref.get('anonymous_alias') or 'Anonymous'}' "
-                f"with {dyn_pref.get('anonymous_avatar_style', 'geometric')} avatar style."
-            )
+            if bool(dyn_pref.get('anonymous_mode_enabled', 0)):
+                st.info(
+                    f"Anonymous profile active as '{dyn_pref.get('anonymous_alias') or 'Anonymous'}' "
+                    f"with {dyn_pref.get('anonymous_avatar_style', 'geometric')} avatar style."
+                )
+
+        with summary_col:
+            st.subheader("📊 Configuration Summary")
+
+            current_flags = feature_flags
+            enabled_count = sum(1 for key in current_flags if current_flags.get(key, False))
+            s1, s2, s3 = st.columns(3)
+
+            with s1:
+                st.metric("Total Enabled Features", enabled_count)
+
+            with s2:
+                total_features = sum(len(group) for group in dynamic_feature_groups.values())
+                st.metric("Total Available Features", total_features)
+
+            with s3:
+                coverage = (enabled_count / total_features * 100) if total_features > 0 else 0
+                st.metric("Coverage %", f"{coverage:.1f}%")
+
+            st.subheader("Active Features by Group")
+            enabled_by_group = {}
+
+            for group_name, group_features in dynamic_feature_groups.items():
+                enabled_in_group = [key for key in group_features if bool(current_flags.get(key, False))]
+                if enabled_in_group:
+                    enabled_by_group[group_name] = enabled_in_group
+
+            if enabled_by_group:
+                group_list = list(enabled_by_group.items())
+                for i in range(0, len(group_list), 2):
+                    cols = st.columns(2, gap='medium')
+
+                    group_name, features = group_list[i]
+                    with cols[0]:
+                        st.markdown(f"**{group_name}** ({len(features)})")
+                        for feature_key in features:
+                            feature_info = dynamic_feature_groups[group_name][feature_key]
+                            st.caption(f"✓ {feature_info['label']}")
+
+                    if i + 1 < len(group_list):
+                        group_name, features = group_list[i + 1]
+                        with cols[1]:
+                            st.markdown(f"**{group_name}** ({len(features)})")
+                            for feature_key in features:
+                                feature_info = dynamic_feature_groups[group_name][feature_key]
+                                st.caption(f"✓ {feature_info['label']}")
+            else:
+                st.caption("No features enabled yet. Select features below to customize your experience.")
 
         st.divider()
         with st.expander("Field-Level Privacy Matrix", expanded=True):
@@ -9174,58 +9225,7 @@ def show_account():
                 
                 st.rerun()
         
-        # Summary section
-        st.divider()
-        st.subheader("📊 Configuration Summary")
-        
         current_flags = feature_flags
-        enabled_count = sum(1 for key in current_flags if current_flags.get(key, False))
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Total Enabled Features", enabled_count)
-        
-        with col2:
-            total_features = sum(len(group) for group in dynamic_feature_groups.values())
-            st.metric("Total Available Features", total_features)
-        
-        with col3:
-            coverage = (enabled_count / total_features * 100) if total_features > 0 else 0
-            st.metric("Coverage %", f"{coverage:.1f}%")
-        
-        # Display enabled features by group in 2-column layout
-        st.subheader("Active Features by Group")
-        enabled_by_group = {}
-        
-        for group_name, group_features in dynamic_feature_groups.items():
-            enabled_in_group = [key for key in group_features if bool(current_flags.get(key, False))]
-            if enabled_in_group:
-                enabled_by_group[group_name] = enabled_in_group
-        
-        if enabled_by_group:
-            # Display in 2-column layout
-            group_list = list(enabled_by_group.items())
-            for i in range(0, len(group_list), 2):
-                cols = st.columns(2, gap='medium')
-                
-                # First group
-                group_name, features = group_list[i]
-                with cols[0]:
-                    st.markdown(f"**{group_name}** ({len(features)})")
-                    for feature_key in features:
-                        feature_info = dynamic_feature_groups[group_name][feature_key]
-                        st.caption(f"✓ {feature_info['label']}")
-                
-                # Second group (if exists)
-                if i + 1 < len(group_list):
-                    group_name, features = group_list[i + 1]
-                    with cols[1]:
-                        st.markdown(f"**{group_name}** ({len(features)})")
-                        for feature_key in features:
-                            feature_info = dynamic_feature_groups[group_name][feature_key]
-                            st.caption(f"✓ {feature_info['label']}")
-        else:
-            st.caption("No features enabled yet. Select features above to customize your experience.")
         
         # Alias rotation action (if enabled)
         if current_flags.get('anonymous_alias_rotation'):
