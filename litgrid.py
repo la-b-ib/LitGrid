@@ -5087,37 +5087,27 @@ def show_login_page():
                 st.divider()
 
                 with st.form("register_member_form"):
-                    # Personal Information
-                    st.markdown("#### **Personal Information**")
-                    col_a, col_b, col_c = st.columns(3, gap="small")
-                    with col_a:
-                        full_name = st.text_input("Full Name *", placeholder="John Doe")
-                        gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"])
-                    with col_b:
-                        date_of_birth = st.date_input("Date of Birth *")
-                    with col_c:
-                        phone = st.text_input("Phone Number *", placeholder="+1-555-0000")
+                    section_col1, section_col2, section_col3 = st.columns(3, gap="medium")
 
-                    # Address Information
-                    st.markdown("#### **Address Information**")
-                    col_d, col_e, col_f = st.columns(3, gap="small")
-                    with col_d:
+                    with section_col1:
+                        st.markdown("#### **Personal Information**")
+                        full_name = st.text_input("Full Name *", placeholder="John Doe")
+                        date_of_birth = st.date_input("Date of Birth *")
+                        phone = st.text_input("Phone Number *", placeholder="+1-555-0000")
+                        gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Other"])
+
+                    with section_col2:
+                        st.markdown("#### **Address Information**")
                         street = st.text_input("Street Address *")
-                    with col_e:
                         city = st.text_input("City *")
-                    with col_f:
                         state = st.text_input("State/Province *")
                         zip_code = st.text_input("Zip/Postal Code *")
 
-                    # Account Information
-                    st.markdown("#### **Account Information**")
-                    col_g, col_h, col_i = st.columns(3, gap="small")
-                    with col_g:
+                    with section_col3:
+                        st.markdown("#### **Account Information**")
                         username_reg = st.text_input("Username *", placeholder="johndoe123", help="Alphanumeric, 4-20 characters")
                         email = st.text_input("Email *", placeholder="john@example.com")
-                    with col_h:
                         occupation = st.text_input("Occupation", placeholder="Software Engineer")
-                    with col_i:
                         library_interests = st.multiselect("Library Interests",
                             ["Fiction", "Non-Fiction", "Science", "History", "Biography", "Self-Help", "Poetry", "Children's Books"])
 
