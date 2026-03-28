@@ -10790,7 +10790,6 @@ def show_manage_members():
 
 def show_borrowing_returns():
     """Borrowing and returns page"""
-    st.markdown('<h1 class="litgrid-header">Borrowing & Returns</h1>', unsafe_allow_html=True)
 
     st.markdown("### Control Center")
     ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns(4, gap="small")
@@ -10961,7 +10960,6 @@ def show_borrowing_returns():
 
             overdue_rate = (overdue_value / active_loans_value * 100) if active_loans_value > 0 else 0.0
             st.metric("Overdue Loans", overdue_value, f"{overdue_rate:.1f}%")
-            st.metric("Fine Preview", "ON" if fine_preview_mode else "OFF")
 
         focus_queue = Database.execute_query(
             """
