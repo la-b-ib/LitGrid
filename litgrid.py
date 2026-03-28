@@ -9051,63 +9051,60 @@ def show_manage_books(embedded=False):
     tab1, tab2, tab3, tab4 = st.tabs([" All Books", " Add Book", " Bulk Import", " Statistics"])
     
     with tab1:
-        st.subheader("**Unified Catalog Workspace**")
-        st.caption("Browse and manage the catalog together with advanced filters, sorting, and operational actions.")
+        st.subheader(" Browse Books")
 
-        with st.expander(" Discovery + Management Controls", expanded=True):
-            row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4, gap="small")
-            with row1_col1:
-                search = st.text_input(" Search (Title, Author, ISBN, Keywords)", key="mb_search")
-            with row1_col2:
-                use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos", key="mb_use_fuzzy")
-            with row1_col3:
-                status_filter = st.selectbox(
-                    "Status",
-                    ["All", "Active", "Inactive", "Available Copies Only", "Checked Out Only"],
-                    key="mb_status_filter"
-                )
-            with row1_col4:
-                view_mode = st.selectbox("View", ["Operational List", "Discovery Cards"], key="mb_view_mode")
+        row1_col1, row1_col2, row1_col3 = st.columns(3, gap="small")
+        with row1_col1:
+            search = st.text_input(" Search (Title, Author, ISBN, Keywords)", key="mb_search")
+        with row1_col2:
+            genre_query = st.text_input(" Genre Search", placeholder="e.g., Fiction, Science", key="mb_genre_filter_text")
+        with row1_col3:
+            use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos", key="mb_use_fuzzy")
 
-            row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4, gap="small")
-            with row2_col1:
-                genres = Database.execute_query(
-                    "SELECT DISTINCT genre FROM books WHERE genre IS NOT NULL AND TRIM(genre) <> '' ORDER BY genre"
-                )
-                genre_options = ["All Genres"] + [g['genre'] for g in genres] if genres else ["All Genres"]
-                selected_genre = st.selectbox("Genre", genre_options, key="mb_genre_filter")
-            with row2_col2:
-                year_from = st.number_input("Year From", min_value=1800, max_value=2025, value=1800, step=1, key="mb_year_from")
-            with row2_col3:
-                year_to = st.number_input("Year To", min_value=1800, max_value=2025, value=2025, step=1, key="mb_year_to")
-            with row2_col4:
-                sort_by = st.selectbox(
-                    "Sort By",
-                    [
-                        "Title (A-Z)",
-                        "Title (Z-A)",
-                        "Year (Newest First)",
-                        "Year (Oldest First)",
-                        "Popularity (High to Low)",
-                        "Popularity (Low to High)"
-                    ],
-                    key="mb_sort_by"
-                )
+        status_filter = st.radio(
+            "Status Filter",
+            ["All", "Active", "Inactive", "Available Copies Only", "Checked Out Only"],
+            horizontal=True,
+            key="mb_status_filter"
+        )
 
-            row3_col1, row3_col2, row3_col3 = st.columns(3, gap="small")
-            with row3_col1:
-                max_results = st.slider("Max Results", min_value=20, max_value=300, value=100, step=10, key="mb_limit")
-            with row3_col2:
-                fuzzy_threshold = st.slider("Fuzzy Threshold", min_value=30, max_value=95, value=60, step=5, key="mb_fuzzy_threshold")
-            with row3_col3:
-                st.write("")
-                if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
-                    st.rerun()
+        row2_col1, row2_col2 = st.columns(2, gap="small")
+        with row2_col1:
+            view_mode = st.radio("View Mode", ["Operational List", "Discovery Cards"], horizontal=True, key="mb_view_mode")
+        with row2_col2:
+            sort_by = st.radio(
+                "Sort",
+                ["Title A-Z", "Newest Year", "Popularity High"],
+                horizontal=True,
+                key="mb_sort_by"
+            )
+
+        row3_col1, row3_col2, row3_col3, row3_col4 = st.columns(4, gap="small")
+        with row3_col1:
+            year_from = st.number_input("Year From", min_value=1800, max_value=2025, value=1800, step=1, key="mb_year_from")
+        with row3_col2:
+            year_to = st.number_input("Year To", min_value=1800, max_value=2025, value=2025, step=1, key="mb_year_to")
+        with row3_col3:
+            max_results = st.slider("Max Results", min_value=20, max_value=300, value=120, step=10, key="mb_limit")
+        with row3_col4:
+            fuzzy_threshold = st.slider("Fuzzy Threshold", min_value=30, max_value=95, value=60, step=5, key="mb_fuzzy_threshold")
+
+        date_filter_enabled = st.checkbox(" Calendar Search (Filter by Added Date)", value=False, key="mb_calendar_enabled")
+        calendar_range = None
+        if date_filter_enabled:
+            calendar_range = st.date_input(
+                " Added Date Range",
+                value=(date.today() - timedelta(days=90), date.today()),
+                key="mb_calendar_range"
+            )
+
+        if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
+            st.rerun()
 
         # Unified book query
         query = """
             SELECT b.book_id, b.isbn, b.title, b.author, b.genre, b.publication_year,
-                   b.pages, b.language, b.keywords, b.popularity_score, b.is_available,
+                   b.pages, b.language, b.keywords, b.popularity_score, b.is_available, b.created_at,
                    (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) as total_copies,
                    (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) as available_copies
             FROM books b
@@ -9115,9 +9112,9 @@ def show_manage_books(embedded=False):
         """
         params = []
 
-        if selected_genre != "All Genres":
-            query += " AND b.genre = ?"
-            params.append(selected_genre)
+        if genre_query:
+            query += " AND b.genre LIKE ?"
+            params.append(f"%{genre_query}%")
 
         if year_from and year_to:
             query += " AND b.publication_year BETWEEN ? AND ?"
@@ -9137,18 +9134,20 @@ def show_manage_books(embedded=False):
         elif status_filter == "Checked Out Only":
             query += " AND EXISTS (SELECT 1 FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 0)"
 
-        if sort_by == "Title (A-Z)":
+        if date_filter_enabled and isinstance(calendar_range, (tuple, list)) and len(calendar_range) == 2:
+            start_date, end_date = calendar_range
+            if start_date and end_date:
+                query += " AND date(b.created_at) BETWEEN ? AND ?"
+                params.extend([str(start_date), str(end_date)])
+
+        if sort_by == "Title A-Z":
             query += " ORDER BY b.title ASC"
-        elif sort_by == "Title (Z-A)":
-            query += " ORDER BY b.title DESC"
-        elif sort_by == "Year (Newest First)":
+        elif sort_by == "Newest Year":
             query += " ORDER BY b.publication_year DESC, b.title ASC"
-        elif sort_by == "Year (Oldest First)":
-            query += " ORDER BY b.publication_year ASC, b.title ASC"
-        elif sort_by == "Popularity (High to Low)":
+        elif sort_by == "Popularity High":
             query += " ORDER BY COALESCE(b.popularity_score, 0) DESC, b.title ASC"
         else:
-            query += " ORDER BY COALESCE(b.popularity_score, 0) ASC, b.title ASC"
+            query += " ORDER BY b.title ASC"
 
         query += " LIMIT ?"
         params.append(max_results)
@@ -9172,6 +9171,18 @@ def show_manage_books(embedded=False):
                 st.metric("Copies (Total)", total_inventory)
             with metric_col3:
                 st.metric("Copies Available", available_inventory)
+
+            active_filters = []
+            if search:
+                active_filters.append(f"Search: {search}")
+            if genre_query:
+                active_filters.append(f"Genre: {genre_query}")
+            if status_filter != "All":
+                active_filters.append(f"Status: {status_filter}")
+            if date_filter_enabled and isinstance(calendar_range, (tuple, list)) and len(calendar_range) == 2:
+                active_filters.append(f"Date: {calendar_range[0]} to {calendar_range[1]}")
+            active_filters.append(f"Sort: {sort_by}")
+            st.caption(" | ".join(active_filters))
         
         if books:
             st.write(f"Found {len(books)} books")
