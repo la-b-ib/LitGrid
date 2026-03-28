@@ -9663,9 +9663,7 @@ def show_manage_books(embedded=False, browse_only=False):
                 SELECT
                     COUNT(*) as active_loans,
                     SUM(CASE WHEN date(br.due_date) < date('now') THEN 1 ELSE 0 END) as overdue_loans,
-                    SUM(CASE WHEN date(br.due_date) BETWEEN date('now') AND date('now', '+7 days') THEN 1 ELSE 0 END) as due_next_7,
-                    AVG(julianday(COALESCE(br.return_date, date('now'))) - julianday(br.checkout_date)) as avg_loan_duration,
-                    SUM(CASE WHEN br.return_date IS NOT NULL AND julianday(br.return_date) <= julianday(br.due_date) THEN 1 ELSE 0 END) as on_time_returns
+                    SUM(CASE WHEN date(br.due_date) BETWEEN date('now') AND date('now', '+7 days') THEN 1 ELSE 0 END) as due_next_7
                 FROM borrowing br
                 JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
                 JOIN books b ON bi.book_id = b.book_id
@@ -9730,8 +9728,6 @@ def show_manage_books(embedded=False, browse_only=False):
         active_loans = int(loans.get('active_loans') or 0)
         overdue_loans = int(loans.get('overdue_loans') or 0)
         due_next_7 = int(loans.get('due_next_7') or 0)
-        avg_loan_duration = float(loans.get('avg_loan_duration') or 0.0)
-        on_time_returns = int(loans.get('on_time_returns') or 0)
 
         titles_with_loans = int(advanced.get('titles_with_loans') or 0)
         untouched_titles = int(advanced.get('untouched_titles') or 0)
@@ -9755,12 +9751,16 @@ def show_manage_books(embedded=False, browse_only=False):
         author_diversity = (unique_authors / max(1, total_books)) * 100 if total_books > 0 else 0.0
         utilization_efficiency = circulation_velocity * (collection_health_score / 100)
         untouched_ratio = (untouched_titles / total_books * 100) if total_books > 0 else 0.0
-        on_time_return_rate = (on_time_returns / max(1, active_loans + on_time_returns) * 100) if (active_loans + on_time_returns) > 0 else 0.0
         overdue_ratio = (overdue_loans / active_loans * 100) if active_loans > 0 else 0.0
         avg_pages_per_title = total_pages / total_books if total_books > 0 else 0
         
         # DISPLAY CORE KPIs
         st.markdown("### 📊 Core KPIs")
+        
+        if total_books == 0:
+            st.warning("⚠️ No books found in database. Use Bulk Import above to add books.")
+            st.stop()
+        
         kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5, kpi_col6 = st.columns(6, gap="small")
         with kpi_col1:
             st.metric("Titles", total_books, delta_books if delta_books is not None else None)
@@ -9823,14 +9823,10 @@ def show_manage_books(embedded=False, browse_only=False):
 
         # RETURN & LOAN METRICS
         st.markdown("### 📚 Lending Performance")
-        loan_col1, loan_col2, loan_col3, loan_col4 = st.columns(4, gap="small")
+        loan_col1, loan_col2 = st.columns(2, gap="small")
         with loan_col1:
-            st.metric("Avg Loan Duration", f"{avg_loan_duration:.1f} days" if avg_loan_duration > 0 else "N/A")
-        with loan_col2:
-            st.metric("On-Time Return Rate", f"{on_time_return_rate:.1f}%", help="% returned on or before due date")
-        with loan_col3:
             st.metric("Utilization Efficiency", f"{utilization_efficiency:.1f}%", help="Circulation × health")
-        with loan_col4:
+        with loan_col2:
             st.metric("Titles w/ Activity", f"{titles_with_loans}/{total_books}", help="Titles that have been borrowed")
 
         st.caption(
@@ -10238,8 +10234,6 @@ def show_manage_books(embedded=False, browse_only=False):
             if collection_refresh_rate and collection_refresh_rate < 5:
                 recommendations.append(f"🆕 **Acquisition Rate**: Only {collection_refresh_rate:.1f}% new titles in period. Consider accelerating acquisitions.")
             
-            if overdue_loans > (active_loans * 0.1) if active_loans > 0 else False:
-                recommendations.append(f"⏰ **Return Compliance**: {overdue_ratio:.1f}% of loans are overdue. Implement reminder system.")
             
             if genre_diversity < 30:
                 recommendations.append(f"📚 **Genre Balance**: Low genre diversity ({genre_diversity:.1f}%). Consider expanding collection breadth.")
