@@ -10968,176 +10968,244 @@ def show_borrowing_returns():
             st.toast("Scroll to Renewal Requests section")
 
     st.divider()
+    st.subheader("**Checkout & Return Operations**")
 
-    st.subheader("**Checkout Book**")
-    
-    with st.form("checkout_form"):
-        col1, col2 = st.columns(2, gap="small")
-        
-        with col1:
-            # Search member
-            member_search = st.text_input("Search Member (username or email)")
+    def _compute_fine(days_overdue):
+        return (float(days_overdue) * Config.FINE_PER_DAY) if days_overdue and float(days_overdue) > 0 else 0.0
+
+    checkout_col, return_col = st.columns(2, gap="large")
+
+    with checkout_col:
+        st.markdown("#### Checkout Book")
+        with st.form("checkout_form"):
+            member_search = st.text_input(
+                "Search Member (username or email)",
+                value=global_borrow_search if global_borrow_search else "",
+                key="br_checkout_member_search"
+            )
+            member_options = {}
+            selected_member = None
             if member_search:
                 members = Database.execute_query(
-                    "SELECT user_id, username, full_name, email FROM users WHERE username LIKE ? OR email LIKE ? LIMIT 10",
-                    (f'%{member_search}%', f'%{member_search}%')
+                    "SELECT user_id, username, full_name, email, fine_balance FROM users WHERE username LIKE ? OR email LIKE ? OR full_name LIKE ? LIMIT 20",
+                    (f'%{member_search}%', f'%{member_search}%', f'%{member_search}%')
                 )
                 if members:
                     member_options = {f"{m['full_name']} (@{m['username']})": m['user_id'] for m in members}
-                    selected_member = st.selectbox("Select Member", list(member_options.keys()))
+                    selected_member = st.selectbox("Select Member", list(member_options.keys()), key="br_checkout_member_select")
                 else:
                     st.warning("No members found")
-                    selected_member = None
-            else:
-                selected_member = None
-        
-        with col2:
-            # Search book
-            book_search = st.text_input("Search Book (title or ISBN)")
+
+            book_search = st.text_input(
+                "Search Book (title or ISBN)",
+                value=global_borrow_search if global_borrow_search else "",
+                key="br_checkout_book_search"
+            )
+            book_options = {}
+            selected_book = None
             if book_search:
                 books = Database.execute_query(
-                    """SELECT b.book_id, b.title, b.isbn, 
-                              (SELECT COUNT(*) FROM book_inventory WHERE book_id = b.book_id AND is_available = 1) as available
-                       FROM books b 
-                       WHERE (b.title LIKE ? OR b.isbn LIKE ?) AND b.is_available = 1 
-                       LIMIT 10""",
+                    """SELECT b.book_id, b.title, b.isbn,
+                              (SELECT COUNT(*) FROM book_inventory WHERE book_id = b.book_id AND is_available = 1) as available,
+                              (SELECT COUNT(*) FROM book_inventory WHERE book_id = b.book_id) as total_copies
+                       FROM books b
+                       WHERE (b.title LIKE ? OR b.isbn LIKE ?) AND b.is_available = 1
+                       LIMIT 20""",
                     (f'%{book_search}%', f'%{book_search}%')
                 )
                 if books:
-                    book_options = {f"{bk['title']} ({bk['isbn']}) - {bk['available']} available": bk['book_id'] for bk in books}
-                    selected_book = st.selectbox("Select Book", list(book_options.keys()))
+                    book_options = {
+                        f"{bk['title']} ({bk['isbn']}) - {bk['available']}/{bk['total_copies']} available": bk['book_id']
+                        for bk in books
+                    }
+                    selected_book = st.selectbox("Select Book", list(book_options.keys()), key="br_checkout_book_select")
                 else:
                     st.warning("No books found")
-                    selected_book = None
-            else:
-                selected_book = None
-        
-        checkout_days = st.number_input("Borrowing Days", min_value=1, max_value=90, value=Config.DEFAULT_BORROWING_DAYS)
-        
-        submit = st.form_submit_button(" Checkout Book", use_container_width=True)
-        
-        if submit:
-            if not selected_member or not selected_book:
-                st.error("Please select both member and book!")
-            else:
-                user_id = member_options[selected_member]
-                book_id = book_options[selected_book]
-                
-                # Get available inventory
-                inventory = Database.execute_query(
-                    "SELECT inventory_id FROM book_inventory WHERE book_id = ? AND is_available = 1 LIMIT 1",
-                    (book_id,), fetch_one=True
-                )
-                
-                if not inventory:
-                    st.error("No copies available!")
+
+            preset_col1, preset_col2, preset_col3 = st.columns(3, gap="small")
+            with preset_col1:
+                loan_preset = st.radio("Loan Preset", ["7D", "14D", "30D", "Custom"], horizontal=True, key="br_checkout_preset")
+            with preset_col2:
+                if loan_preset == "Custom":
+                    checkout_days = st.number_input("Borrowing Days", min_value=1, max_value=90, value=Config.DEFAULT_BORROWING_DAYS, key="br_checkout_days")
                 else:
-                    # Create borrowing record
-                    due_date = date.today() + timedelta(days=checkout_days)
-                    current_user = Auth.get_user()
-                    
-                    if Database.execute_update(
-                        """INSERT INTO borrowing (inventory_id, user_id, checkout_date, due_date, 
-                                                  checkout_by_user_id)
-                           VALUES (?, ?, date('now'), ?, ?)""",
-                        (inventory['inventory_id'], user_id, due_date, current_user['user_id'])
-                    ):
-                        # Update inventory
-                        Database.execute_update(
-                            "UPDATE book_inventory SET is_available = 0 WHERE inventory_id = ?",
-                            (inventory['inventory_id'],)
-                        )
-                        
-                        st.success(f" Book checked out successfully! Due date: {due_date}")
-                        st.balloons()
-    
-    st.divider()
-    st.subheader("**Return Book**")
+                    checkout_days = int(loan_preset.replace("D", ""))
+                    st.number_input("Borrowing Days", min_value=1, max_value=90, value=checkout_days, disabled=True, key="br_checkout_days_locked")
+            with preset_col3:
+                manual_due_override = st.checkbox("Manual Due Date", value=False, key="br_due_override")
 
-    with st.form("return_form"):
-        # Search for active borrowings
-        search = st.text_input(
-            "Search by member name or book title",
-            value=global_borrow_search if global_borrow_search else ""
-        )
-        
-        if search:
-            borrowings = Database.execute_query(
-                """SELECT br.borrowing_id, b.title, u.full_name, br.checkout_date, br.due_date,
-                          julianday(date('now')) - julianday(br.due_date) as days_overdue,
-                          bi.inventory_id
-                   FROM borrowing br
-                   JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-                   JOIN books b ON bi.book_id = b.book_id
-                   JOIN users u ON br.user_id = u.user_id
-                   WHERE br.return_date IS NULL 
-                     AND (u.full_name LIKE ? OR b.title LIKE ?)
-                   LIMIT 20""",
-                (f'%{search}%', f'%{search}%')
-            )
-            
-            if borrowings:
-                borrowing_options = {
-                    f"{bw['full_name']} - {bw['title']} (Due: {format_date(bw['due_date'])})": bw 
-                    for bw in borrowings
-                }
-                selected_borrowing = st.selectbox("Select Borrowing", list(borrowing_options.keys()))
-            else:
-                st.warning("No active borrowings found")
-                selected_borrowing = None
-        else:
-            selected_borrowing = None
-        
-        if selected_borrowing and fine_preview_mode:
-            preview = borrowing_options[selected_borrowing]
-            preview_fine = 0
-            if preview['days_overdue'] and preview['days_overdue'] > 0:
-                preview_fine = preview['days_overdue'] * Config.FINE_PER_DAY
-            if preview_fine > 0:
-                st.warning(f"Projected fine on return: {format_currency(preview_fine)}")
-            else:
-                st.info("No fine will be charged for this return")
+            due_date = date.today() + timedelta(days=int(checkout_days))
+            if manual_due_override:
+                due_date = st.date_input("Override Due Date", value=due_date, key="br_due_override_date")
 
-        submit = st.form_submit_button(" Return Book", use_container_width=True)
-        
-        if submit:
-            if not selected_borrowing:
-                st.error("Please select a borrowing to return!")
-            else:
-                borrowing = borrowing_options[selected_borrowing]
-                current_user = Auth.get_user()
-                
-                # Calculate fine if overdue
-                fine = 0
-                if borrowing['days_overdue'] > 0:
-                    fine = borrowing['days_overdue'] * Config.FINE_PER_DAY
-                
-                # Update borrowing record
-                if Database.execute_update(
-                    """UPDATE borrowing 
-                       SET return_date = date('now'), return_to_user_id = ?, 
-                           fine_amount = ?
-                       WHERE borrowing_id = ?""",
-                    (current_user['user_id'], fine, borrowing['borrowing_id'])
-                ):
-                    # Update inventory
-                    Database.execute_update(
-                        "UPDATE book_inventory SET is_available = 1 WHERE inventory_id = ?",
-                        (borrowing['inventory_id'],)
-                    )
-                    
-                    # Update user fine balance if applicable
-                    if fine > 0:
-                        Database.execute_update(
-                            "UPDATE users SET fine_balance = fine_balance + ? WHERE user_id IN (SELECT user_id FROM borrowing WHERE borrowing_id = ?)",
-                            (fine, borrowing['borrowing_id'])
-                        )
-                    
-                    if fine > 0:
-                        st.warning(f" Book returned with fine: {format_currency(fine)}")
+            auto_pick_oldest = st.checkbox("Auto-pick oldest available copy", value=True, key="br_auto_pick_oldest")
+
+            if selected_member and selected_book:
+                member_id_preview = member_options[selected_member]
+                book_id_preview = book_options[selected_book]
+                member_stats = Database.execute_query(
+                    """
+                    SELECT
+                        (SELECT COUNT(*) FROM borrowing WHERE user_id = ? AND return_date IS NULL) as active_loans,
+                        (SELECT COALESCE(fine_balance, 0) FROM users WHERE user_id = ?) as fine_balance,
+                        (SELECT COUNT(*)
+                         FROM borrowing br
+                         JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                         WHERE br.user_id = ? AND bi.book_id = ? AND br.return_date IS NULL) as same_book_active
+                    """,
+                    (member_id_preview, member_id_preview, member_id_preview, book_id_preview),
+                    fetch_one=True
+                ) or {}
+                preview_col1, preview_col2, preview_col3 = st.columns(3, gap="small")
+                with preview_col1:
+                    st.metric("Member Active Loans", int(member_stats.get('active_loans') or 0))
+                with preview_col2:
+                    st.metric("Member Fine Balance", format_currency(float(member_stats.get('fine_balance') or 0)))
+                with preview_col3:
+                    st.metric("Same Title Active", int(member_stats.get('same_book_active') or 0))
+
+            submit_checkout = st.form_submit_button(" Checkout Book", use_container_width=True)
+
+            if submit_checkout:
+                if not selected_member or not selected_book:
+                    st.error("Please select both member and book!")
+                else:
+                    user_id = member_options[selected_member]
+                    book_id = book_options[selected_book]
+
+                    duplicate_active = Database.execute_query(
+                        """
+                        SELECT COUNT(*) as count
+                        FROM borrowing br
+                        JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                        WHERE br.user_id = ? AND bi.book_id = ? AND br.return_date IS NULL
+                        """,
+                        (user_id, book_id),
+                        fetch_one=True
+                    ) or {'count': 0}
+
+                    if int(duplicate_active.get('count') or 0) > 0:
+                        st.error("This member already has an active borrowing for this title.")
                     else:
-                        st.success(" Book returned successfully!")
-                    st.balloons()
+                        if auto_pick_oldest:
+                            inventory = Database.execute_query(
+                                """
+                                SELECT inventory_id
+                                FROM book_inventory
+                                WHERE book_id = ? AND is_available = 1
+                                ORDER BY acquired_date ASC, inventory_id ASC
+                                LIMIT 1
+                                """,
+                                (book_id,), fetch_one=True
+                            )
+                        else:
+                            inventory = Database.execute_query(
+                                "SELECT inventory_id FROM book_inventory WHERE book_id = ? AND is_available = 1 LIMIT 1",
+                                (book_id,), fetch_one=True
+                            )
+
+                        if not inventory:
+                            st.error("No copies available!")
+                        else:
+                            current_user = Auth.get_user()
+                            if Database.execute_update(
+                                """INSERT INTO borrowing (inventory_id, user_id, checkout_date, due_date,
+                                                          checkout_by_user_id)
+                                   VALUES (?, ?, date('now'), ?, ?)""",
+                                (inventory['inventory_id'], user_id, due_date, current_user['user_id'])
+                            ):
+                                Database.execute_update(
+                                    "UPDATE book_inventory SET is_available = 0 WHERE inventory_id = ?",
+                                    (inventory['inventory_id'],)
+                                )
+                                st.success(f" Book checked out successfully! Due date: {due_date}")
+                                st.balloons()
+
+    with return_col:
+        st.markdown("#### Return Book")
+        with st.form("return_form"):
+            search = st.text_input(
+                "Search by member name, email or book title",
+                value=global_borrow_search if global_borrow_search else "",
+                key="br_return_search"
+            )
+            return_only_overdue = st.checkbox("Show overdue only", value=False, key="br_return_only_overdue")
+            waive_fine = st.checkbox("Waive fine for this return", value=False, key="br_return_waive_fine")
+
+            borrowings = []
+            borrowing_options = {}
+            selected_borrowing = None
+            if search:
+                return_query = """
+                    SELECT br.borrowing_id, b.title, u.full_name, u.email, br.checkout_date, br.due_date,
+                           julianday(date('now')) - julianday(br.due_date) as days_overdue,
+                           bi.inventory_id
+                    FROM borrowing br
+                    JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                    JOIN books b ON bi.book_id = b.book_id
+                    JOIN users u ON br.user_id = u.user_id
+                    WHERE br.return_date IS NULL
+                      AND (u.full_name LIKE ? OR u.email LIKE ? OR b.title LIKE ?)
+                """
+                return_params = [f'%{search}%', f'%{search}%', f'%{search}%']
+                if return_only_overdue:
+                    return_query += " AND br.due_date < date('now')"
+                return_query += " ORDER BY br.due_date ASC LIMIT 30"
+
+                borrowings = Database.execute_query(return_query, tuple(return_params))
+                if borrowings:
+                    borrowing_options = {
+                        f"{bw['full_name']} - {bw['title']} (Due: {format_date(bw['due_date'])})": bw
+                        for bw in borrowings
+                    }
+                    selected_borrowing = st.selectbox("Select Borrowing", list(borrowing_options.keys()), key="br_return_select")
+                else:
+                    st.warning("No active borrowings found")
+
+            if selected_borrowing and fine_preview_mode:
+                preview = borrowing_options[selected_borrowing]
+                preview_fine = _compute_fine(preview['days_overdue'])
+                status_col1, status_col2, status_col3 = st.columns(3, gap="small")
+                with status_col1:
+                    st.metric("Days Overdue", max(int(preview['days_overdue']) if preview['days_overdue'] else 0, 0))
+                with status_col2:
+                    st.metric("Projected Fine", format_currency(0 if waive_fine else preview_fine))
+                with status_col3:
+                    st.metric("Waive Fine", "Yes" if waive_fine else "No")
+
+            submit_return = st.form_submit_button(" Return Book", use_container_width=True)
+
+            if submit_return:
+                if not selected_borrowing:
+                    st.error("Please select a borrowing to return!")
+                else:
+                    borrowing = borrowing_options[selected_borrowing]
+                    current_user = Auth.get_user()
+                    fine = 0 if waive_fine else _compute_fine(borrowing['days_overdue'])
+
+                    if Database.execute_update(
+                        """UPDATE borrowing
+                           SET return_date = date('now'), return_to_user_id = ?,
+                               fine_amount = ?
+                           WHERE borrowing_id = ?""",
+                        (current_user['user_id'], fine, borrowing['borrowing_id'])
+                    ):
+                        Database.execute_update(
+                            "UPDATE book_inventory SET is_available = 1 WHERE inventory_id = ?",
+                            (borrowing['inventory_id'],)
+                        )
+
+                        if fine > 0:
+                            Database.execute_update(
+                                "UPDATE users SET fine_balance = fine_balance + ? WHERE user_id IN (SELECT user_id FROM borrowing WHERE borrowing_id = ?)",
+                                (fine, borrowing['borrowing_id'])
+                            )
+
+                        if fine > 0:
+                            st.warning(f" Book returned with fine: {format_currency(fine)}")
+                        else:
+                            st.success(" Book returned successfully!")
+                        st.balloons()
     
     st.divider()
     st.subheader("**Active Borrowings**")
