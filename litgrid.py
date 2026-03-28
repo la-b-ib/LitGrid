@@ -9051,128 +9051,271 @@ def show_manage_books(embedded=False):
     tab1, tab2, tab3, tab4 = st.tabs([" All Books", " Add Book", " Bulk Import", " Statistics"])
     
     with tab1:
-        st.subheader("**Book Catalog**")
-        show_books(embedded=True)
-        st.divider()
-        
-        # Enhanced search with fuzzy option
-        col1, col2, col3, col4 = st.columns(4, gap="small")
-        with col1:
-            search = st.text_input(" Search by title or ISBN", key="mb_search")
-        with col2:
-            use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos", key="mb_use_fuzzy")
-        with col3:
-            status_filter = st.selectbox("Status", ["All", "Active", "Inactive"], key="mb_status_filter")
-        with col4:
-            st.write("")
-            if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
-                st.rerun()
-        
-        # Get books
+        st.subheader("**Unified Catalog Workspace**")
+        st.caption("Browse and manage the catalog together with advanced filters, sorting, and operational actions.")
+
+        with st.expander(" Discovery + Management Controls", expanded=True):
+            row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4, gap="small")
+            with row1_col1:
+                search = st.text_input(" Search (Title, Author, ISBN, Keywords)", key="mb_search")
+            with row1_col2:
+                use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos", key="mb_use_fuzzy")
+            with row1_col3:
+                status_filter = st.selectbox(
+                    "Status",
+                    ["All", "Active", "Inactive", "Available Copies Only", "Checked Out Only"],
+                    key="mb_status_filter"
+                )
+            with row1_col4:
+                view_mode = st.selectbox("View", ["Operational List", "Discovery Cards"], key="mb_view_mode")
+
+            row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4, gap="small")
+            with row2_col1:
+                genres = Database.execute_query(
+                    "SELECT DISTINCT genre FROM books WHERE genre IS NOT NULL AND TRIM(genre) <> '' ORDER BY genre"
+                )
+                genre_options = ["All Genres"] + [g['genre'] for g in genres] if genres else ["All Genres"]
+                selected_genre = st.selectbox("Genre", genre_options, key="mb_genre_filter")
+            with row2_col2:
+                year_from = st.number_input("Year From", min_value=1800, max_value=2025, value=1800, step=1, key="mb_year_from")
+            with row2_col3:
+                year_to = st.number_input("Year To", min_value=1800, max_value=2025, value=2025, step=1, key="mb_year_to")
+            with row2_col4:
+                sort_by = st.selectbox(
+                    "Sort By",
+                    [
+                        "Title (A-Z)",
+                        "Title (Z-A)",
+                        "Year (Newest First)",
+                        "Year (Oldest First)",
+                        "Popularity (High to Low)",
+                        "Popularity (Low to High)"
+                    ],
+                    key="mb_sort_by"
+                )
+
+            row3_col1, row3_col2, row3_col3 = st.columns(3, gap="small")
+            with row3_col1:
+                max_results = st.slider("Max Results", min_value=20, max_value=300, value=100, step=10, key="mb_limit")
+            with row3_col2:
+                fuzzy_threshold = st.slider("Fuzzy Threshold", min_value=30, max_value=95, value=60, step=5, key="mb_fuzzy_threshold")
+            with row3_col3:
+                st.write("")
+                if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
+                    st.rerun()
+
+        # Unified book query
         query = """
-            SELECT b.book_id, b.isbn, b.title, b.publication_year,
-                   b.pages, b.language, b.keywords, b.is_available,
+            SELECT b.book_id, b.isbn, b.title, b.author, b.genre, b.publication_year,
+                   b.pages, b.language, b.keywords, b.popularity_score, b.is_available,
                    (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) as total_copies,
                    (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) as available_copies
             FROM books b
             WHERE 1=1
         """
         params = []
-        
+
+        if selected_genre != "All Genres":
+            query += " AND b.genre = ?"
+            params.append(selected_genre)
+
+        if year_from and year_to:
+            query += " AND b.publication_year BETWEEN ? AND ?"
+            params.extend([year_from, year_to])
+
         if search and not use_fuzzy:
-            query += " AND (b.title LIKE ? OR b.isbn LIKE ? OR b.isbn_13 LIKE ? OR b.isbn_10 LIKE ?)"
-            params.extend([f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%'])
-        
+            query += " AND (b.title LIKE ? OR b.author LIKE ? OR b.isbn LIKE ? OR b.keywords LIKE ? OR b.isbn_13 LIKE ? OR b.isbn_10 LIKE ?)"
+            search_term = f'%{search}%'
+            params.extend([search_term, search_term, search_term, search_term, search_term, search_term])
+
         if status_filter == "Active":
             query += " AND b.is_available = 1"
         elif status_filter == "Inactive":
             query += " AND b.is_available = 0"
-        
-        query += " ORDER BY b.title LIMIT 100"
-        
+        elif status_filter == "Available Copies Only":
+            query += " AND EXISTS (SELECT 1 FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1)"
+        elif status_filter == "Checked Out Only":
+            query += " AND EXISTS (SELECT 1 FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 0)"
+
+        if sort_by == "Title (A-Z)":
+            query += " ORDER BY b.title ASC"
+        elif sort_by == "Title (Z-A)":
+            query += " ORDER BY b.title DESC"
+        elif sort_by == "Year (Newest First)":
+            query += " ORDER BY b.publication_year DESC, b.title ASC"
+        elif sort_by == "Year (Oldest First)":
+            query += " ORDER BY b.publication_year ASC, b.title ASC"
+        elif sort_by == "Popularity (High to Low)":
+            query += " ORDER BY COALESCE(b.popularity_score, 0) DESC, b.title ASC"
+        else:
+            query += " ORDER BY COALESCE(b.popularity_score, 0) ASC, b.title ASC"
+
+        query += " LIMIT ?"
+        params.append(max_results)
+
         books = Database.execute_query(query, tuple(params) if params else None)
-        
-        # Apply fuzzy search if enabled
+
+        # Apply fuzzy search on top of filtered results
         if search and use_fuzzy and books:
-            books = EnhancedSearchFilter.fuzzy_search_books(search, threshold=50)
+            fuzzy_books = EnhancedSearchFilter.fuzzy_search_books(search, threshold=fuzzy_threshold)
+            fuzzy_ids = {b['book_id'] for b in fuzzy_books if b.get('book_id') is not None}
+            books = [book for book in books if book.get('book_id') in fuzzy_ids]
+
+        if books:
+            total_inventory = sum((book.get('total_copies') or 0) for book in books)
+            available_inventory = sum((book.get('available_copies') or 0) for book in books)
+
+            metric_col1, metric_col2, metric_col3 = st.columns(3, gap="small")
+            with metric_col1:
+                st.metric("Books in Result", len(books))
+            with metric_col2:
+                st.metric("Copies (Total)", total_inventory)
+            with metric_col3:
+                st.metric("Copies Available", available_inventory)
         
         if books:
             st.write(f"Found {len(books)} books")
-            
-            for book in books:
-                with st.container():
-                    col1, col2, col3, col4 = st.columns([3, 1, 1, 1], gap="small")
-                    
-                    with col1:
-                        status_icon = "" if book['is_available'] else ""
-                        st.markdown(f"**{status_icon} {book['title']}**")
-                        
-                        isbn_display = book.get('isbn', 'N/A')
-                        st.caption(f"ISBN: {isbn_display} | Year: {book['publication_year'] or 'N/A'}")
-                        
-                        if book.get('keywords'):
-                            st.caption(f" {book['keywords'][:50]}...")
-                    
-                    with col2:
-                        st.metric("Available", f"{book['available_copies'] or 0}/{book['total_copies'] or 0}")
-                        if book.get('pages'):
-                            st.caption(f"Pages: {book['pages']}")
-                        if book.get('language'):
-                            st.caption(f"Language: {book['language']}")
-                    
-                    with col3:
-                        # Show cover thumbnail if available
-                        cover = EnhancedBookManager.get_book_cover(book['book_id'])
-                        if cover:
-                            st.image(cover, width=50)
-                    
-                    with col4:
-                        if st.button(" Edit", key=f"edit_{book['book_id']}", use_container_width=True):
-                            st.session_state[f'edit_book_{book["book_id"]}'] = True
-                        
-                        if st.button(" Details", key=f"details_{book['book_id']}", use_container_width=True):
-                            # Show recommendations, reviews, condition
-                            with st.expander(f"Details: {book['title']}", expanded=True):
-                                dtab1, dtab2, dtab3 = st.tabs([" Recommendations", " Reviews", " Condition"])
-                                
-                                with dtab1:
-                                    recs = SmartUtilities.get_book_recommendations(book['book_id'])
-                                    if recs:
-                                        for rec in recs:
-                                            st.write(f"- {rec.get('title', 'N/A')}")
-                                    else:
-                                        st.info("No recommendations yet")
-                                
-                                with dtab2:
-                                    reviews = ReviewsManager.get_book_reviews(book['book_id'])
-                                    if reviews:
-                                        for review in reviews:
-                                            st.write(f" {review['rating']}/5 - {review['full_name']}")
-                                            st.caption(review['comment'])
-                                    else:
-                                        st.info("No reviews yet")
-                                
-                                with dtab3:
-                                    conditions = EnhancedBookManager.get_book_condition_history(book['book_id'])
-                                    if conditions:
-                                        for cond in conditions:
-                                            st.write(f"**{cond['condition_status'].title()}** - {cond['check_date']}")
-                                            if cond['condition_notes']:
-                                                st.caption(cond['condition_notes'])
-                                    else:
-                                        st.info("No condition records")
-                        
-                        action = "Deactivate" if book['is_available'] else "Activate"
-                        if st.button(f" {action}", key=f"toggle_{book['book_id']}", use_container_width=True):
-                            new_status = not book['is_available']
-                            if Database.execute_update(
-                                "UPDATE books SET is_available = ? WHERE book_id = ?",
-                                (new_status, book['book_id'])
-                            ):
-                                st.success(f"Book {action.lower()}d successfully!")
-                                st.rerun()
-                    
-                    st.divider()
+
+            if view_mode == "Discovery Cards":
+                card_columns = st.columns(3, gap="small")
+                for index, book in enumerate(books):
+                    with card_columns[index % 3]:
+                        with st.container():
+                            st.markdown(f"**{book['title']}**")
+                            st.caption(
+                                f"Author: {book.get('author') or 'N/A'} | Genre: {book.get('genre') or 'N/A'}"
+                            )
+                            st.caption(
+                                f"ISBN: {book.get('isbn') or 'N/A'} | Year: {book.get('publication_year') or 'N/A'}"
+                            )
+                            st.caption(
+                                f"Availability: {book.get('available_copies') or 0}/{book.get('total_copies') or 0} copies"
+                            )
+                            if book.get('keywords'):
+                                st.caption(f"Keywords: {book['keywords'][:70]}")
+
+                            c_action1, c_action2 = st.columns(2, gap="small")
+                            with c_action1:
+                                if st.button(" Details", key=f"card_details_{book['book_id']}", use_container_width=True):
+                                    st.session_state[f"show_card_details_{book['book_id']}"] = True
+                            with c_action2:
+                                action = "Deactivate" if book['is_available'] else "Activate"
+                                if st.button(f" {action}", key=f"card_toggle_{book['book_id']}", use_container_width=True):
+                                    new_status = not book['is_available']
+                                    if Database.execute_update(
+                                        "UPDATE books SET is_available = ? WHERE book_id = ?",
+                                        (new_status, book['book_id'])
+                                    ):
+                                        st.success(f"Book {action.lower()}d successfully!")
+                                        st.rerun()
+
+                            if st.session_state.get(f"show_card_details_{book['book_id']}", False):
+                                with st.expander(f"Details: {book['title']}", expanded=True):
+                                    dtab1, dtab2, dtab3 = st.tabs([" Recommendations", " Reviews", " Condition"])
+
+                                    with dtab1:
+                                        recs = SmartUtilities.get_book_recommendations(book['book_id'])
+                                        if recs:
+                                            for rec in recs:
+                                                st.write(f"- {rec.get('title', 'N/A')}")
+                                        else:
+                                            st.info("No recommendations yet")
+
+                                    with dtab2:
+                                        reviews = ReviewsManager.get_book_reviews(book['book_id'])
+                                        if reviews:
+                                            for review in reviews:
+                                                st.write(f" {review['rating']}/5 - {review['full_name']}")
+                                                st.caption(review['comment'])
+                                        else:
+                                            st.info("No reviews yet")
+
+                                    with dtab3:
+                                        conditions = EnhancedBookManager.get_book_condition_history(book['book_id'])
+                                        if conditions:
+                                            for cond in conditions:
+                                                st.write(f"**{cond['condition_status'].title()}** - {cond['check_date']}")
+                                                if cond['condition_notes']:
+                                                    st.caption(cond['condition_notes'])
+                                        else:
+                                            st.info("No condition records")
+                            st.divider()
+            else:
+                for book in books:
+                    with st.container():
+                        col1, col2, col3, col4 = st.columns([3, 1, 1, 1], gap="small")
+
+                        with col1:
+                            status_icon = "" if book['is_available'] else ""
+                            st.markdown(f"**{status_icon} {book['title']}**")
+
+                            isbn_display = book.get('isbn', 'N/A')
+                            st.caption(f"ISBN: {isbn_display} | Year: {book['publication_year'] or 'N/A'}")
+                            st.caption(f"Author: {book.get('author') or 'N/A'} | Genre: {book.get('genre') or 'N/A'}")
+
+                            if book.get('keywords'):
+                                st.caption(f" {book['keywords'][:50]}...")
+
+                        with col2:
+                            st.metric("Available", f"{book['available_copies'] or 0}/{book['total_copies'] or 0}")
+                            if book.get('pages'):
+                                st.caption(f"Pages: {book['pages']}")
+                            if book.get('language'):
+                                st.caption(f"Language: {book['language']}")
+
+                        with col3:
+                            # Show cover thumbnail if available
+                            cover = EnhancedBookManager.get_book_cover(book['book_id'])
+                            if cover:
+                                st.image(cover, width=50)
+
+                        with col4:
+                            if st.button(" Edit", key=f"list_edit_{book['book_id']}", use_container_width=True):
+                                st.session_state[f'edit_book_{book["book_id"]}'] = True
+
+                            if st.button(" Details", key=f"list_details_{book['book_id']}", use_container_width=True):
+                                # Show recommendations, reviews, condition
+                                with st.expander(f"Details: {book['title']}", expanded=True):
+                                    dtab1, dtab2, dtab3 = st.tabs([" Recommendations", " Reviews", " Condition"])
+
+                                    with dtab1:
+                                        recs = SmartUtilities.get_book_recommendations(book['book_id'])
+                                        if recs:
+                                            for rec in recs:
+                                                st.write(f"- {rec.get('title', 'N/A')}")
+                                        else:
+                                            st.info("No recommendations yet")
+
+                                    with dtab2:
+                                        reviews = ReviewsManager.get_book_reviews(book['book_id'])
+                                        if reviews:
+                                            for review in reviews:
+                                                st.write(f" {review['rating']}/5 - {review['full_name']}")
+                                                st.caption(review['comment'])
+                                        else:
+                                            st.info("No reviews yet")
+
+                                    with dtab3:
+                                        conditions = EnhancedBookManager.get_book_condition_history(book['book_id'])
+                                        if conditions:
+                                            for cond in conditions:
+                                                st.write(f"**{cond['condition_status'].title()}** - {cond['check_date']}")
+                                                if cond['condition_notes']:
+                                                    st.caption(cond['condition_notes'])
+                                        else:
+                                            st.info("No condition records")
+
+                            action = "Deactivate" if book['is_available'] else "Activate"
+                            if st.button(f" {action}", key=f"list_toggle_{book['book_id']}", use_container_width=True):
+                                new_status = not book['is_available']
+                                if Database.execute_update(
+                                    "UPDATE books SET is_available = ? WHERE book_id = ?",
+                                    (new_status, book['book_id'])
+                                ):
+                                    st.success(f"Book {action.lower()}d successfully!")
+                                    st.rerun()
+
+                        st.divider()
         else:
             st.info("No books found")
     
