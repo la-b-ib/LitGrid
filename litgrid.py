@@ -11439,11 +11439,11 @@ def show_borrowing_returns():
             fetch_one=True
         )
 
-        # Row 1: My Active Borrowings | Borrowing Trends & Analytics | Daily Borrowing Trend
+        # Row 1: Active Snapshot | Borrowing Trends & Analytics | Daily Borrowing Trend
         row1_col1, row1_col2, row1_col3 = st.columns(3, gap="small")
 
         with row1_col1:
-            st.markdown("### My Active Borrowings")
+            st.markdown("### Active Snapshot")
             my_active = Database.execute_query(
                 """
                 SELECT b.title, br.due_date,
