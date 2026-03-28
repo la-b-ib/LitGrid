@@ -10963,43 +10963,6 @@ def show_borrowing_returns():
             st.metric("Overdue Loans", overdue_value, f"{overdue_rate:.1f}%")
             st.metric("Fine Preview", "ON" if fine_preview_mode else "OFF")
 
-        vis_col1, vis_col2 = st.columns(2, gap="small")
-        with vis_col1:
-            flow_df = pd.DataFrame([
-                {"stage": "Checkouts", "value": today_checkouts_value},
-                {"stage": "Returns", "value": today_returns_value},
-                {"stage": "Overdue", "value": overdue_value},
-                {"stage": "Renewals", "value": open_renewals},
-            ])
-            fig_flow = px.bar(
-                flow_df,
-                x="stage",
-                y="value",
-                title="Operational Flow Snapshot",
-                labels={"stage": "Stage", "value": "Count"},
-                color="value",
-                color_continuous_scale="Blues"
-            )
-            fig_flow.update_layout(height=320, xaxis_title=None)
-            st.plotly_chart(fig_flow, use_container_width=True)
-
-        with vis_col2:
-            status_df = pd.DataFrame([
-                {"status": "Healthy", "count": max(active_loans_value - due_soon_value - overdue_value, 0)},
-                {"status": "Due Soon", "count": due_soon_value},
-                {"status": "Overdue", "count": overdue_value},
-            ])
-            fig_status = px.pie(
-                status_df,
-                names="status",
-                values="count",
-                title="Active Loan Health Split",
-                hole=0.45,
-                color_discrete_map={"Healthy": "#2E7D32", "Due Soon": "#F9A825", "Overdue": "#C62828"}
-            )
-            fig_status.update_layout(height=320)
-            st.plotly_chart(fig_status, use_container_width=True)
-
         focus_queue = Database.execute_query(
             """
             SELECT
