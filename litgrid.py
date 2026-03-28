@@ -10838,6 +10838,135 @@ def show_borrowing_returns():
         help="Used as default in Return and Active Borrowings sections"
     )
 
+    st.markdown("### Unified Operations Workspace")
+    workspace_col1, workspace_col2, workspace_col3 = st.columns(3, gap="small")
+
+    pending_renewals = Database.execute_query(
+        "SELECT COUNT(*) as count FROM renewal_requests WHERE status = 'pending'",
+        fetch_one=True
+    ) or {'count': 0}
+    open_renewals = int(pending_renewals.get('count') or 0)
+
+    active_loans_value = int(kpi_summary.get('active_loans') or 0)
+    overdue_value = int(kpi_summary.get('overdue_loans') or 0)
+    due_soon_value = int(kpi_summary.get('due_soon') or 0)
+    today_checkouts_value = int(kpi_summary.get('today_checkouts') or 0)
+    today_returns_value = int(kpi_summary.get('today_returns') or 0)
+    today_fines_value = float(kpi_summary.get('today_fines') or 0)
+
+    with workspace_col1:
+        st.info("Current Load")
+        st.metric("Open Work Items", active_loans_value + due_soon_value + overdue_value + open_renewals)
+        st.metric("Pending Renewals", open_renewals)
+        st.metric("Due Soon", due_soon_value)
+
+    with workspace_col2:
+        st.info("Daily Throughput")
+        net_flow = today_checkouts_value - today_returns_value
+        st.metric("Today Checkouts", today_checkouts_value)
+        st.metric("Today Returns", today_returns_value)
+        st.metric("Net Flow", net_flow)
+
+    with workspace_col3:
+        st.info("Risk & Financial")
+        overdue_rate = (overdue_value / active_loans_value * 100) if active_loans_value > 0 else 0.0
+        st.metric("Overdue Loans", overdue_value, f"{overdue_rate:.1f}%")
+        st.metric("Today Fines", format_currency(today_fines_value))
+        st.metric("Fine Preview", "ON" if fine_preview_mode else "OFF")
+
+    vis_col1, vis_col2 = st.columns(2, gap="small")
+    with vis_col1:
+        flow_df = pd.DataFrame([
+            {"stage": "Checkouts", "value": today_checkouts_value},
+            {"stage": "Returns", "value": today_returns_value},
+            {"stage": "Overdue", "value": overdue_value},
+            {"stage": "Renewals", "value": open_renewals},
+        ])
+        fig_flow = px.bar(
+            flow_df,
+            x="stage",
+            y="value",
+            title="Operational Flow Snapshot",
+            labels={"stage": "Stage", "value": "Count"},
+            color="value",
+            color_continuous_scale="Blues"
+        )
+        fig_flow.update_layout(height=320, xaxis_title=None)
+        st.plotly_chart(fig_flow, use_container_width=True)
+
+    with vis_col2:
+        status_df = pd.DataFrame([
+            {"status": "Healthy", "count": max(active_loans_value - due_soon_value - overdue_value, 0)},
+            {"status": "Due Soon", "count": due_soon_value},
+            {"status": "Overdue", "count": overdue_value},
+        ])
+        fig_status = px.pie(
+            status_df,
+            names="status",
+            values="count",
+            title="Active Loan Health Split",
+            hole=0.45,
+            color_discrete_map={"Healthy": "#2E7D32", "Due Soon": "#F9A825", "Overdue": "#C62828"}
+        )
+        fig_status.update_layout(height=320)
+        st.plotly_chart(fig_status, use_container_width=True)
+
+    focus_queue = Database.execute_query(
+        """
+        SELECT
+            b.title,
+            u.full_name,
+            br.due_date,
+            CAST(julianday(br.due_date) - julianday(date('now')) AS INTEGER) as days_remaining
+        FROM borrowing br
+        JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+        JOIN books b ON bi.book_id = b.book_id
+        JOIN users u ON br.user_id = u.user_id
+        WHERE br.return_date IS NULL
+          AND (julianday(br.due_date) - julianday(date('now')) <= ?)
+        ORDER BY br.due_date ASC
+        LIMIT 12
+        """,
+        (int(due_soon_days),)
+    ) or []
+
+    if focus_queue:
+        st.markdown("#### Priority Queue (Due Soon / Overdue)")
+        queue_df = pd.DataFrame(focus_queue)
+        queue_df['status'] = queue_df['days_remaining'].apply(
+            lambda d: "Overdue" if int(d) < 0 else "Due Soon"
+        )
+        st.dataframe(
+            queue_df[['title', 'full_name', 'due_date', 'days_remaining', 'status']],
+            use_container_width=True,
+            hide_index=True
+        )
+
+    if overdue_value > 0 or open_renewals > 0:
+        st.warning(
+            f"Attention: {overdue_value} overdue loans and {open_renewals} pending renewals need action."
+        )
+    else:
+        st.success("All core lending operations are healthy right now.")
+
+    st.markdown("#### Unified Quick Actions")
+    qa_col1, qa_col2, qa_col3 = st.columns(3, gap="small")
+    with qa_col1:
+        st.caption("Checkout Queue")
+        st.info("Use Checkout Book below to issue books with custom days and live availability.")
+        if st.button("Jump to Checkout", key="br_jump_checkout", use_container_width=True):
+            st.toast("Scroll to Checkout Book section")
+    with qa_col2:
+        st.caption("Return Queue")
+        st.info("Use Return Book below with fine preview and member/book smart search.")
+        if st.button("Jump to Return", key="br_jump_return", use_container_width=True):
+            st.toast("Scroll to Return Book section")
+    with qa_col3:
+        st.caption("Renewal Queue")
+        st.info("Use Renewal Requests below for approval workflow or self-service requests.")
+        if st.button("Jump to Renewals", key="br_jump_renewals", use_container_width=True):
+            st.toast("Scroll to Renewal Requests section")
+
     st.divider()
 
     st.subheader("**Checkout Book**")
