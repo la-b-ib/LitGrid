@@ -6660,8 +6660,10 @@ def show_books(embedded=False):
         
         with col3:
             # Publication year range
-            year_from = st.number_input(" Year From", min_value=1800, max_value=2025, value=1800, step=1)
-            year_to = st.number_input(" Year To", min_value=1800, max_value=2025, value=2025, step=1)
+            current_year = datetime.now().year
+            max_year = current_year + 10
+            year_from = st.number_input(" Year From", min_value=1800, max_value=max_year, value=1800, step=1)
+            year_to = st.number_input(" Year To", min_value=1800, max_value=max_year, value=current_year, step=1)
             
             # Sort options
             sort_by = st.selectbox(" Sort By", [
@@ -9080,10 +9082,12 @@ def show_manage_books(embedded=False):
             )
 
         row3_col1, row3_col2, row3_col3, row3_col4 = st.columns(4, gap="small")
+        current_year = datetime.now().year
+        max_year = current_year + 10
         with row3_col1:
-            year_from = st.number_input("Year From", min_value=1800, max_value=2025, value=1800, step=1, key="mb_year_from")
+            year_from = st.number_input("Year From", min_value=1800, max_value=max_year, value=1800, step=1, key="mb_year_from")
         with row3_col2:
-            year_to = st.number_input("Year To", min_value=1800, max_value=2025, value=2025, step=1, key="mb_year_to")
+            year_to = st.number_input("Year To", min_value=1800, max_value=max_year, value=current_year, step=1, key="mb_year_to")
         with row3_col3:
             max_results = st.slider("Max Results", min_value=20, max_value=300, value=120, step=10, key="mb_limit")
         with row3_col4:
@@ -11646,11 +11650,13 @@ def show_my_library():
             copies = 1
             if is_management_user and create_catalog:
                 st.markdown("####  Catalog Details")
+                current_year = datetime.now().year
+                max_year = current_year + 10
                 cat_col1, cat_col2, cat_col3 = st.columns(3, gap="small")
                 with cat_col1:
                     catalog_isbn = st.text_input("ISBN (optional)", placeholder="Auto-generated if empty", key="ucc_isbn")
                 with cat_col2:
-                    publication_year = st.number_input("Publication Year", min_value=1800, max_value=2025, value=datetime.now().year, key="ucc_year")
+                    publication_year = st.number_input("Publication Year", min_value=1800, max_value=max_year, value=current_year, key="ucc_year")
                 with cat_col3:
                     copies = st.number_input("Copies", min_value=1, value=1, key="ucc_copies")
 
@@ -11789,7 +11795,7 @@ def show_my_library():
                 batch_pub_year = st.number_input(
                     "Catalog Year (for sync)",
                     min_value=1800,
-                    max_value=2025,
+                    max_value=datetime.now().year + 10,
                     value=datetime.now().year,
                     key="ucs_batch_year"
                 )
