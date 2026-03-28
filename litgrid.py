@@ -11041,23 +11041,7 @@ def show_borrowing_returns():
         else:
             st.success("All core lending operations are healthy right now.")
 
-        st.markdown("#### Unified Quick Actions")
-        qa_col1, qa_col2, qa_col3 = st.columns(3, gap="small")
-        with qa_col1:
-            st.caption("Checkout Queue")
-            st.info("Use Checkout Book below to issue books with custom days and live availability.")
-            if st.button("Jump to Checkout", key="br_jump_checkout", use_container_width=True):
-                st.toast("Scroll to Checkout Book section")
-        with qa_col2:
-            st.caption("Return Queue")
-            st.info("Use Return Book below with fine preview and member/book smart search.")
-            if st.button("Jump to Return", key="br_jump_return", use_container_width=True):
-                st.toast("Scroll to Return Book section")
-        with qa_col3:
-            st.caption("Renewal Queue")
-            st.info("Use Renewal Requests below for approval workflow or self-service requests.")
-            if st.button("Jump to Renewals", key="br_jump_renewals", use_container_width=True):
-                st.toast("Scroll to Renewal Requests section")
+
 
     with active_col:
         render_active_borrowings_panel()
@@ -14917,4 +14901,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
