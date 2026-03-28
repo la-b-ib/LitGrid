@@ -9052,6 +9052,8 @@ def show_manage_books(embedded=False):
     
     with tab1:
         st.subheader("**Book Catalog**")
+        show_books(embedded=True)
+        st.divider()
         
         # Enhanced search with fuzzy option
         col1, col2, col3, col4 = st.columns(4, gap="small")
@@ -11341,8 +11343,9 @@ def show_my_library():
     
     # Tab 1: My PDFs & Upload PDF
     with tabs[0]:
-        show_books(embedded=True)
-        st.divider()
+        if not is_management_user:
+            show_books(embedded=True)
+            st.divider()
 
         left_col, right_col = st.columns(2, gap="large")
 
