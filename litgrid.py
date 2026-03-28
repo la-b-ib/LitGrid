@@ -10930,7 +10930,7 @@ def show_borrowing_returns():
     unified_col, active_col = st.columns([3, 2], gap="large")
 
     with unified_col:
-        st.markdown("### Unified Operations Workspace")
+        st.markdown("### Operations")
         workspace_col1, workspace_col2, workspace_col3 = st.columns(3, gap="small")
 
         pending_renewals = Database.execute_query(
@@ -10950,20 +10950,17 @@ def show_borrowing_returns():
             st.info("Current Load")
             st.metric("Open Work Items", active_loans_value + due_soon_value + overdue_value + open_renewals)
             st.metric("Pending Renewals", open_renewals)
-            st.metric("Due Soon", due_soon_value)
+
 
         with workspace_col2:
             st.info("Daily Throughput")
             net_flow = today_checkouts_value - today_returns_value
-            st.metric("Today Checkouts", today_checkouts_value)
-            st.metric("Today Returns", today_returns_value)
             st.metric("Net Flow", net_flow)
 
         with workspace_col3:
             st.info("Risk & Financial")
             overdue_rate = (overdue_value / active_loans_value * 100) if active_loans_value > 0 else 0.0
             st.metric("Overdue Loans", overdue_value, f"{overdue_rate:.1f}%")
-            st.metric("Today Fines", format_currency(today_fines_value))
             st.metric("Fine Preview", "ON" if fine_preview_mode else "OFF")
 
         vis_col1, vis_col2 = st.columns(2, gap="small")
