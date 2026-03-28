@@ -10791,7 +10791,55 @@ def show_manage_members():
 def show_borrowing_returns():
     """Borrowing and returns page"""
     st.markdown('<h1 class="litgrid-header">Borrowing & Returns</h1>', unsafe_allow_html=True)
-    
+
+    st.markdown("### Control Center")
+    ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns(4, gap="small")
+    with ctrl_col1:
+        due_soon_days = st.slider("Due Soon Threshold (days)", min_value=1, max_value=14, value=3, key="br_due_soon_days")
+    with ctrl_col2:
+        trend_window = st.selectbox("Trend Window", ["7D", "30D", "90D", "180D", "365D"], index=1, key="br_trend_window")
+    with ctrl_col3:
+        fine_preview_mode = st.checkbox("Fine Preview Mode", value=True, key="br_fine_preview")
+    with ctrl_col4:
+        if st.button("Refresh Dashboard", use_container_width=True, key="br_refresh_dashboard"):
+            st.rerun()
+
+    kpi_summary = Database.execute_query(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM borrowing WHERE return_date IS NULL) as active_loans,
+            (SELECT COUNT(*) FROM borrowing WHERE return_date IS NULL AND date(due_date) < date('now')) as overdue_loans,
+            (SELECT COUNT(*) FROM borrowing WHERE return_date IS NULL AND julianday(due_date) - julianday(date('now')) BETWEEN 0 AND ?) as due_soon,
+            (SELECT COUNT(*) FROM borrowing WHERE date(checkout_date) = date('now')) as today_checkouts,
+            (SELECT COUNT(*) FROM borrowing WHERE date(return_date) = date('now')) as today_returns,
+            (SELECT COALESCE(SUM(fine_amount), 0) FROM borrowing WHERE date(return_date) = date('now')) as today_fines
+        """,
+        (int(due_soon_days),),
+        fetch_one=True
+    ) or {}
+
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5, kpi_col6 = st.columns(6, gap="small")
+    with kpi_col1:
+        st.metric("Active Loans", int(kpi_summary.get('active_loans') or 0))
+    with kpi_col2:
+        st.metric("Overdue", int(kpi_summary.get('overdue_loans') or 0))
+    with kpi_col3:
+        st.metric("Due Soon", int(kpi_summary.get('due_soon') or 0))
+    with kpi_col4:
+        st.metric("Today Checkouts", int(kpi_summary.get('today_checkouts') or 0))
+    with kpi_col5:
+        st.metric("Today Returns", int(kpi_summary.get('today_returns') or 0))
+    with kpi_col6:
+        st.metric("Today Fines", format_currency(float(kpi_summary.get('today_fines') or 0)))
+
+    global_borrow_search = st.text_input(
+        "Global Borrowing Search (member/book/email)",
+        key="br_global_search",
+        help="Used as default in Return and Active Borrowings sections"
+    )
+
+    st.divider()
+
     st.subheader("**Checkout Book**")
     
     with st.form("checkout_form"):
@@ -10876,10 +10924,13 @@ def show_borrowing_returns():
     
     st.divider()
     st.subheader("**Return Book**")
-    
+
     with st.form("return_form"):
         # Search for active borrowings
-        search = st.text_input("Search by member name or book title")
+        search = st.text_input(
+            "Search by member name or book title",
+            value=global_borrow_search if global_borrow_search else ""
+        )
         
         if search:
             borrowings = Database.execute_query(
@@ -10908,6 +10959,16 @@ def show_borrowing_returns():
         else:
             selected_borrowing = None
         
+        if selected_borrowing and fine_preview_mode:
+            preview = borrowing_options[selected_borrowing]
+            preview_fine = 0
+            if preview['days_overdue'] and preview['days_overdue'] > 0:
+                preview_fine = preview['days_overdue'] * Config.FINE_PER_DAY
+            if preview_fine > 0:
+                st.warning(f"Projected fine on return: {format_currency(preview_fine)}")
+            else:
+                st.info("No fine will be charged for this return")
+
         submit = st.form_submit_button(" Return Book", use_container_width=True)
         
         if submit:
@@ -10953,11 +11014,15 @@ def show_borrowing_returns():
     st.subheader("**Active Borrowings**")
     
     # Filters
-    col1, col2 = st.columns(2, gap="small")
+    col1, col2, col3, col4 = st.columns(4, gap="small")
     with col1:
-        filter_type = st.selectbox("Filter", ["All", "Due Soon (< 3 days)", "Overdue"])
+        filter_type = st.selectbox("Filter", ["All", f"Due Soon (< {due_soon_days} days)", "Overdue"], key="br_active_filter")
     with col2:
-        search_active = st.text_input("Search by member or book")
+        search_active = st.text_input("Search by member or book", value=global_borrow_search if global_borrow_search else "", key="br_active_search")
+    with col3:
+        sort_active = st.selectbox("Sort By", ["Due Date (Earliest)", "Due Date (Latest)", "Member A-Z", "Book A-Z"], key="br_active_sort")
+    with col4:
+        active_limit = st.slider("Max Rows", min_value=10, max_value=200, value=50, step=10, key="br_active_limit")
     
     query = """
         SELECT br.borrowing_id, b.title, b.isbn, u.full_name, u.email,
@@ -10972,8 +11037,9 @@ def show_borrowing_returns():
     """
     params = []
     
-    if filter_type == "Due Soon (< 3 days)":
-        query += " AND julianday(br.due_date) - julianday(date('now')) BETWEEN 0 AND 3"
+    if filter_type == f"Due Soon (< {due_soon_days} days)":
+        query += " AND julianday(br.due_date) - julianday(date('now')) BETWEEN 0 AND ?"
+        params.append(int(due_soon_days))
     elif filter_type == "Overdue":
         query += " AND br.due_date < date('now')"
     
@@ -10981,12 +11047,33 @@ def show_borrowing_returns():
         query += " AND (u.full_name LIKE ? OR b.title LIKE ?)"
         params.extend([f'%{search_active}%', f'%{search_active}%'])
     
-    query += " ORDER BY br.due_date"
+    if sort_active == "Due Date (Latest)":
+        query += " ORDER BY br.due_date DESC"
+    elif sort_active == "Member A-Z":
+        query += " ORDER BY u.full_name ASC, br.due_date ASC"
+    elif sort_active == "Book A-Z":
+        query += " ORDER BY b.title ASC, br.due_date ASC"
+    else:
+        query += " ORDER BY br.due_date ASC"
+
+    query += " LIMIT ?"
+    params.append(int(active_limit))
     
     active = Database.execute_query(query, tuple(params) if params else None)
     
     if active:
         st.write(f"Found {len(active)} active borrowings")
+
+        export_df = pd.DataFrame(active)
+        if not export_df.empty:
+            st.download_button(
+                "Download Active Borrowings CSV",
+                export_df.to_csv(index=False),
+                file_name="active_borrowings.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="br_export_active_csv"
+            )
         
         for bw in active:
             col1, col2 = st.columns([3, 1], gap="small")
@@ -10998,13 +11085,16 @@ def show_borrowing_returns():
             
             with col2:
                 if bw['days_overdue'] and bw['days_overdue'] > 0:
-                    st.error(f" Overdue by {bw['days_overdue']} days")
+                    overdue_days = int(bw['days_overdue'])
+                    st.error(f" Overdue by {overdue_days} days")
                     fine = bw['days_overdue'] * Config.FINE_PER_DAY
                     st.caption(f"Fine: {format_currency(fine)}")
-                elif bw['days_remaining'] <= 3:
-                    st.warning(f"Due in {bw['days_remaining']} days")
+                elif bw['days_remaining'] <= due_soon_days:
+                    remaining_days = max(int(bw['days_remaining']), 0)
+                    st.warning(f"Due in {remaining_days} days")
                 else:
-                    st.info(f" Due in {bw['days_remaining']} days")
+                    remaining_days = max(int(bw['days_remaining']), 0)
+                    st.info(f" Due in {remaining_days} days")
             
             st.divider()
     else:
@@ -11103,11 +11193,11 @@ def show_borrowing_returns():
                     st.caption(f"Checked out: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
                     
                     if bw['days_remaining'] < 0:
-                        st.error(f" Overdue by {abs(bw['days_remaining'])} days")
-                    elif bw['days_remaining'] <= 3:
-                        st.warning(f"Due in {bw['days_remaining']} days")
+                        st.error(f" Overdue by {abs(int(bw['days_remaining']))} days")
+                    elif bw['days_remaining'] <= due_soon_days:
+                        st.warning(f"Due in {max(int(bw['days_remaining']), 0)} days")
                     else:
-                        st.info(f" Due in {bw['days_remaining']} days")
+                        st.info(f" Due in {max(int(bw['days_remaining']), 0)} days")
                 
                 with col2:
                     if bw['has_pending'] > 0:
@@ -11131,15 +11221,22 @@ def show_borrowing_returns():
     
     st.divider()
     st.subheader(" Borrowing Trends & Analytics")
-    
+
+    trend_map = {"7D": 7, "30D": 30, "90D": 90, "180D": 180, "365D": 365}
+    trend_days = trend_map.get(trend_window, 30)
+
     # Date range selector
-    col1, col2 = st.columns(2, gap="small")
+    col1, col2, col3 = st.columns(3, gap="small")
     with col1:
-        start_date = st.date_input("Start Date", date.today() - timedelta(days=30))
+        start_date = st.date_input("Start Date", date.today() - timedelta(days=trend_days), key="br_trend_start")
     with col2:
-        end_date = st.date_input("End Date", date.today())
-    
-    if st.button(" Generate Trends", use_container_width=True):
+        end_date = st.date_input("End Date", date.today(), key="br_trend_end")
+    with col3:
+        auto_generate_trends = st.checkbox("Auto Generate", value=True, key="br_trend_auto")
+
+    generate_trends = auto_generate_trends or st.button(" Generate Trends", use_container_width=True, key="br_generate_trends")
+
+    if generate_trends:
         st.divider()
         
         # Daily borrowing trend
@@ -11147,7 +11244,7 @@ def show_borrowing_returns():
         daily_data = Database.execute_query("""
             SELECT DATE(checkout_date) as date, COUNT(*) as checkouts
             FROM borrowing
-            WHERE checkout_date BETWEEN %s AND %s
+            WHERE checkout_date BETWEEN ? AND ?
             GROUP BY DATE(checkout_date)
             ORDER BY date
         """, (start_date, end_date))
@@ -11167,12 +11264,12 @@ def show_borrowing_returns():
         col1, col2, col3 = st.columns(3, gap="small")
         
         total_borrowed = Database.execute_query(
-            "SELECT COUNT(*) as count FROM borrowing WHERE checkout_date BETWEEN %s AND %s",
+            "SELECT COUNT(*) as count FROM borrowing WHERE checkout_date BETWEEN ? AND ?",
             (start_date, end_date), fetch_one=True
         )
         
         total_returned = Database.execute_query(
-            "SELECT COUNT(*) as count FROM borrowing WHERE return_date BETWEEN %s AND %s",
+            "SELECT COUNT(*) as count FROM borrowing WHERE return_date BETWEEN ? AND ?",
             (start_date, end_date), fetch_one=True
         )
         
@@ -11196,7 +11293,7 @@ def show_borrowing_returns():
             FROM borrowing br
             JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
             JOIN books b ON bi.book_id = b.book_id
-            WHERE br.checkout_date BETWEEN %s AND %s
+            WHERE br.checkout_date BETWEEN ? AND ?
             GROUP BY b.book_id, b.title
             ORDER BY borrow_count DESC
             LIMIT 10
@@ -11217,7 +11314,7 @@ def show_borrowing_returns():
         avg_duration = Database.execute_query("""
             SELECT AVG(julianday(return_date) - julianday(checkout_date)) as avg_days
             FROM borrowing
-            WHERE return_date BETWEEN %s AND %s
+            WHERE return_date BETWEEN ? AND ?
         """, (start_date, end_date), fetch_one=True)
         
         if avg_duration and avg_duration['avg_days']:
