@@ -9048,7 +9048,7 @@ def show_manage_books(embedded=False):
     else:
         st.markdown('<h1 class="litgrid-header"> Manage Books</h1>', unsafe_allow_html=True)
     
-    books_workspace_tab, = st.tabs([" Books Workspace"])
+    books_workspace_tab = st.container()
     
     with books_workspace_tab:
         st.subheader(" Browse Books")
