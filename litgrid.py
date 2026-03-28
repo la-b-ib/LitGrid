@@ -660,112 +660,117 @@ class FileHandler:
         return file_path
     
     @staticmethod
-    def validate_file_size(file, max_size_mb=10):
-        """Validate file size"""
-        file_size = len(file.getvalue()) / (1024 * 1024)  # Convert to MB
-        return file_size <= max_size_mb
-    
-    @staticmethod
-    def get_file_extension(filename):
-        """Get file extension"""
-        return os.path.splitext(filename)[1].lower()
-    
-    @staticmethod
-    def image_to_bytes(image):
-        """Convert PIL Image to bytes"""
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='PNG')
-        return img_byte_arr.getvalue()
-    
-    @staticmethod
-    def bytes_to_image(image_bytes):
-        """Convert bytes to PIL Image"""
-        return Image.open(io.BytesIO(image_bytes))
+    def validate_file_size(uploaded_file, max_size_mb=10):
+        """Validate uploaded file size."""
+        try:
+            return (uploaded_file.size / (1024 * 1024)) <= max_size_mb
+        except Exception:
+            return False
 
 class PDFHandler:
-    """PDF handling and preview utilities"""
-    
+    """PDF processing utilities with safe fallbacks."""
+
     @staticmethod
     def extract_text(pdf_bytes, max_pages=5):
-        """Extract text from PDF"""
-        text = ""
+        """Extract text from a PDF binary payload."""
         try:
-            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-                for i, page in enumerate(pdf.pages[:max_pages]):
-                    text += f"\n--- Page {i+1} ---\n"
-                    text += page.extract_text() or ""
-        except:
-            pass
-        return text
-    
+            if PDF_PLUMBER_AVAILABLE:
+                with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                    chunks = []
+                    for page in pdf.pages[:max_pages]:
+                        chunks.append(page.extract_text() or "")
+                    return "\n\n".join(chunks).strip()
+
+            if PYMUPDF_AVAILABLE:
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                try:
+                    chunks = []
+                    for page_idx in range(min(max_pages, len(doc))):
+                        chunks.append(doc[page_idx].get_text("text") or "")
+                    return "\n\n".join(chunks).strip()
+                finally:
+                    doc.close()
+        except Exception:
+            return ""
+
+        return ""
+
     @staticmethod
     def get_pdf_info(pdf_bytes):
-        """Get PDF metadata"""
+        """Return lightweight PDF metadata for UI and storage."""
+        info = {'page_count': 0, 'title': '', 'author': ''}
         try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            return {
-                'pages': doc.page_count,
-                'title': doc.metadata.get('title', ''),
-                'author': doc.metadata.get('author', ''),
-                'subject': doc.metadata.get('subject', ''),
-                'size_mb': len(pdf_bytes) / (1024 * 1024)
-            }
-        except:
-            return {'pages': 0, 'size_mb': 0}
-    
-    @staticmethod
-    def render_pdf_page(pdf_bytes, page_num=0, zoom=2.0):
-        """Render PDF page as image"""
-        try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            page = doc[page_num]
-            mat = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat)
-            img_data = pix.tobytes("png")
-            return Image.open(io.BytesIO(img_data))
-        except:
-            return None
+            if PDF_PLUMBER_AVAILABLE:
+                with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                    info['page_count'] = len(pdf.pages)
+                    metadata = pdf.metadata or {}
+                    info['title'] = metadata.get('Title') or ''
+                    info['author'] = metadata.get('Author') or ''
+                    return info
+
+            if PYMUPDF_AVAILABLE:
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                try:
+                    info['page_count'] = len(doc)
+                    metadata = doc.metadata or {}
+                    info['title'] = metadata.get('title') or ''
+                    info['author'] = metadata.get('author') or ''
+                    return info
+                finally:
+                    doc.close()
+        except Exception:
+            return info
+
+        return info
 
 class BarcodeQRGenerator:
-    """Generate barcodes and QR codes"""
-    
+    """Barcode and QR code generators."""
+
     @staticmethod
-    def generate_qr(data, size=10):
-        """Generate QR code"""
-        qr = qrcode.QRCode(version=1, box_size=size, border=2)
-        qr.add_data(data)
-        qr.make(fit=True)
-        return qr.make_image(fill_color="black", back_color="white")
-    
-    @staticmethod
-    def generate_barcode(data, barcode_type='code128'):
-        """Generate barcode"""
-        try:
-            barcode_class = barcode.get_barcode_class(barcode_type)
-            barcode_obj = barcode_class(str(data), writer=ImageWriter())
-            
-            buffer = io.BytesIO()
-            barcode_obj.write(buffer)
-            buffer.seek(0)
-            return Image.open(buffer)
-        except:
+    def generate_barcode(value):
+        """Generate barcode image (PIL) if barcode dependency is available."""
+        if not BARCODE_AVAILABLE:
             return None
-    
+        try:
+            code_class = barcode.get_barcode_class('code128')
+            writer = ImageWriter()
+            barcode_obj = code_class(str(value), writer=writer)
+            output = BytesIO()
+            barcode_obj.write(output)
+            output.seek(0)
+            return Image.open(output)
+        except Exception:
+            return None
+
     @staticmethod
-    def qr_to_base64(qr_image):
-        """Convert QR code to base64"""
-        buffer = io.BytesIO()
-        qr_image.save(buffer, format='PNG')
-        return base64.b64encode(buffer.getvalue()).decode()
+    def generate_qr(value):
+        """Generate QR code image (PIL)."""
+        try:
+            qr = qrcode.QRCode(version=1, box_size=10, border=4)
+            qr.add_data(str(value))
+            qr.make(fit=True)
+            return qr.make_image(fill_color="black", back_color="white")
+        except Exception:
+            return None
 
 class FuzzySearchEngine:
-    """Fuzzy search implementation"""
-    
+    """Simple fuzzy search helpers."""
+
     @staticmethod
-    def search_books(query, books_list, threshold=60):
-        """Fuzzy search books"""
+    def search_books(query, books_list, threshold=70):
+        """Fuzzy search books by title/author/genre/isbn."""
         if not query or not books_list:
             return []
+
+        results = []
+        for book in books_list:
+            searchable = f"{book.get('title', '')} {book.get('author', '')} {book.get('genre', '')} {book.get('isbn', '')}"
+            score = fuzz.partial_ratio(query.lower(), searchable.lower())
+            if score >= threshold:
+                results.append((score, book))
+
+        results.sort(reverse=True, key=lambda x: x[0])
+        return [book for score, book in results]
         
         results = []
         for book in books_list:
@@ -9041,6 +9046,131 @@ def show_account():
                 st.success(f"✅ Anonymous alias rotated to: **{new_alias}**")
                 st.rerun()
 
+def show_book_catalog_widget(key_prefix="mb"):
+    """Reusable Book Catalog list with search and actions."""
+    st.subheader("**Book Catalog**")
+    
+    # Enhanced search with fuzzy option
+    col1, col2, col3, col4 = st.columns(4, gap="small")
+    with col1:
+        search = st.text_input(" Search by title or ISBN", key=f"{key_prefix}_search")
+    with col2:
+        use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos", key=f"{key_prefix}_use_fuzzy")
+    with col3:
+        status_filter = st.selectbox("Status", ["All", "Active", "Inactive"], key=f"{key_prefix}_status_filter")
+    with col4:
+        st.write("")
+        if st.button(" Refresh", use_container_width=True, key=f"{key_prefix}_refresh"):
+            st.rerun()
+    
+    # Get books
+    query = """
+        SELECT b.book_id, b.isbn, b.title, b.publication_year,
+               b.pages, b.language, b.keywords, b.is_available,
+               (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) as total_copies,
+               (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) as available_copies
+        FROM books b
+        WHERE 1=1
+    """
+    params = []
+    
+    if search and not use_fuzzy:
+        query += " AND (b.title LIKE ? OR b.isbn LIKE ? OR b.isbn_13 LIKE ? OR b.isbn_10 LIKE ?)"
+        params.extend([f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%'])
+    
+    if status_filter == "Active":
+        query += " AND b.is_available = 1"
+    elif status_filter == "Inactive":
+        query += " AND b.is_available = 0"
+    
+    query += " ORDER BY b.title LIMIT 100"
+    
+    books = Database.execute_query(query, tuple(params) if params else None)
+    
+    # Apply fuzzy search if enabled
+    if search and use_fuzzy and books:
+        books = EnhancedSearchFilter.fuzzy_search_books(search, threshold=50)
+    
+    if books:
+        st.write(f"Found {len(books)} books")
+        
+        for book in books:
+            with st.container():
+                col1, col2, col3, col4 = st.columns([3, 1, 1, 1], gap="small")
+                
+                with col1:
+                    status_icon = "" if book['is_available'] else ""
+                    st.markdown(f"**{status_icon} {book['title']}**")
+                    
+                    isbn_display = book.get('isbn', 'N/A')
+                    st.caption(f"ISBN: {isbn_display} | Year: {book['publication_year'] or 'N/A'}")
+                    
+                    if book.get('keywords'):
+                        st.caption(f" {book['keywords'][:50]}...")
+                
+                with col2:
+                    st.metric("Available", f"{book['available_copies'] or 0}/{book['total_copies'] or 0}")
+                    if book.get('pages'):
+                        st.caption(f"Pages: {book['pages']}")
+                    if book.get('language'):
+                        st.caption(f"Language: {book['language']}")
+                
+                with col3:
+                    # Show cover thumbnail if available
+                    cover = EnhancedBookManager.get_book_cover(book['book_id'])
+                    if cover:
+                        st.image(cover, width=50)
+                
+                with col4:
+                    if st.button(" Edit", key=f"{key_prefix}_edit_{book['book_id']}", use_container_width=True):
+                        st.session_state[f'edit_book_{book["book_id"]}'] = True
+                    
+                    if st.button(" Details", key=f"{key_prefix}_details_{book['book_id']}", use_container_width=True):
+                        # Show recommendations, reviews, condition
+                        with st.expander(f"Details: {book['title']}", expanded=True):
+                            dtab1, dtab2, dtab3 = st.tabs([" Recommendations", " Reviews", " Condition"])
+                            
+                            with dtab1:
+                                recs = SmartUtilities.get_book_recommendations(book['book_id'])
+                                if recs:
+                                    for rec in recs:
+                                        st.write(f"- {rec.get('title', 'N/A')}")
+                                else:
+                                    st.info("No recommendations yet")
+                            
+                            with dtab2:
+                                reviews = ReviewsManager.get_book_reviews(book['book_id'])
+                                if reviews:
+                                    for review in reviews:
+                                        st.write(f" {review['rating']}/5 - {review['full_name']}")
+                                        st.caption(review['comment'])
+                                else:
+                                    st.info("No reviews yet")
+                            
+                            with dtab3:
+                                conditions = EnhancedBookManager.get_book_condition_history(book['book_id'])
+                                if conditions:
+                                    for cond in conditions:
+                                        st.write(f"**{cond['condition_status'].title()}** - {cond['check_date']}")
+                                        if cond['condition_notes']:
+                                            st.caption(cond['condition_notes'])
+                                else:
+                                    st.info("No condition records")
+                    
+                    action = "Deactivate" if book['is_available'] else "Activate"
+                    if st.button(f" {action}", key=f"{key_prefix}_toggle_{book['book_id']}", use_container_width=True):
+                        new_status = not book['is_available']
+                        if Database.execute_update(
+                            "UPDATE books SET is_available = ? WHERE book_id = ?",
+                            (new_status, book['book_id'])
+                        ):
+                            st.success(f"Book {action.lower()}d successfully!")
+                            st.rerun()
+                
+                st.divider()
+    else:
+        st.info("No books found")
+
 def show_manage_books(embedded=False):
     """Book management page"""
     if embedded:
@@ -9051,128 +9181,7 @@ def show_manage_books(embedded=False):
     tab1, tab2, tab3, tab4 = st.tabs([" All Books", " Add Book", " Bulk Import", " Statistics"])
     
     with tab1:
-        st.subheader("**Book Catalog**")
-        
-        # Enhanced search with fuzzy option
-        col1, col2, col3, col4 = st.columns(4, gap="small")
-        with col1:
-            search = st.text_input(" Search by title or ISBN", key="mb_search")
-        with col2:
-            use_fuzzy = st.checkbox("Use Smart Search", help="Tolerates typos", key="mb_use_fuzzy")
-        with col3:
-            status_filter = st.selectbox("Status", ["All", "Active", "Inactive"], key="mb_status_filter")
-        with col4:
-            st.write("")
-            if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
-                st.rerun()
-        
-        # Get books
-        query = """
-            SELECT b.book_id, b.isbn, b.title, b.publication_year,
-                   b.pages, b.language, b.keywords, b.is_available,
-                   (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) as total_copies,
-                   (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) as available_copies
-            FROM books b
-            WHERE 1=1
-        """
-        params = []
-        
-        if search and not use_fuzzy:
-            query += " AND (b.title LIKE ? OR b.isbn LIKE ? OR b.isbn_13 LIKE ? OR b.isbn_10 LIKE ?)"
-            params.extend([f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%'])
-        
-        if status_filter == "Active":
-            query += " AND b.is_available = 1"
-        elif status_filter == "Inactive":
-            query += " AND b.is_available = 0"
-        
-        query += " ORDER BY b.title LIMIT 100"
-        
-        books = Database.execute_query(query, tuple(params) if params else None)
-        
-        # Apply fuzzy search if enabled
-        if search and use_fuzzy and books:
-            books = EnhancedSearchFilter.fuzzy_search_books(search, threshold=50)
-        
-        if books:
-            st.write(f"Found {len(books)} books")
-            
-            for book in books:
-                with st.container():
-                    col1, col2, col3, col4 = st.columns([3, 1, 1, 1], gap="small")
-                    
-                    with col1:
-                        status_icon = "" if book['is_available'] else ""
-                        st.markdown(f"**{status_icon} {book['title']}**")
-                        
-                        isbn_display = book.get('isbn', 'N/A')
-                        st.caption(f"ISBN: {isbn_display} | Year: {book['publication_year'] or 'N/A'}")
-                        
-                        if book.get('keywords'):
-                            st.caption(f" {book['keywords'][:50]}...")
-                    
-                    with col2:
-                        st.metric("Available", f"{book['available_copies'] or 0}/{book['total_copies'] or 0}")
-                        if book.get('pages'):
-                            st.caption(f"Pages: {book['pages']}")
-                        if book.get('language'):
-                            st.caption(f"Language: {book['language']}")
-                    
-                    with col3:
-                        # Show cover thumbnail if available
-                        cover = EnhancedBookManager.get_book_cover(book['book_id'])
-                        if cover:
-                            st.image(cover, width=50)
-                    
-                    with col4:
-                        if st.button(" Edit", key=f"edit_{book['book_id']}", use_container_width=True):
-                            st.session_state[f'edit_book_{book["book_id"]}'] = True
-                        
-                        if st.button(" Details", key=f"details_{book['book_id']}", use_container_width=True):
-                            # Show recommendations, reviews, condition
-                            with st.expander(f"Details: {book['title']}", expanded=True):
-                                dtab1, dtab2, dtab3 = st.tabs([" Recommendations", " Reviews", " Condition"])
-                                
-                                with dtab1:
-                                    recs = SmartUtilities.get_book_recommendations(book['book_id'])
-                                    if recs:
-                                        for rec in recs:
-                                            st.write(f"- {rec.get('title', 'N/A')}")
-                                    else:
-                                        st.info("No recommendations yet")
-                                
-                                with dtab2:
-                                    reviews = ReviewsManager.get_book_reviews(book['book_id'])
-                                    if reviews:
-                                        for review in reviews:
-                                            st.write(f" {review['rating']}/5 - {review['full_name']}")
-                                            st.caption(review['comment'])
-                                    else:
-                                        st.info("No reviews yet")
-                                
-                                with dtab3:
-                                    conditions = EnhancedBookManager.get_book_condition_history(book['book_id'])
-                                    if conditions:
-                                        for cond in conditions:
-                                            st.write(f"**{cond['condition_status'].title()}** - {cond['check_date']}")
-                                            if cond['condition_notes']:
-                                                st.caption(cond['condition_notes'])
-                                    else:
-                                        st.info("No condition records")
-                        
-                        action = "Deactivate" if book['is_available'] else "Activate"
-                        if st.button(f" {action}", key=f"toggle_{book['book_id']}", use_container_width=True):
-                            new_status = not book['is_available']
-                            if Database.execute_update(
-                                "UPDATE books SET is_available = ? WHERE book_id = ?",
-                                (new_status, book['book_id'])
-                            ):
-                                st.success(f"Book {action.lower()}d successfully!")
-                                st.rerun()
-                    
-                    st.divider()
-        else:
-            st.info("No books found")
+        show_book_catalog_widget("mb")
     
     with tab2:
         st.subheader("**Add New Book**")
@@ -11341,7 +11350,17 @@ def show_my_library():
     
     # Tab 1: My PDFs & Upload PDF
     with tabs[0]:
-        show_books(embedded=True)
+        if is_management_user:
+            browse_col, catalog_col = st.columns(2, gap="large")
+
+            with browse_col:
+                show_books(embedded=True)
+
+            with catalog_col:
+                show_book_catalog_widget("my_lib_catalog")
+        else:
+            show_books(embedded=True)
+
         st.divider()
 
         left_col, right_col = st.columns(2, gap="large")
@@ -11421,10 +11440,6 @@ def show_my_library():
                             st.rerun()
                         else:
                             st.error(message)
-
-        if is_management_user:
-            st.divider()
-            show_manage_books(embedded=True)
 
     privacy_tab_index = 2 if is_management_user else 1
     community_tab_index = 3 if is_management_user else 2
