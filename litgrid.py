@@ -9112,15 +9112,16 @@ def show_manage_books(embedded=False, browse_only=False):
 
             adv_col5, adv_col6, adv_col7, adv_col8 = st.columns(4, gap="small")
             with adv_col5:
-                language_filter = st.selectbox("Language", language_options, key="mb_language_filter")
+                language_filter_text = st.text_input("Language Contains", key="mb_language_filter_text")
             with adv_col6:
                 min_available_copies = st.number_input("Min Available Copies", min_value=0, value=0, step=1, key="mb_min_available_copies")
             with adv_col7:
                 min_total_copies = st.number_input("Min Total Copies", min_value=0, value=0, step=1, key="mb_min_total_copies")
             with adv_col8:
-                quick_date_preset = st.selectbox(
+                quick_date_preset = st.radio(
                     "Added Date Preset",
                     ["None", "Last 7 Days", "Last 30 Days", "Last 90 Days", "Last 365 Days"],
+                    horizontal=True,
                     key="mb_quick_date_preset"
                 )
 
@@ -9188,9 +9189,9 @@ def show_manage_books(embedded=False, browse_only=False):
             query += " AND (b.isbn = ? OR b.isbn_13 = ? OR b.isbn_10 = ?)"
             params.extend([isbn_exact, isbn_exact, isbn_exact])
 
-        if language_filter != "All":
-            query += " AND COALESCE(NULLIF(TRIM(b.language), ''), 'Unknown') = ?"
-            params.append(language_filter)
+        if language_filter_text:
+            query += " AND COALESCE(NULLIF(TRIM(b.language), ''), 'Unknown') LIKE ?"
+            params.append(f"%{language_filter_text}%")
 
         if int(min_available_copies) > 0:
             query += " AND (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) >= ?"
@@ -9279,8 +9280,8 @@ def show_manage_books(embedded=False, browse_only=False):
                 active_filters.append(f"Keyword: {keyword_query}")
             if isbn_exact:
                 active_filters.append(f"ISBN: {isbn_exact}")
-            if language_filter != "All":
-                active_filters.append(f"Language: {language_filter}")
+            if language_filter_text:
+                active_filters.append(f"Language: {language_filter_text}")
             if int(min_available_copies) > 0:
                 active_filters.append(f"Min Available: {int(min_available_copies)}")
             if int(min_total_copies) > 0:
