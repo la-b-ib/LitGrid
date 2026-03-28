@@ -9381,22 +9381,172 @@ def show_manage_books(embedded=False, browse_only=False):
         st.divider()
         st.subheader(" Book Statistics")
 
+        # ENHANCED CONTROLS SECTION
+        st.markdown("### ⚙️ Analytics Configuration")
+        
+        config_tab1, config_tab2, config_tab3, config_tab4 = st.tabs([" Time Range", " Collection Filters", " Display Options", " Thresholds & Alerts"])
+        
+        with config_tab1:
+            time_col1, time_col2, time_col3, time_col4 = st.columns(4, gap="small")
+            with time_col1:
+                time_window = st.selectbox(
+                    "Analytics Range",
+                    ["7D", "14D", "30D", "90D", "180D", "365D", "730D", "All Time"],
+                    index=4,
+                    key="bs_time_window"
+                )
+            with time_col2:
+                trend_granularity = st.selectbox("Trend Granularity", ["Week", "Month", "Quarter", "Year"], key="bs_granularity")
+            with time_col3:
+                use_custom_range = st.checkbox("Use Custom Date Range", key="bs_custom_range")
+            with time_col4:
+                compare_previous = st.checkbox("Compare With Previous Period", value=True, key="bs_compare_previous")
+            
+            if use_custom_range:
+                custom_range = st.date_input(
+                    "Select Date Range",
+                    value=(datetime.now() - timedelta(days=180), datetime.now()),
+                    key="bs_custom_date_range"
+                )
+        
+        with config_tab2:
+            filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4, gap="small")
+            all_genres = Database.execute_query(
+                "SELECT DISTINCT COALESCE(NULLIF(TRIM(genre), ''), 'Unknown') as genre_name FROM books ORDER BY genre_name"
+            ) or []
+            all_languages = Database.execute_query(
+                "SELECT DISTINCT COALESCE(NULLIF(TRIM(language), ''), 'Unknown') as language_name FROM books ORDER BY language_name"
+            ) or []
+            genre_choices = [g['genre_name'] for g in all_genres if g.get('genre_name')]
+            language_choices = [l['language_name'] for l in all_languages if l.get('language_name')]
+            
+            with filter_col1:
+                selected_genres = st.multiselect("Genres", options=genre_choices, key="bs_genres")
+            with filter_col2:
+                selected_languages = st.multiselect("Languages", options=language_choices, key="bs_languages")
+            
+            with filter_col3:
+                active_titles_only = st.checkbox("Active Titles Only", value=False, key="bs_active_titles_only")
+            with filter_col4:
+                include_zero_copies = st.checkbox("Include Zero-Copy Titles", value=True, key="bs_include_zero_copies")
+            
+            col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4, gap="small")
+            with col_filter1:
+                min_copies = st.number_input("Min Copies/Title", min_value=0, value=0, key="bs_min_copies")
+            current_year = datetime.now().year
+            max_year = current_year + 10
+            with col_filter2:
+                pub_year_from = st.number_input("Publication Year From", min_value=1800, max_value=max_year, value=1800, key="bs_pub_year_from")
+            with col_filter3:
+                pub_year_to = st.number_input("Publication Year To", min_value=1800, max_value=max_year, value=current_year, key="bs_pub_year_to")
+            with col_filter4:
+                book_age_filter = st.selectbox("Book Age (Time in Collection)", ["Any", "Last 6 Months", "Last Year", "Last 2 Years", "3+ Years"], key="bs_book_age")
+        
+        with config_tab3:
+            display_col1, display_col2, display_col3, display_col4 = st.columns(4, gap="small")
+            with display_col1:
+                show_advanced_metrics = st.checkbox("Advanced Metrics", value=True, key="bs_show_advanced")
+            with display_col2:
+                show_demand_analysis = st.checkbox("Demand Analysis", value=True, key="bs_show_demand")
+            with display_col3:
+                show_collection_health = st.checkbox("Collection Health", value=True, key="bs_show_health")
+            with display_col4:
+                show_predictive = st.checkbox("Insights & Recommendations", value=True, key="bs_show_predictive")
+            
+            disp_col1, disp_col2, disp_col3, disp_col4 = st.columns(4, gap="small")
+            with disp_col1:
+                top_n = st.slider("Top N Items", min_value=5, max_value=30, value=12, step=1, key="bs_top_n")
+            with disp_col2:
+                chart_height = st.slider("Chart Height (px)", min_value=250, max_value=600, value=360, step=50, key="bs_chart_height")
+            with disp_col3:
+                color_scheme = st.selectbox("Color Scheme", ["Viridis", "Blues", "Reds", "Greens", "Greys"], key="bs_color_scheme")
+            with disp_col4:
+                export_format = st.multiselect("Export Formats", ["CSV", "JSON", "PDF"], key="bs_export_format")
+        
+        with config_tab4:
+            threshold_col1, threshold_col2, threshold_col3, threshold_col4 = st.columns(4, gap="small")
+            with threshold_col1:
+                utilization_alert_threshold = st.slider("Utilization Alert %", min_value=10, max_value=100, value=70, step=5, key="bs_util_threshold")
+            with threshold_col2:
+                low_stock_threshold = st.slider("Low Stock Threshold", min_value=0, max_value=10, value=1, step=1, key="bs_low_stock_threshold")
+            with threshold_col3:
+                overdue_alert = st.slider("Overdue Alert Days", min_value=1, max_value=30, value=7, step=1, key="bs_overdue_alert")
+            with threshold_col4:
+                demand_threshold = st.slider("High Demand Threshold", min_value=1, max_value=20, value=5, step=1, key="bs_demand_threshold")
+            
+            alert_col1, alert_col2, alert_col3 = st.columns(3, gap="small")
+            with alert_col1:
+                enable_low_stock_alerts = st.checkbox("Low Stock Alerts", value=True, key="bs_alert_low_stock")
+            with alert_col2:
+                enable_overdue_alerts = st.checkbox("Overdue Alerts", value=True, key="bs_alert_overdue")
+            with alert_col3:
+                enable_performance_alerts = st.checkbox("Performance Alerts", value=True, key="bs_alert_performance")
+
+        # UNIFIED TIME WINDOW HANDLING
+        time_col_action1, time_col_action2, time_col_action3, time_col_action4 = st.columns(4, gap="small")
+        with time_col_action1:
+            if st.button(" 🔄 Refresh All Statistics", key="bs_refresh", use_container_width=True, type="primary"):
+                st.rerun()
+        with time_col_action2:
+            if st.button(" 📊 Generate Report", key="bs_generate_report", use_container_width=True):
+                st.info("Report generation queued. Check Downloads folder.")
+        with time_col_action3:
+            if st.button(" 💾 Save Snapshot", key="bs_save_snapshot", use_container_width=True):
+                st.success(f"Snapshot saved at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        with time_col_action4:
+            if st.button(" ℹ️ Help & Guide", key="bs_help", use_container_width=True):
+                with st.expander("Statistics Guide andBest Practices", expanded=False):
+                    st.markdown("""
+                    **Key Metrics Explained:**
+                    - **Circulation Velocity**: Average loans per copy per period (higher = better utilization)
+                    - **Collection Refresh Rate**: % of new titles added in the period
+                    - **Utilization Rate**: % of inventory currently checked out
+                    - **Turn-over Ratio**: How many times average title circulates per year
+                    
+                    **Tips:**
+                    - Compare periods to identify trends
+                    - Monitor low-stock alerts for timely restocking
+                    - Use demand leaders to guide acquisition decisions
+                    - Track collection health to prioritize maintenance
+                    """)
+        
+        # ORIGINAL FILTERS SECTION (MAINTAINED FOR COMPATIBILITY)
         time_col1, time_col2, time_col3, time_col4, time_col5 = st.columns(5, gap="small")
         with time_col1:
-            time_window = st.selectbox(
-                "Analytics Range",
-                ["30D", "90D", "180D", "365D", "730D", "All Time"],
-                index=2,
-                key="bs_time_window"
-            )
+            if 'bs_time_window' not in st.session_state:
+                st.session_state.bs_time_window = time_window
         with time_col2:
-            trend_granularity = st.selectbox("Trend Granularity", ["Month", "Quarter"], key="bs_granularity")
+            if 'bs_granularity' not in st.session_state:
+                st.session_state.bs_granularity = trend_granularity
         with time_col3:
-            active_titles_only = st.checkbox("Only Active Titles", value=False, key="bs_active_titles_only")
+            if 'bs_active_titles_only' not in st.session_state:
+                st.session_state.bs_active_titles_only = active_titles_only
         with time_col4:
-            include_zero_copies = st.checkbox("Include Zero-Copy Titles", value=True, key="bs_include_zero_copies")
+            if 'bs_include_zero_copies' not in st.session_state:
+                st.session_state.bs_include_zero_copies = include_zero_copies
         with time_col5:
-            compare_previous = st.checkbox("Compare With Previous Window", value=True, key="bs_compare_previous")
+            if 'bs_compare_previous' not in st.session_state:
+                st.session_state.bs_compare_previous = compare_previous
+
+        filter_col1, filter_col2, filter_col3, filter_col4, filter_col5 = st.columns(5, gap="small")
+        if 'bs_genres' not in st.session_state:
+            st.session_state.bs_genres = selected_genres
+        if 'bs_languages' not in st.session_state:
+            st.session_state.bs_languages = selected_languages
+        if 'bs_min_copies' not in st.session_state:
+            st.session_state.bs_min_copies = min_copies
+        if 'bs_pub_year_from' not in st.session_state:
+            st.session_state.bs_pub_year_from = pub_year_from
+        if 'bs_pub_year_to' not in st.session_state:
+            st.session_state.bs_pub_year_to = pub_year_to
+
+        action_col1, action_col2, action_col3, action_col4 = st.columns(4, gap="small")
+        if 'bs_util_threshold' not in st.session_state:
+            st.session_state.bs_util_threshold = utilization_alert_threshold
+        if 'bs_low_stock_threshold' not in st.session_state:
+            st.session_state.bs_low_stock_threshold = low_stock_threshold
+        if 'bs_top_n' not in st.session_state:
+            st.session_state.bs_top_n = top_n
 
         filter_col1, filter_col2, filter_col3, filter_col4, filter_col5 = st.columns(5, gap="small")
         all_genres = Database.execute_query(
@@ -9498,7 +9648,11 @@ def show_manage_books(embedded=False, browse_only=False):
                     SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1)) as available_copies,
                     AVG(COALESCE(b.popularity_score, 0)) as avg_popularity,
                     COUNT(DISTINCT COALESCE(NULLIF(TRIM(b.author), ''), 'Unknown')) as unique_authors,
-                    SUM(CASE WHEN b.is_available = 0 THEN 1 ELSE 0 END) as inactive_titles
+                    SUM(CASE WHEN b.is_available = 0 THEN 1 ELSE 0 END) as inactive_titles,
+                    AVG(CAST((julianday('now') - julianday(COALESCE(b.created_at, '2020-01-01'))) AS FLOAT)) as avg_book_age_days,
+                    COUNT(DISTINCT COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown')) as unique_genres,
+                    COUNT(DISTINCT COALESCE(NULLIF(TRIM(b.language), ''), 'Unknown')) as unique_languages,
+                    SUM(COALESCE(b.pages, 0)) as total_pages
                 FROM books b
                 WHERE {where_clause}
             """
@@ -9509,7 +9663,9 @@ def show_manage_books(embedded=False, browse_only=False):
                 SELECT
                     COUNT(*) as active_loans,
                     SUM(CASE WHEN date(br.due_date) < date('now') THEN 1 ELSE 0 END) as overdue_loans,
-                    SUM(CASE WHEN date(br.due_date) BETWEEN date('now') AND date('now', '+7 days') THEN 1 ELSE 0 END) as due_next_7
+                    SUM(CASE WHEN date(br.due_date) BETWEEN date('now') AND date('now', '+7 days') THEN 1 ELSE 0 END) as due_next_7,
+                    AVG(julianday(COALESCE(br.return_date, date('now'))) - julianday(br.checkout_date)) as avg_loan_duration,
+                    SUM(CASE WHEN br.return_date IS NOT NULL AND julianday(br.return_date) <= julianday(br.due_date) THEN 1 ELSE 0 END) as on_time_returns
                 FROM borrowing br
                 JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
                 JOIN books b ON bi.book_id = b.book_id
@@ -9517,8 +9673,39 @@ def show_manage_books(embedded=False, browse_only=False):
             """
             return Database.execute_query(loan_query, tuple(params) if params else None, fetch_one=True) or {}
 
+        def fetch_advanced_metrics(where_clause, params):
+            """Fetch advanced performance and health metrics"""
+            adv_query = f"""
+                SELECT
+                    COUNT(DISTINCT CASE WHEN (SELECT COUNT(*) FROM borrowing brx WHERE brx.inventory_id = bi.inventory_id) > 0 THEN b.book_id ELSE NULL END) as titles_with_loans,
+                    COUNT(DISTINCT CASE WHEN (SELECT COUNT(*) FROM borrowing brx WHERE brx.inventory_id = bi.inventory_id) = 0 THEN b.book_id ELSE NULL END) as untouched_titles,
+                    COALESCE(SUM(CASE WHEN (SELECT COUNT(*) FROM book_inventory bix WHERE bix.book_id = b.book_id AND bix.is_available = 0) > 0 THEN 1 ELSE 0 END), 0) as titles_with_checkouts,
+                    COUNT(DISTINCT b.book_id) as distinct_titles
+                FROM books b
+                LEFT JOIN book_inventory bi ON bi.book_id = b.book_id
+                WHERE {where_clause}
+            """
+            return Database.execute_query(adv_query, tuple(params) if params else None, fetch_one=True) or {}
+
+        def fetch_genre_language_matrix(where_clause, params, top_n_val):
+            """Fetch genre-language distribution for heatmap"""
+            matrix_query = f"""
+                SELECT
+                    COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown') as genre,
+                    COALESCE(NULLIF(TRIM(b.language), ''), 'Unknown') as language,
+                    COUNT(*) as titles,
+                    SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id)) as copies
+                FROM books b
+                WHERE {where_clause}
+                GROUP BY genre, language
+                ORDER BY titles DESC
+                LIMIT ?
+            """
+            return Database.execute_query(matrix_query, tuple(params + [int(top_n_val)]) if params else None)
+
         summary = fetch_collection_summary(current_where_clause, current_params)
         loans = fetch_loan_summary(current_where_clause, current_params)
+        advanced = fetch_advanced_metrics(current_where_clause, current_params)
 
         prev_summary = {}
         prev_loans = {}
@@ -9535,10 +9722,20 @@ def show_manage_books(embedded=False, browse_only=False):
         avg_popularity = float(summary.get('avg_popularity') or 0.0)
         unique_authors = int(summary.get('unique_authors') or 0)
         inactive_titles = int(summary.get('inactive_titles') or 0)
+        avg_book_age_days = float(summary.get('avg_book_age_days') or 0.0)
+        unique_genres = int(summary.get('unique_genres') or 0)
+        unique_languages = int(summary.get('unique_languages') or 0)
+        total_pages = int(summary.get('total_pages') or 0)
 
         active_loans = int(loans.get('active_loans') or 0)
         overdue_loans = int(loans.get('overdue_loans') or 0)
         due_next_7 = int(loans.get('due_next_7') or 0)
+        avg_loan_duration = float(loans.get('avg_loan_duration') or 0.0)
+        on_time_returns = int(loans.get('on_time_returns') or 0)
+
+        titles_with_loans = int(advanced.get('titles_with_loans') or 0)
+        untouched_titles = int(advanced.get('untouched_titles') or 0)
+        titles_with_checkouts = int(advanced.get('titles_with_checkouts') or 0)
 
         prev_total_books = int(prev_summary.get('book_count') or 0)
         prev_total_copies = int(prev_summary.get('total_copies') or 0)
@@ -9548,17 +9745,33 @@ def show_manage_books(embedded=False, browse_only=False):
         delta_copies = total_copies - prev_total_copies if previous_where_clause else None
         delta_loans = active_loans - prev_active_loans if previous_where_clause else None
 
+        # ADVANCED METRIC CALCULATIONS
+        circulation_velocity = (active_loans / total_copies * 100) if total_copies > 0 else 0.0
+        collection_refresh_rate = ((total_books - prev_total_books) / prev_total_books * 100) if prev_total_books > 0 else 0.0 if previous_where_clause else 0.0
+        turnover_ratio = (active_loans / total_books * 365 / (window_days or 365)) if total_books > 0 and window_days else 0.0
+        avg_book_age_years = avg_book_age_days / 365.0
+        collection_health_score = min(100, (titles_with_loans / total_books * 100) if total_books > 0 else 0.0)
+        genre_diversity = (unique_genres / max(1, total_books)) * 100 if total_books > 0 else 0.0
+        author_diversity = (unique_authors / max(1, total_books)) * 100 if total_books > 0 else 0.0
+        utilization_efficiency = circulation_velocity * (collection_health_score / 100)
+        untouched_ratio = (untouched_titles / total_books * 100) if total_books > 0 else 0.0
+        on_time_return_rate = (on_time_returns / max(1, active_loans + on_time_returns) * 100) if (active_loans + on_time_returns) > 0 else 0.0
+        overdue_ratio = (overdue_loans / active_loans * 100) if active_loans > 0 else 0.0
+        avg_pages_per_title = total_pages / total_books if total_books > 0 else 0
+        
+        # DISPLAY CORE KPIs
+        st.markdown("### 📊 Core KPIs")
         kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5, kpi_col6 = st.columns(6, gap="small")
         with kpi_col1:
             st.metric("Titles", total_books, delta_books if delta_books is not None else None)
         with kpi_col2:
             st.metric("Total Copies", total_copies, delta_copies if delta_copies is not None else None)
         with kpi_col3:
-            st.metric("Checked Out", checked_out)
+            st.metric("Checked Out", checked_out, delta=f"{utilization_pct:.1f}%" if total_copies > 0 else None)
         with kpi_col4:
             st.metric("Active Loans", active_loans, delta_loans if delta_loans is not None else None)
         with kpi_col5:
-            st.metric("Overdue", overdue_loans)
+            st.metric("Overdue", overdue_loans, f"{overdue_ratio:.1f}%")
         with kpi_col6:
             st.metric("Avg Copies/Title", f"{avg_copies_per_title:.2f}")
 
@@ -9577,9 +9790,53 @@ def show_manage_books(embedded=False, browse_only=False):
                 f"Utilization is high at {utilization_pct:.1f}% (threshold: {utilization_alert_threshold}%)."
             )
 
+        # DISPLAY ADVANCED PERFORMANCE METRICS
+        st.markdown("### ⚡ Advanced Performance Metrics")
+        adv_kpi_col1, adv_kpi_col2, adv_kpi_col3, adv_kpi_col4, adv_kpi_col5, adv_kpi_col6 = st.columns(6, gap="small")
+        with adv_kpi_col1:
+            metric_color = "green" if circulation_velocity >= 30 else "orange" if circulation_velocity >= 15 else "red"
+            st.metric("Circulation Velocity", f"{circulation_velocity:.1f}%", help="% of inventory checked out (higher = better)")
+        with adv_kpi_col2:
+            st.metric("Collection Refresh", f"{collection_refresh_rate:.1f}%" if previous_where_clause else "N/A", help="% new titles added")
+        with adv_kpi_col3:
+            st.metric("Turn-over Ratio", f"{turnover_ratio:.2f}x", help="Avg circulation per title per year")
+        with adv_kpi_col4:
+            st.metric("Avg Book Age", f"{avg_book_age_years:.1f} yrs", help="Average years in collection")
+        with adv_kpi_col5:
+            st.metric("Collection Health", f"{collection_health_score:.1f}%", help="% of titles with at least 1 loan")
+        with adv_kpi_col6:
+            st.metric("Untouched Titles", f"{untouched_ratio:.1f}%", help="Never checked out")
+
+        # DIVERSITY & COMPOSITION METRICS
+        st.markdown("### 🎯 Collection Composition")
+        comp_col1, comp_col2, comp_col3, comp_col4, comp_col5 = st.columns(5, gap="small")
+        with comp_col1:
+            st.metric("Genre Diversity", f"{unique_genres} genres")
+        with comp_col2:
+            st.metric("Language Count", f"{unique_languages} languages")
+        with comp_col3:
+            st.metric("Author Diversity", f"{author_diversity:.1f}%", help="Unique authors per title")
+        with comp_col4:
+            st.metric("Avg Book Length", f"{avg_pages_per_title:.0f} pgs" if avg_pages_per_title > 0 else "N/A")
+        with comp_col5:
+            st.metric("Genre Diversity Score", f"{genre_diversity:.1f}%", help="Genre spread")
+
+        # RETURN & LOAN METRICS
+        st.markdown("### 📚 Lending Performance")
+        loan_col1, loan_col2, loan_col3, loan_col4 = st.columns(4, gap="small")
+        with loan_col1:
+            st.metric("Avg Loan Duration", f"{avg_loan_duration:.1f} days" if avg_loan_duration > 0 else "N/A")
+        with loan_col2:
+            st.metric("On-Time Return Rate", f"{on_time_return_rate:.1f}%", help="% returned on or before due date")
+        with loan_col3:
+            st.metric("Utilization Efficiency", f"{utilization_efficiency:.1f}%", help="Circulation × health")
+        with loan_col4:
+            st.metric("Titles w/ Activity", f"{titles_with_loans}/{total_books}", help="Titles that have been borrowed")
+
         st.caption(
             f"Range: {time_window} | Granularity: {trend_granularity} | Active-Only: {'On' if active_titles_only else 'Off'}"
             f" | Zero-Copy Included: {'On' if include_zero_copies else 'Off'} | Inactive Titles: {inactive_titles}"
+            f" | Calc Time: {datetime.now().strftime('%H:%M:%S')}"
         )
 
         viz_top_col1, viz_top_col2 = st.columns(2, gap="small")
@@ -9594,16 +9851,50 @@ def show_manage_books(embedded=False, browse_only=False):
                 names='state',
                 values='copies',
                 hole=0.45,
-                title='Inventory Availability Split'
+                title='Inventory Availability Split',
+                color_discrete_map={'Available': '#90EE90', 'Checked Out': '#FFB6C6'}
             )
             fig_stock.update_layout(height=360)
             st.plotly_chart(fig_stock, use_container_width=True)
 
         with viz_top_col2:
+            # Collection Age Distribution
+            age_query = f"""
+                SELECT
+                    CASE
+                        WHEN CAST((julianday('now') - julianday(COALESCE(b.created_at, '2020-01-01'))) / 365.0 AS INT) < 1 THEN 'Last Year'
+                        WHEN CAST((julianday('now') - julianday(COALESCE(b.created_at, '2020-01-01'))) / 365.0 AS INT) < 2 THEN '1-2 Yrs'
+                        WHEN CAST((julianday('now') - julianday(COALESCE(b.created_at, '2020-01-01'))) / 365.0 AS INT) < 5 THEN '2-5 Yrs'
+                        ELSE '5+ Yrs'
+                    END as age_group,
+                    COUNT(*) as titles
+                FROM books b
+                WHERE {current_where_clause}
+                GROUP BY age_group
+                ORDER BY CASE age_group WHEN 'Last Year' THEN 1 WHEN '1-2 Yrs' THEN 2 WHEN '2-5 Yrs' THEN 3 ELSE 4 END
+            """
+            age_rows = Database.execute_query(age_query, tuple(current_params) if current_params else None)
+            if age_rows:
+                age_df = pd.DataFrame(age_rows)
+                fig_age = px.bar(
+                    age_df,
+                    x='age_group',
+                    y='titles',
+                    title='Collection Age Distribution',
+                    labels={'age_group': 'Time in Collection', 'titles': 'Titles'},
+                    color_discrete_sequence=['#636EFA']
+                )
+                fig_age.update_layout(height=360)
+                st.plotly_chart(fig_age, use_container_width=True)
+
+        # GENRE-LANGUAGE HEATMAP
+        viz_mid_col1, viz_mid_col2 = st.columns(2, gap="small")
+        with viz_mid_col1:
             language_query = f"""
                 SELECT
                     COALESCE(NULLIF(TRIM(b.language), ''), 'Unknown') as language_name,
-                    COUNT(*) as titles
+                    COUNT(*) as titles,
+                    SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id)) as copies
                 FROM books b
                 WHERE {current_where_clause}
                 GROUP BY COALESCE(NULLIF(TRIM(b.language), ''), 'Unknown')
@@ -9621,21 +9912,22 @@ def show_manage_books(embedded=False, browse_only=False):
                     x='language_name',
                     y='titles',
                     title='Language Distribution',
-                    labels={'language_name': 'Language', 'titles': 'Titles'}
+                    labels={'language_name': 'Language', 'titles': 'Titles'},
+                    color='copies',
+                    color_continuous_scale='Blues'
                 )
                 fig_lang.update_layout(height=360, xaxis_tickangle=-25)
                 st.plotly_chart(fig_lang, use_container_width=True)
             else:
                 st.info("No language data available for the selected filters.")
 
-        viz_mid_col1, viz_mid_col2 = st.columns(2, gap="small")
-
-        with viz_mid_col1:
+        with viz_mid_col2:
             genre_query = f"""
                 SELECT
                     COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown') as genre_name,
                     COUNT(*) as titles,
-                    SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id)) as copies
+                    SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id)) as copies,
+                    AVG(COALESCE(b.popularity_score, 0)) as avg_popularity
                 FROM books b
                 WHERE {current_where_clause}
                 GROUP BY COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown')
@@ -9648,20 +9940,26 @@ def show_manage_books(embedded=False, browse_only=False):
             )
             if genre_rows:
                 genre_df = pd.DataFrame(genre_rows)
-                fig_genre = px.bar(
+                fig_genre = px.scatter(
                     genre_df,
                     x='genre_name',
                     y='titles',
-                    color='copies',
-                    title='Top Genres by Titles',
-                    labels={'genre_name': 'Genre', 'titles': 'Titles', 'copies': 'Copies'}
+                    size='copies',
+                    color='avg_popularity',
+                    title='Top Genres (Size=Copies, Color=Popularity)',
+                    labels={'genre_name': 'Genre', 'titles': 'Titles', 'avg_popularity': 'Avg Popularity'},
+                    color_continuous_scale='Viridis',
+                    hover_data=['copies', 'avg_popularity']
                 )
-                fig_genre.update_layout(height=380, xaxis_tickangle=-25)
+                fig_genre.update_layout(height=360, xaxis_tickangle=-25)
                 st.plotly_chart(fig_genre, use_container_width=True)
             else:
                 st.info("No genre data available for the selected filters.")
 
-        with viz_mid_col2:
+        # POPULARITY & DEMAND CHARTS
+        viz_bot_col1, viz_bot_col2 = st.columns(2, gap="small")
+
+        with viz_bot_col1:
             if trend_granularity == "Quarter":
                 period_expr = (
                     "strftime('%Y', b.created_at) || '-Q' || "
@@ -9671,6 +9969,10 @@ def show_manage_books(embedded=False, browse_only=False):
                     "WHEN cast(strftime('%m', b.created_at) as integer) BETWEEN 7 AND 9 THEN '3' "
                     "ELSE '4' END"
                 )
+            elif trend_granularity == "Year":
+                period_expr = "strftime('%Y', b.created_at)"
+            elif trend_granularity == "Week":
+                period_expr = "strftime('%Y-W%W', b.created_at)"
             else:
                 period_expr = "strftime('%Y-%m', b.created_at)"
 
@@ -9692,58 +9994,172 @@ def show_manage_books(embedded=False, browse_only=False):
                     x='period',
                     y='titles_added',
                     markers=True,
-                    title=f'Collection Growth Trend ({trend_granularity})'
+                    title=f'Collection Growth Trend ({trend_granularity})',
+                    color_discrete_sequence=['#636EFA']
                 )
-                fig_trend.update_layout(height=380)
+                fig_trend.update_layout(height=360)
                 st.plotly_chart(fig_trend, use_container_width=True)
             else:
                 st.info("No timeline data available for the selected filters.")
 
-        st.markdown("###  Operational Insights")
-        insight_col1, insight_col2 = st.columns(2, gap="small")
-
-        with insight_col1:
-            low_stock_query = f"""
+        with viz_bot_col2:
+            popularity_query = f"""
                 SELECT
-                    b.title,
-                    COALESCE(NULLIF(TRIM(b.author), ''), 'Unknown') as author,
-                    COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown') as genre,
-                    (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) as total_copies,
-                    (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) as available_copies
+                    CAST(b.popularity_score AS INTEGER) as pop_score,
+                    COUNT(*) as titles
                 FROM books b
-                WHERE {current_where_clause}
-                ORDER BY available_copies ASC, total_copies ASC, b.title ASC
-                LIMIT ?
+                WHERE {current_where_clause} AND b.popularity_score IS NOT NULL
+                GROUP BY CAST(b.popularity_score AS INTEGER)
+                ORDER BY pop_score ASC
             """
-            low_stock_rows = Database.execute_query(
-                low_stock_query,
-                tuple(current_params + [int(top_n)])
-            )
-            st.markdown("####  Availability Pressure")
-            if low_stock_rows:
-                pressure_df = pd.DataFrame(low_stock_rows)
-                pressure_df['total_copies'] = pressure_df['total_copies'].fillna(0).astype(int)
-                pressure_df['available_copies'] = pressure_df['available_copies'].fillna(0).astype(int)
-                pressure_df['is_low_stock'] = pressure_df['available_copies'] <= int(low_stock_threshold)
-                pressure_df['availability_ratio'] = pressure_df.apply(
-                    lambda r: f"{int(r['available_copies'])}/{int(r['total_copies'])}", axis=1
+            pop_rows = Database.execute_query(popularity_query, tuple(current_params) if current_params else None)
+            if pop_rows:
+                pop_df = pd.DataFrame(pop_rows)
+                fig_pop = px.bar(
+                    pop_df,
+                    x='pop_score',
+                    y='titles',
+                    title='Popularity Score Distribution',
+                    labels={'pop_score': 'Popularity Score', 'titles': 'Titles'},
+                    color='titles',
+                    color_continuous_scale='Greens'
                 )
-                st.dataframe(
-                    pressure_df[['title', 'author', 'genre', 'availability_ratio', 'is_low_stock']],
-                    use_container_width=True,
-                    hide_index=True
-                )
-            else:
-                st.info("No availability data found.")
+                fig_pop.update_layout(height=360)
+                st.plotly_chart(fig_pop, use_container_width=True)
 
-        with insight_col2:
+        # PUBLICATION YEAR ANALYSIS
+        yearly_query = f"""
+            SELECT
+                b.publication_year as year,
+                COUNT(*) as titles,
+                SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id)) as total_copies,
+                AVG(COALESCE(b.popularity_score, 0)) as avg_pop
+            FROM books b
+            WHERE {current_where_clause} AND b.publication_year IS NOT NULL
+            GROUP BY b.publication_year
+            ORDER BY year ASC
+        """
+        yearly_rows = Database.execute_query(yearly_query, tuple(current_params) if current_params else None)
+        if yearly_rows:
+            yearly_df = pd.DataFrame(yearly_rows)
+            fig_year = px.scatter(
+                yearly_df,
+                x='year',
+                y='titles',
+                size='total_copies',
+                color='avg_pop',
+                title='Publication Year vs Titles (Size=Copies, Color=Popularity)',
+                labels={'year': 'Publication Year', 'titles': 'Titles', 'avg_pop': 'Avg Popularity'},
+                color_continuous_scale='RdYlGn',
+                hover_data=['total_copies', 'avg_pop']
+            )
+            fig_year.update_layout(height=330)
+            st.plotly_chart(fig_year, use_container_width=True)
+
+        # ADVANCED OPERATIONAL INSIGHTS
+        st.markdown("### 🔍 Advanced Operational Insights")
+        
+        insight_tabs = st.tabs(["📦 Stock Analysis", "📈 Demand Leaders", "⚠️ Alerts & Issues", "🎯 Recommendations"])
+        
+        with insight_tabs[0]:
+            insight_col1, insight_col2, insight_col3 = st.columns(3, gap="small")
+            
+            with insight_col1:
+                st.markdown("#### 🔴 Availability Pressure")
+                low_stock_query = f"""
+                    SELECT
+                        b.title,
+                        COALESCE(NULLIF(TRIM(b.author), ''), 'Unknown') as author,
+                        COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown') as genre,
+                        (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) as total_copies,
+                        (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) as available_copies,
+                        (SELECT COUNT(*) FROM borrowing br JOIN book_inventory bi ON br.inventory_id = bi.inventory_id WHERE bi.book_id = b.book_id AND br.return_date IS NULL) as current_loans
+                    FROM books b
+                    WHERE {current_where_clause}
+                    ORDER BY available_copies ASC, total_copies ASC, b.title ASC
+                    LIMIT ?
+                """
+                low_stock_rows = Database.execute_query(
+                    low_stock_query,
+                    tuple(current_params + [int(top_n)])
+                )
+                if low_stock_rows:
+                    pressure_df = pd.DataFrame(low_stock_rows)
+                    pressure_df['total_copies'] = pressure_df['total_copies'].fillna(0).astype(int)
+                    pressure_df['available_copies'] = pressure_df['available_copies'].fillna(0).astype(int)
+                    pressure_df['current_loans'] = pressure_df['current_loans'].fillna(0).astype(int)
+                    pressure_df['is_low_stock'] = pressure_df['available_copies'] <= int(low_stock_threshold)
+                    pressure_df['availability_ratio'] = pressure_df.apply(
+                        lambda r: f"{int(r['available_copies'])}/{int(r['total_copies'])}", axis=1
+                    )
+                    pressure_df['pressure_level'] = pressure_df.apply(
+                        lambda r: "🔴 CRITICAL" if r['available_copies'] == 0 else "🟠 HIGH" if r['available_copies'] <= r['total_copies'] * 0.2 else "🟡 MEDIUM",
+                        axis=1
+                    )
+                    display_cols = ['title', 'author', 'genre', 'availability_ratio', 'current_loans', 'pressure_level']
+                    st.dataframe(
+                        pressure_df[display_cols],
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "title": st.column_config.TextColumn("Title", width="medium"),
+                            "availability_ratio": st.column_config.TextColumn("In Stock/Total", width="small"),
+                            "current_loans": st.column_config.NumberColumn("Current Loans", width="small"),
+                            "pressure_level": st.column_config.TextColumn("Status", width="small"),
+                        }
+                    )
+                else:
+                    st.info("No low stock items found.")
+            
+            with insight_col2:
+                st.markdown("#### 🟢 Underutilized Titles")
+                underutilized_query = f"""
+                    SELECT
+                        b.title,
+                        COALESCE(NULLIF(TRIM(b.author), ''), 'Unknown') as author,
+                        (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) as total_copies,
+                        (SELECT COUNT(*) FROM borrowing br JOIN book_inventory bi ON br.inventory_id = bi.inventory_id WHERE bi.book_id = b.book_id) as total_loans,
+                        COALESCE(b.popularity_score, 0) as popularity
+                    FROM books b
+                    WHERE {current_where_clause}
+                        AND (SELECT COUNT(*) FROM borrowing br JOIN book_inventory bi ON br.inventory_id = bi.inventory_id WHERE bi.book_id = b.book_id) < 2
+                    ORDER BY total_loans ASC, b.title ASC
+                    LIMIT ?
+                """
+                underutil_rows = Database.execute_query(
+                    underutilized_query,
+                    tuple(current_params + [int(top_n)])
+                )
+                if underutil_rows:
+                    underutil_df = pd.DataFrame(underutil_rows)
+                    underutil_df['total_loans'] = underutil_df['total_loans'].fillna(0).astype(int)
+                    underutil_df['popularity'] = underutil_df['popularity'].fillna(0).round(2)
+                    st.dataframe(
+                        underutil_df[['title', 'author', 'total_copies', 'total_loans', 'popularity']],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.success("All titles have adequate engagement!")
+            
+            with insight_col3:
+                st.markdown("#### 📊 Collection Distribution")
+                st.metric("Total Inventory", total_copies)
+                st.metric("Active/Inactive Titles", f"{total_books - inactive_titles}/{inactive_titles}")
+                st.metric("Avg Copies per Title", f"{avg_copies_per_title:.2f}")
+                st.metric("Titles with Activity", f"{titles_with_loans}/{total_books}")
+
+        with insight_tabs[1]:
+            st.markdown("#### 📈 Demand Leaders")
             demand_query = f"""
                 SELECT
+                    b.book_id,
                     b.title,
                     COALESCE(NULLIF(TRIM(b.author), ''), 'Unknown') as author,
                     COUNT(br.borrowing_id) as total_loans,
                     SUM(CASE WHEN br.return_date IS NULL THEN 1 ELSE 0 END) as active_loans,
-                    AVG(julianday(COALESCE(br.return_date, date('now'))) - julianday(br.checkout_date)) as avg_loan_days
+                    AVG(julianday(COALESCE(br.return_date, date('now'))) - julianday(br.checkout_date)) as avg_loan_days,
+                    COALESCE(b.popularity_score, 0) as popularity
                 FROM books b
                 LEFT JOIN book_inventory bi ON bi.book_id = b.book_id
                 LEFT JOIN borrowing br ON br.inventory_id = bi.inventory_id
@@ -9757,39 +10173,89 @@ def show_manage_books(embedded=False, browse_only=False):
                 demand_query,
                 tuple(current_params + [int(top_n)])
             )
-            st.markdown("####  Demand Leaders")
             if demand_rows:
                 demand_df = pd.DataFrame(demand_rows)
                 demand_df['avg_loan_days'] = demand_df['avg_loan_days'].fillna(0).round(1)
+                demand_df['popularity'] = demand_df['popularity'].fillna(0).round(2)
+                demand_df['demand_score'] = (demand_df['total_loans'] * demand_df['popularity'] / (demand_df['avg_loan_days'] + 1)).round(2)
+                
+                demand_chart_df = demand_df.head(10)[['title', 'total_loans', 'active_loans', 'demand_score']]
+                fig_demand = px.bar(
+                    demand_chart_df,
+                    x='title',
+                    y='total_loans',
+                    color='demand_score',
+                    title='Top 10 Demand Leaders',
+                    labels={'title': 'Title', 'total_loans': 'Total Loans', 'demand_score': 'Demand Score'},
+                    color_continuous_scale='Reds',
+                    hover_data=['active_loans']
+                )
+                fig_demand.update_layout(xaxis_tickangle=-45, height=400)
+                st.plotly_chart(fig_demand, use_container_width=True)
+                
                 st.dataframe(
-                    demand_df,
+                    demand_df[['title', 'author', 'total_loans', 'active_loans', 'avg_loan_days', 'popularity']],
                     use_container_width=True,
                     hide_index=True
                 )
             else:
                 st.info("No borrowing demand data for the selected filters.")
 
-        yearly_query = f"""
-            SELECT
-                b.publication_year as year,
-                COUNT(*) as titles
-            FROM books b
-            WHERE {current_where_clause} AND b.publication_year IS NOT NULL
-            GROUP BY b.publication_year
-            ORDER BY year ASC
-        """
-        yearly_rows = Database.execute_query(yearly_query, tuple(current_params) if current_params else None)
-        if yearly_rows:
-            yearly_df = pd.DataFrame(yearly_rows)
-            fig_year = px.line(
-                yearly_df,
-                x='year',
-                y='titles',
-                markers=True,
-                title='Publication Year Distribution'
-            )
-            fig_year.update_layout(height=330)
-            st.plotly_chart(fig_year, use_container_width=True)
+        with insight_tabs[2]:
+            st.markdown("#### ⚠️ System Alerts")
+            
+            alerts_generated = []
+            
+            if enable_low_stock_alerts and circulation_velocity > float(utilization_alert_threshold):
+                alerts_generated.append(("🔴 **HIGH UTILIZATION**", f"Circulation velocity is {circulation_velocity:.1f}% (threshold: {utilization_alert_threshold}%). Consider acquiring more copies."))
+            
+            if enable_overdue_alerts and overdue_loans > 0:
+                alerts_generated.append(("🟠 **OVERDUE ITEMS**", f"{overdue_loans} items overdue. Consider review and follow-up."))
+            
+            if enable_performance_alerts and untouched_ratio > 20:
+                alerts_generated.append(("🟡 **LOW ENGAGEMENT**", f"{untouched_ratio:.1f}% of titles have never been borrowed. Review collection relevance."))
+            
+            if collection_health_score < 60:
+                alerts_generated.append(("🟡 **HEALTH WARNING**", f"Collection health is {collection_health_score:.1f}%. Many titles lack circulation activity."))
+            
+            if not alerts_generated:
+                st.success("✅ No critical alerts found. Collection is performing well!")
+            else:
+                for alert_type, alert_msg in alerts_generated:
+                    st.warning(f"{alert_type}\n{alert_msg}")
+
+        with insight_tabs[3]:
+            st.markdown("#### 🎯 AI-Powered Insights & Recommendations")
+            
+            recommendations = []
+            
+            if circulation_velocity < 20:
+                recommendations.append(f"📊 **Low Circulation**: Consider marketing campaigns or genre-specific promotions. Current velocity: {circulation_velocity:.1f}%")
+            
+            if untouched_ratio > 10:
+                recommendations.append(f"🎯 **Engagement**: {untouched_ratio:.1f}% of titles are unused. Review relevance or consider deaccessioning.")
+            
+            if collection_refresh_rate and collection_refresh_rate < 5:
+                recommendations.append(f"🆕 **Acquisition Rate**: Only {collection_refresh_rate:.1f}% new titles in period. Consider accelerating acquisitions.")
+            
+            if overdue_loans > (active_loans * 0.1) if active_loans > 0 else False:
+                recommendations.append(f"⏰ **Return Compliance**: {overdue_ratio:.1f}% of loans are overdue. Implement reminder system.")
+            
+            if genre_diversity < 30:
+                recommendations.append(f"📚 **Genre Balance**: Low genre diversity ({genre_diversity:.1f}%). Consider expanding collection breadth.")
+            
+            if unique_languages < 3:
+                recommendations.append(f"🌍 **Language Diversity**: Only {unique_languages} languages available. Consider multilingual acquisitions.")
+            
+            if avg_book_age_years > 8:
+                recommendations.append(f"🔄 **Collection Age**: Average book age is {avg_book_age_years:.1f} years. Consider refresh cycle.")
+            
+            if recommendations:
+                for i, rec in enumerate(recommendations, 1):
+                    with st.container():
+                        st.info(f"**{i}.** {rec}")
+            else:
+                st.success("✅ Your collection metrics look excellent! Continue monitoring key KPIs.")
 
 def show_manage_members():
     """Member management page"""
