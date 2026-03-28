@@ -11285,8 +11285,7 @@ def show_borrowing_returns():
                             st.success(" Book returned successfully!")
                         st.balloons()
     
-    st.divider()
-    st.subheader(" Renewal Requests")
+
     
     current_user = Auth.get_user()
     
@@ -11515,7 +11514,7 @@ def show_borrowing_returns():
                 st.metric(" Overdue", overdue_count['count'] if overdue_count else 0)
 
         with row2_col2:
-            st.markdown("###  Most Borrowed Books")
+            st.markdown("###    Most Borrowed")
             popular = Database.execute_query("""
                 SELECT b.title, COUNT(*) as borrow_count
                 FROM borrowing br
@@ -11538,7 +11537,7 @@ def show_borrowing_returns():
                 st.info("No borrowing data available")
 
         with row2_col3:
-            st.markdown("### ⏱ Average Borrowing Duration")
+            st.markdown("###    Borrowing Duration")
             avg_duration = Database.execute_query("""
                 SELECT AVG(julianday(return_date) - julianday(checkout_date)) as avg_days
                 FROM borrowing
