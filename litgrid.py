@@ -9133,14 +9133,20 @@ def show_manage_books(embedded=False, browse_only=False):
         date_filter_enabled = st.checkbox(" Calendar Search (Filter by Added Date)", value=False, key="mb_calendar_enabled")
         calendar_range = None
         if date_filter_enabled:
-            calendar_range = st.date_input(
-                " Added Date Range",
-                value=(date.today() - timedelta(days=90), date.today()),
-                key="mb_calendar_range"
-            )
-
-        if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
-            st.rerun()
+            date_col, refresh_col = st.columns([4, 1], gap="small")
+            with date_col:
+                calendar_range = st.date_input(
+                    " Added Date Range",
+                    value=(date.today() - timedelta(days=90), date.today()),
+                    key="mb_calendar_range"
+                )
+            with refresh_col:
+                st.markdown("<div style='height: 1.8rem;'></div>", unsafe_allow_html=True)
+                if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
+                    st.rerun()
+        else:
+            if st.button(" Refresh", use_container_width=True, key="mb_refresh"):
+                st.rerun()
 
         # Unified book query
         query = """
