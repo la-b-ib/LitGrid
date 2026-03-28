@@ -9453,26 +9453,187 @@ def show_manage_books(embedded=False):
     with books_workspace_tab:
         st.divider()
         st.subheader(" Book Statistics")
-        
+
+        controls_col1, controls_col2, controls_col3 = st.columns(3, gap="small")
+        with controls_col1:
+            time_window = st.radio(
+                "Analytics Range",
+                ["30D", "90D", "180D", "365D", "All Time"],
+                horizontal=True,
+                key="bs_time_window"
+            )
+        with controls_col2:
+            active_titles_only = st.checkbox("Only Active Titles", value=False, key="bs_active_titles_only")
+        with controls_col3:
+            if st.button(" Refresh Statistics", key="bs_refresh", use_container_width=True):
+                st.rerun()
+
+        window_map = {
+            "30D": 30,
+            "90D": 90,
+            "180D": 180,
+            "365D": 365,
+            "All Time": None,
+        }
+        window_days = window_map.get(time_window)
+
+        base_filters = ["1=1"]
+        base_params = []
+
+        if active_titles_only:
+            base_filters.append("b.is_available = 1")
+        if window_days is not None:
+            base_filters.append("date(b.created_at) >= date('now', ?)")
+            base_params.append(f"-{window_days} days")
+
+        where_clause = " AND ".join(base_filters)
+
+        summary_query = f"""
+            SELECT
+                COUNT(*) as book_count,
+                SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id)) as total_copies,
+                SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1)) as available_copies
+            FROM books b
+            WHERE {where_clause}
+        """
+        summary = Database.execute_query(summary_query, tuple(base_params) if base_params else None, fetch_one=True) or {}
+
+        total_books = int(summary.get('book_count') or 0)
+        total_copies = int(summary.get('total_copies') or 0)
+        available_copies = int(summary.get('available_copies') or 0)
+        checked_out = max(total_copies - available_copies, 0)
+        utilization_pct = (checked_out / total_copies * 100) if total_copies > 0 else 0.0
+        avg_copies_per_title = (total_copies / total_books) if total_books > 0 else 0.0
+
         col1, col2, col3, col4 = st.columns(4, gap="small")
-        
-        total = Database.execute_query("SELECT COUNT(*) as count FROM books WHERE is_available = 1")
-        total_copies = Database.execute_query("SELECT COUNT(*) as count FROM book_inventory")
-        available = Database.execute_query(
-            "SELECT COUNT(*) as count FROM book_inventory WHERE is_available = 1"
-        )
-        checked_out = Database.execute_query(
-            "SELECT COUNT(*) as count FROM book_inventory WHERE is_available = 0"
-        )
-        
         with col1:
-            st.metric("Total Books", total[0]['count'] if total else 0)
+            st.metric("Titles", total_books)
         with col2:
-            st.metric("Total Copies", total_copies[0]['count'] if total_copies else 0)
+            st.metric("Total Copies", total_copies)
         with col3:
-            st.metric("Available", available[0]['count'] if available else 0)
+            st.metric("Checked Out", checked_out, delta=f"{utilization_pct:.1f}% utilization")
         with col4:
-            st.metric("Checked Out", checked_out[0]['count'] if checked_out else 0)
+            st.metric("Avg Copies/Title", f"{avg_copies_per_title:.2f}")
+
+        st.caption(
+            f"Range: {time_window} | Active-Only: {'On' if active_titles_only else 'Off'} | Available Copies: {available_copies}"
+        )
+
+        chart_col1, chart_col2 = st.columns(2, gap="small")
+
+        with chart_col1:
+            genre_query = f"""
+                SELECT
+                    COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown') as genre_name,
+                    COUNT(*) as titles,
+                    SUM((SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id)) as copies
+                FROM books b
+                WHERE {where_clause}
+                GROUP BY COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown')
+                ORDER BY titles DESC
+                LIMIT 12
+            """
+            genre_rows = Database.execute_query(genre_query, tuple(base_params) if base_params else None)
+            if genre_rows:
+                genre_df = pd.DataFrame(genre_rows)
+                fig_genre = px.bar(
+                    genre_df,
+                    x='genre_name',
+                    y='titles',
+                    color='copies',
+                    title='Top Genres by Titles',
+                    labels={'genre_name': 'Genre', 'titles': 'Titles', 'copies': 'Copies'}
+                )
+                fig_genre.update_layout(height=360, xaxis_tickangle=-25)
+                st.plotly_chart(fig_genre, use_container_width=True)
+            else:
+                st.info("No genre data available for the current filters.")
+
+        with chart_col2:
+            trend_query = f"""
+                SELECT
+                    strftime('%Y-%m', b.created_at) as month,
+                    COUNT(*) as titles_added
+                FROM books b
+                WHERE {where_clause} AND b.created_at IS NOT NULL
+                GROUP BY strftime('%Y-%m', b.created_at)
+                ORDER BY month DESC
+                LIMIT 24
+            """
+            trend_rows = Database.execute_query(trend_query, tuple(base_params) if base_params else None)
+            if trend_rows:
+                trend_df = pd.DataFrame(trend_rows)
+                trend_df = trend_df.sort_values('month')
+                fig_trend = px.area(
+                    trend_df,
+                    x='month',
+                    y='titles_added',
+                    markers=True,
+                    title='Collection Growth Trend'
+                )
+                fig_trend.update_layout(height=360)
+                st.plotly_chart(fig_trend, use_container_width=True)
+            else:
+                st.info("No timeline data available for the current filters.")
+
+        st.markdown("###  Operational Insights")
+        insight_col1, insight_col2 = st.columns(2, gap="small")
+
+        with insight_col1:
+            low_stock_query = f"""
+                SELECT
+                    b.title,
+                    b.author,
+                    COALESCE(NULLIF(TRIM(b.genre), ''), 'Unknown') as genre,
+                    (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) as total_copies,
+                    (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) as available_copies
+                FROM books b
+                WHERE {where_clause}
+                ORDER BY available_copies ASC, total_copies DESC, b.title ASC
+                LIMIT 12
+            """
+            low_stock_rows = Database.execute_query(low_stock_query, tuple(base_params) if base_params else None)
+            st.markdown("####  Availability Pressure")
+            if low_stock_rows:
+                pressure_df = pd.DataFrame(low_stock_rows)
+                pressure_df['availability_ratio'] = pressure_df.apply(
+                    lambda r: f"{int(r['available_copies'] or 0)}/{int(r['total_copies'] or 0)}", axis=1
+                )
+                st.dataframe(
+                    pressure_df[['title', 'author', 'genre', 'availability_ratio']],
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("No availability data found.")
+
+        with insight_col2:
+            yearly_query = f"""
+                SELECT
+                    b.publication_year as year,
+                    COUNT(*) as titles
+                FROM books b
+                WHERE {where_clause} AND b.publication_year IS NOT NULL
+                GROUP BY b.publication_year
+                ORDER BY year DESC
+                LIMIT 15
+            """
+            yearly_rows = Database.execute_query(yearly_query, tuple(base_params) if base_params else None)
+            st.markdown("####  Recent Publication Years")
+            if yearly_rows:
+                yearly_df = pd.DataFrame(yearly_rows)
+                yearly_df = yearly_df.sort_values('year')
+                fig_year = px.line(
+                    yearly_df,
+                    x='year',
+                    y='titles',
+                    markers=True,
+                    title='Titles by Publication Year'
+                )
+                fig_year.update_layout(height=320)
+                st.plotly_chart(fig_year, use_container_width=True)
+            else:
+                st.info("No publication year data available.")
 
 def show_manage_members():
     """Member management page"""
