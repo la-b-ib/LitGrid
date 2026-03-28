@@ -1609,12 +1609,12 @@ class PeerLibraryManager:
             query = """
                 INSERT INTO pdf_library
                 (user_id, title, author, genre, description, pdf_file, 
-                 pdf_filename, file_size, is_public)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 pdf_filename, file_size, page_count, is_public)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             values = (
                 user_id, title, author, genre, description,
-                pdf_bytes, pdf_file.name, len(pdf_bytes), is_public
+                pdf_bytes, pdf_file.name, len(pdf_bytes), int(pdf_info.get('pages', 0) or 0), is_public
             )
             
             Database.execute_update(query, values)
@@ -11653,14 +11653,56 @@ def show_my_library():
                         key="ucc_create_catalog"
                     )
 
-                title = st.text_input("Title *", max_chars=500, key="ucc_title")
-                meta_col1, meta_col2, meta_col3 = st.columns(3, gap="small")
+                title = st.text_input("Title of the book *", max_chars=500, key="ucc_title")
+                meta_col1, meta_col2, meta_col3, meta_col4 = st.columns(4, gap="small")
                 with meta_col1:
-                    author = st.text_input("Author", max_chars=300, key="ucc_author")
+                    authors_text = st.text_input("Author(s)", max_chars=300, key="ucc_author")
                 with meta_col2:
-                    genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], key="ucc_genre")
+                    publisher = st.text_input("Publisher", max_chars=300, key="ucc_publisher")
                 with meta_col3:
+                    genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], key="ucc_genre")
+                with meta_col4:
+                    subtitle = st.text_input("Subtitle", max_chars=500, key="ucc_subtitle")
+
+                bib_col1, bib_col2, bib_col3, bib_col4 = st.columns(4, gap="small")
+                current_year = datetime.now().year
+                max_year = current_year + 10
+                with bib_col1:
+                    publication_year = st.number_input("Year of publication", min_value=1800, max_value=max_year, value=current_year, key="ucc_pub_year")
+                with bib_col2:
+                    edition = st.text_input("Edition", placeholder="e.g., 2nd Edition", key="ucc_edition")
+                with bib_col3:
+                    isbn_issn = st.text_input("ISBN/ISSN", placeholder="ISBN-13 or ISSN", key="ucc_isbn_issn")
+                with bib_col4:
                     keywords = st.text_input("Keywords", placeholder="fiction, mystery, thriller", key="ucc_keywords")
+
+                ext_col1, ext_col2, ext_col3, ext_col4 = st.columns(4, gap="small")
+                with ext_col1:
+                    contributors = st.text_input("Contributors/Editors", key="ucc_contributors")
+                with ext_col2:
+                    publication_place = st.text_input("Publication Place", key="ucc_pub_place")
+                with ext_col3:
+                    series_title = st.text_input("Series", key="ucc_series")
+                with ext_col4:
+                    volume = st.text_input("Volume", key="ucc_volume")
+
+                ext2_col1, ext2_col2, ext2_col3, ext2_col4 = st.columns(4, gap="small")
+                with ext2_col1:
+                    shared_language = st.selectbox("Language", ["English", "Hindi", "Spanish", "French", "German", "Other"], key="ucc_language")
+                with ext2_col2:
+                    shared_pages = st.number_input("Pages", min_value=1, value=200, key="ucc_pages")
+                with ext2_col3:
+                    call_number = st.text_input("Call Number", key="ucc_call_number")
+                with ext2_col4:
+                    accession_number = st.text_input("Accession Number", key="ucc_accession")
+
+                ext3_col1, ext3_col2, ext3_col3 = st.columns(3, gap="small")
+                with ext3_col1:
+                    shelf_location = st.text_input("Shelf/Location", placeholder="Aisle-B / Rack-12", key="ucc_catalog_location")
+                with ext3_col2:
+                    condition_note = st.text_input("Condition Notes", placeholder="new/good/worn", key="ucc_condition")
+                with ext3_col3:
+                    source_url = st.text_input("Source URL", placeholder="https://...", key="ucc_source_url")
 
                 description = st.text_area("Description", max_chars=1400, key="ucc_description")
 
@@ -11670,27 +11712,39 @@ def show_my_library():
                 with pdf_col2:
                     is_public = st.checkbox("Publish PDF as Public", value=False, key="ucc_pdf_public")
 
-                catalog_isbn = ""
-                publication_year = datetime.now().year
+                digital_col1, digital_col2, digital_col3 = st.columns(3, gap="small")
+                with digital_col1:
+                    digital_format = st.selectbox(
+                        "Digital file format",
+                        ["PDF", "EPUB", "MOBI", "DOCX", "TXT", "Other"],
+                        key="ucc_digital_format"
+                    )
+                with digital_col2:
+                    auto_file_size_bytes = len(uploaded_file.getvalue()) if uploaded_file else 0
+                    st.text_input(
+                        "File size",
+                        value=(f"{(auto_file_size_bytes / 1024 / 1024):.2f} MB" if auto_file_size_bytes else "N/A"),
+                        disabled=True,
+                        key="ucc_file_size_display"
+                    )
+                with digital_col3:
+                    cover_image = st.file_uploader("Cover image", type=['png', 'jpg', 'jpeg', 'webp'], key="ucc_cover_image")
+
                 pages = 1
                 language = "Other"
                 copies = 1
                 if is_management_user and create_catalog:
-                    current_year = datetime.now().year
-                    max_year = current_year + 10
-                    cat_col1, cat_col2, cat_col3 = st.columns(3, gap="small")
+                    cat_col1, cat_col2 = st.columns(2, gap="small")
                     with cat_col1:
-                        catalog_isbn = st.text_input("ISBN (optional)", placeholder="Auto-generated if empty", key="ucc_isbn")
-                    with cat_col2:
-                        publication_year = st.number_input("Publication Year", min_value=1800, max_value=max_year, value=current_year, key="ucc_year")
-                    with cat_col3:
                         copies = st.number_input("Copies", min_value=1, value=1, key="ucc_copies")
+                    with cat_col2:
+                        catalog_acquired_on = st.date_input("Acquired On", value=date.today(), key="ucc_acquired_on")
+                else:
+                    catalog_acquired_on = date.today()
 
-                    cat2_col1, cat2_col2 = st.columns(2, gap="small")
-                    with cat2_col1:
-                        pages = st.number_input("Pages", min_value=1, value=200, key="ucc_pages")
-                    with cat2_col2:
-                        language = st.selectbox("Language", ["English", "Hindi", "Spanish", "French", "German", "Other"], key="ucc_language")
+                pages = int(shared_pages)
+                language = shared_language
+                catalog_location = shelf_location
 
                 submit_unified = st.form_submit_button(" Execute Unified Action", use_container_width=True)
 
@@ -11706,8 +11760,19 @@ def show_my_library():
                             if not uploaded_file:
                                 st.error("PDF file is required when Create/Upload PDF Asset is selected.")
                             else:
+                                enriched_description = description or ""
+                                enriched_description += (
+                                    f"\n\n[Metadata] Publisher: {publisher or 'N/A'} | Edition: {edition or 'N/A'}"
+                                    f" | ISBN/ISSN: {isbn_issn or 'N/A'} | Format: {digital_format}"
+                                    f" | Size: {(auto_file_size_bytes / 1024 / 1024):.2f} MB"
+                                    f" | Subtitle: {subtitle or 'N/A'} | Contributors: {contributors or 'N/A'}"
+                                    f" | Publication Place: {publication_place or 'N/A'} | Series: {series_title or 'N/A'}"
+                                    f" | Volume: {volume or 'N/A'} | Call Number: {call_number or 'N/A'}"
+                                    f" | Accession: {accession_number or 'N/A'} | Source: {source_url or 'N/A'}"
+                                )
+
                                 pdf_ok, pdf_msg = PeerLibraryManager.upload_pdf_to_library(
-                                    user['user_id'], uploaded_file, title, author, genre, description, is_public
+                                    user['user_id'], uploaded_file, title, authors_text, genre, enriched_description, is_public
                                 )
                                 if pdf_ok:
                                     results.append("PDF uploaded")
@@ -11715,47 +11780,84 @@ def show_my_library():
                                     st.error(pdf_msg)
 
                         if create_catalog and is_management_user:
-                            if not author or not genre:
-                                st.error("Author and Genre are required for catalog record creation.")
-                            else:
-                                resolved_isbn = (catalog_isbn or "").strip()
-                                if not resolved_isbn:
-                                    resolved_isbn = f"AUTO-{user['user_id']}-{int(time.time())}"
+                            resolved_isbn = (isbn_issn or "").strip()
+                            if not resolved_isbn:
+                                resolved_isbn = f"AUTO-{user['user_id']}-{int(time.time())}"
 
-                                catalog_ok = Database.execute_update(
-                                    """
-                                    INSERT INTO books (isbn, title, author, genre, publication_year,
-                                                     pages, language, description, keywords, is_available)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                                    """,
-                                    (
-                                        resolved_isbn,
-                                        title,
-                                        author,
-                                        genre,
-                                        publication_year,
-                                        pages,
-                                        language,
-                                        description or None,
-                                        keywords or None
-                                    )
+                            digits_only = re.sub(r"\D", "", resolved_isbn)
+                            isbn_13 = digits_only if len(digits_only) == 13 else None
+                            isbn_10 = digits_only if len(digits_only) == 10 else None
+
+                            catalog_description = description or ""
+                            catalog_description += (
+                                f"\n\nPublisher: {publisher or 'N/A'}"
+                                f"\nEdition: {edition or 'N/A'}"
+                                f"\nSubtitle: {subtitle or 'N/A'}"
+                                f"\nContributors: {contributors or 'N/A'}"
+                                f"\nPublication Place: {publication_place or 'N/A'}"
+                                f"\nSeries: {series_title or 'N/A'}"
+                                f"\nVolume: {volume or 'N/A'}"
+                                f"\nISBN/ISSN: {isbn_issn or 'N/A'}"
+                                f"\nDigital Format: {digital_format}"
+                                f"\nDigital File Size: {(auto_file_size_bytes / 1024 / 1024):.2f} MB"
+                                f"\nCall Number: {call_number or 'N/A'}"
+                                f"\nAccession Number: {accession_number or 'N/A'}"
+                                f"\nSource URL: {source_url or 'N/A'}"
+                                f"\nAcquired On: {catalog_acquired_on}"
+                            )
+
+                            catalog_ok = Database.execute_update(
+                                """
+                                INSERT INTO books (
+                                    isbn, isbn_13, isbn_10, title, author, genre, publication_year,
+                                    publisher, pages, page_count, language, description, keywords,
+                                    location, condition_notes, is_available
                                 )
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                                """,
+                                (
+                                    resolved_isbn,
+                                    isbn_13,
+                                    isbn_10,
+                                    title,
+                                    authors_text or "Unknown",
+                                    genre,
+                                    publication_year,
+                                    publisher or None,
+                                    pages,
+                                    pages,
+                                    language,
+                                    catalog_description or None,
+                                    keywords or None,
+                                    catalog_location or None,
+                                    condition_note or None
+                                )
+                            )
 
-                                if catalog_ok:
-                                    created = Database.execute_query(
-                                        "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
-                                        (resolved_isbn,)
-                                    )
-                                    if created:
-                                        book_id = created[0]['book_id']
-                                        for i in range(int(copies)):
+                            if catalog_ok:
+                                created = Database.execute_query(
+                                    "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
+                                    (resolved_isbn,)
+                                )
+                                if created:
+                                    book_id = created[0]['book_id']
+                                    for i in range(int(copies)):
+                                        Database.execute_update(
+                                            "INSERT INTO book_inventory (book_id, barcode, is_available, location, condition_status) VALUES (?, ?, 1, ?, ?)",
+                                            (book_id, f"{resolved_isbn}-{i+1}", catalog_location or None, condition_note or 'good')
+                                        )
+
+                                    if cover_image:
+                                        try:
                                             Database.execute_update(
-                                                "INSERT INTO book_inventory (book_id, barcode, is_available) VALUES (?, ?, 1)",
-                                                (book_id, f"{resolved_isbn}-{i+1}")
+                                                "INSERT INTO book_covers (book_id, cover_image) VALUES (?, ?)",
+                                                (book_id, cover_image.getvalue())
                                             )
-                                    results.append(f"Catalog record created ({int(copies)} copies)")
-                                else:
-                                    st.error("Catalog creation failed (likely duplicate ISBN).")
+                                        except Exception:
+                                            pass
+                                results.append(f"Catalog record created ({int(copies)} copies)")
+                            else:
+                                st.error("Catalog creation failed (likely duplicate ISBN).")
 
                         if results:
                             st.success(" | ".join(results))
