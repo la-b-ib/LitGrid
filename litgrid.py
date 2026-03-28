@@ -11439,34 +11439,10 @@ def show_borrowing_returns():
             fetch_one=True
         )
 
-        # Row 1: Active Snapshot | Borrowing Trends & Analytics | Daily Borrowing Trend
-        row1_col1, row1_col2, row1_col3 = st.columns(3, gap="small")
+        # Row 1: Borrowing Trends & Analytics | Daily Borrowing Trend
+        row1_col1, row1_col2 = st.columns(2, gap="small")
 
         with row1_col1:
-            st.markdown("### Active Snapshot")
-            my_active = Database.execute_query(
-                """
-                SELECT b.title, br.due_date,
-                       CAST(julianday(br.due_date) - julianday(date('now')) AS INTEGER) as days_remaining
-                FROM borrowing br
-                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-                JOIN books b ON bi.book_id = b.book_id
-                WHERE br.user_id = ? AND br.return_date IS NULL
-                ORDER BY br.due_date ASC
-                LIMIT 8
-                """,
-                (current_user['user_id'],)
-            ) or []
-            if my_active:
-                my_df = pd.DataFrame(my_active)
-                my_df['status'] = my_df['days_remaining'].apply(
-                    lambda d: "Overdue" if int(d) < 0 else ("Due Soon" if int(d) <= due_soon_days else "On Track")
-                )
-                st.dataframe(my_df[['title', 'due_date', 'days_remaining', 'status']], use_container_width=True, hide_index=True)
-            else:
-                st.info("No active borrowings")
-
-        with row1_col2:
             st.markdown("### Borrowing Trends & Analytics")
             st.info(f"Range: {start_date} to {end_date}")
             trend_kpi1, trend_kpi2 = st.columns(2, gap="small")
@@ -11480,7 +11456,7 @@ def show_borrowing_returns():
                     return_rate = ((total_returned['count'] if total_returned else 0) / max(total_borrowed['count'], 1)) * 100
                 st.metric("Return Rate", f"{return_rate:.1f}%")
 
-        with row1_col3:
+        with row1_col2:
             st.markdown("###  Daily Borrowing Trend")
             daily_data = Database.execute_query("""
                 SELECT DATE(checkout_date) as date, COUNT(*) as checkouts
