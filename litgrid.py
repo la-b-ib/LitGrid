@@ -9332,87 +9332,6 @@ def show_manage_books(embedded=False):
     
     with books_workspace_tab:
         st.divider()
-        st.subheader("**Add New Book**")
-        
-        with st.form("add_book_form"):
-            # Get publishers
-            publishers = Database.execute_query("SELECT publisher_id, name FROM publishers ORDER BY name")
-            publisher_options = {p['name']: p['publisher_id'] for p in publishers} if publishers else {}
-
-            row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4, gap="small")
-            with row1_col1:
-                isbn = st.text_input("ISBN * (will be validated)", placeholder="978-0-123456-78-9")
-            with row1_col2:
-                title = st.text_input("Title *")
-            with row1_col3:
-                subtitle = st.text_input("Subtitle")
-            with row1_col4:
-                edition = st.text_input("Edition", placeholder="1st Edition")
-
-            row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4, gap="small")
-            with row2_col1:
-                publication_year = st.number_input("Publication Year", min_value=1800, max_value=2025, value=2024)
-            with row2_col2:
-                pages = st.number_input("Number of Pages", min_value=1, value=200)
-            with row2_col3:
-                language = st.selectbox("Language", ["English", "Hindi", "Spanish", "French", "German", "Other"])
-            with row2_col4:
-                publisher_name = st.selectbox("Publisher", ["Select..."] + list(publisher_options.keys()))
-
-            row3_col1, row3_col2, row3_col3, row3_col4 = st.columns(4, gap="small")
-            with row3_col1:
-                author = st.text_input("Author *")
-            with row3_col2:
-                genre = st.text_input("Genre *")
-            with row3_col3:
-                keywords = st.text_input("Keywords (comma-separated)", placeholder="fiction, mystery, thriller")
-            with row3_col4:
-                copies = st.number_input("Number of Copies", min_value=1, value=1)
-
-            description = st.text_area("Description")
-            
-            submit = st.form_submit_button(" Add Book", use_container_width=True)
-            
-            if submit:
-                # Validation
-                if not isbn or not title or not author or not genre:
-                    st.error(" ISBN, Title, Author, and Genre are required!")
-                else:
-                    # Insert book
-                    book_query = """
-                        INSERT INTO books (isbn, title, author, genre, publication_year, 
-                                         pages, language, description, keywords, is_available)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                    """
-                    if Database.execute_update(book_query, (
-                        isbn, title, author, genre, publication_year,
-                        pages, language, description or None,
-                        keywords or None
-                    )):
-                        # Get the book_id
-                        new_book = Database.execute_query(
-                            "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
-                            (isbn,)
-                        )
-                        
-                        if new_book:
-                            book_id = new_book[0]['book_id']
-                            
-                            # Add inventory copies
-                            for i in range(copies):
-                                Database.execute_update(
-                                    "INSERT INTO book_inventory (book_id, barcode, is_available) VALUES (?, ?, 1)",
-                                    (book_id, f"{isbn}-{i+1}")
-                                )
-                            
-                            st.success(f" Book added successfully with {copies} copies!")
-                            st.success(f" ISBN validated: {isbn}")
-                            st.balloons()
-                    else:
-                        st.error(" Failed to add book. ISBN may already exist.")
-    
-    with books_workspace_tab:
-        st.divider()
         st.subheader(" Bulk Import from CSV")
         
         st.markdown("""
@@ -11665,9 +11584,12 @@ def show_my_library():
             show_books(embedded=True)
             st.divider()
 
-        left_col, right_col = st.columns(2, gap="large")
+        if is_management_user:
+            collection_col, upload_col, add_book_col = st.columns([1.1, 1, 1], gap="large")
+        else:
+            collection_col, upload_col = st.columns(2, gap="large")
 
-        with left_col:
+        with collection_col:
             st.subheader("**My PDF Collection**")
 
             pdfs = PeerLibraryManager.get_user_library(user['user_id'])
@@ -11713,7 +11635,7 @@ def show_my_library():
             else:
                 st.info("Your library is empty. Upload PDFs to get started!")
 
-        with right_col:
+        with upload_col:
             st.subheader(" Upload New PDF")
 
             with st.form("upload_pdf_form"):
@@ -11724,6 +11646,26 @@ def show_my_library():
                                                "History", "Biography", "Self-Help", "Other"])
                 description = st.text_area("Description", max_chars=1000)
                 is_public = st.checkbox("Make this PDF publicly visible")
+
+                link_to_catalog = False
+                catalog_isbn = ""
+                catalog_copies = 1
+                if is_management_user:
+                    st.markdown("####  Unified Catalog Sync")
+                    link_to_catalog = st.checkbox(
+                        "Also add this to physical Book Catalog",
+                        value=False,
+                        help="Creates a catalog book and inventory copies from this upload metadata"
+                    )
+                    if link_to_catalog:
+                        sync_col1, sync_col2 = st.columns(2, gap="small")
+                        with sync_col1:
+                            catalog_isbn = st.text_input(
+                                "Catalog ISBN (optional)",
+                                placeholder="If empty, an automatic internal ISBN is generated"
+                            )
+                        with sync_col2:
+                            catalog_copies = st.number_input("Catalog Copies", min_value=1, value=1)
 
                 submitted = st.form_submit_button(" Upload PDF")
 
@@ -11737,11 +11679,113 @@ def show_my_library():
 
                         if success:
                             st.success(message)
+
+                            # Optional unified workflow: also create catalog record for physical inventory.
+                            if is_management_user and link_to_catalog:
+                                resolved_isbn = (catalog_isbn or "").strip()
+                                if not resolved_isbn:
+                                    resolved_isbn = f"PDF-{user['user_id']}-{int(time.time())}"
+
+                                catalog_inserted = Database.execute_update(
+                                    """
+                                    INSERT INTO books (
+                                        isbn, title, author, genre, publication_year,
+                                        pages, language, description, keywords, is_available
+                                    )
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                                    """,
+                                    (
+                                        resolved_isbn,
+                                        title,
+                                        author or "Unknown",
+                                        genre or "Other",
+                                        datetime.now().year,
+                                        1,
+                                        "Other",
+                                        description or None,
+                                        "pdf_upload"
+                                    )
+                                )
+
+                                if catalog_inserted:
+                                    created = Database.execute_query(
+                                        "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
+                                        (resolved_isbn,)
+                                    )
+                                    if created:
+                                        book_id = created[0]['book_id']
+                                        for i in range(int(catalog_copies)):
+                                            Database.execute_update(
+                                                "INSERT INTO book_inventory (book_id, barcode, is_available) VALUES (?, ?, 1)",
+                                                (book_id, f"{resolved_isbn}-{i+1}")
+                                            )
+                                        st.success(f" Catalog entry created with {int(catalog_copies)} copies.")
+                                else:
+                                    st.warning(" PDF uploaded, but catalog sync failed (possible ISBN conflict).")
+
                             st.balloons()
                             time.sleep(1)
                             st.rerun()
                         else:
                             st.error(message)
+
+        if is_management_user:
+            with add_book_col:
+                st.subheader(" Add New Book")
+                st.caption("Unified publishing workflow for physical catalog entries.")
+
+                with st.form("unified_add_book_form"):
+                    isbn = st.text_input("ISBN *", placeholder="978-0-123456-78-9")
+                    title = st.text_input("Title *")
+                    author = st.text_input("Author *")
+                    genre = st.text_input("Genre *")
+
+                    col_a, col_b = st.columns(2, gap="small")
+                    with col_a:
+                        publication_year = st.number_input("Publication Year", min_value=1800, max_value=2025, value=2024, key="uab_year")
+                        pages = st.number_input("Pages", min_value=1, value=200, key="uab_pages")
+                    with col_b:
+                        language = st.selectbox("Language", ["English", "Hindi", "Spanish", "French", "German", "Other"], key="uab_language")
+                        copies = st.number_input("Copies", min_value=1, value=1, key="uab_copies")
+
+                    keywords = st.text_input("Keywords", placeholder="fiction, mystery, thriller", key="uab_keywords")
+                    description = st.text_area("Description", max_chars=1200, key="uab_description")
+
+                    submit_add = st.form_submit_button(" Add Book to Catalog", use_container_width=True)
+
+                    if submit_add:
+                        if not isbn or not title or not author or not genre:
+                            st.error(" ISBN, Title, Author, and Genre are required!")
+                        else:
+                            book_query = """
+                                INSERT INTO books (isbn, title, author, genre, publication_year,
+                                                 pages, language, description, keywords, is_available)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                            """
+                            if Database.execute_update(book_query, (
+                                isbn, title, author, genre, publication_year,
+                                pages, language, description or None,
+                                keywords or None
+                            )):
+                                new_book = Database.execute_query(
+                                    "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
+                                    (isbn,)
+                                )
+
+                                if new_book:
+                                    book_id = new_book[0]['book_id']
+
+                                    for i in range(copies):
+                                        Database.execute_update(
+                                            "INSERT INTO book_inventory (book_id, barcode, is_available) VALUES (?, ?, 1)",
+                                            (book_id, f"{isbn}-{i+1}")
+                                        )
+
+                                    st.success(f" Book added successfully with {copies} copies!")
+                                    st.balloons()
+                                    st.rerun()
+                            else:
+                                st.error(" Failed to add book. ISBN may already exist.")
 
         if is_management_user:
             st.divider()
