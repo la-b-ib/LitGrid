@@ -11592,6 +11592,8 @@ def show_my_library():
             show_books(embedded=True)
             st.divider()
 
+        st.subheader(" Book Registry & Intake")
+
         pdfs = PeerLibraryManager.get_user_library(user['user_id'])
         total_pdfs = len(pdfs) if pdfs else 0
         public_pdfs = len([p for p in (pdfs or []) if p.get('is_public')])
