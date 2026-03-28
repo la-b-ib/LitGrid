@@ -11592,13 +11592,13 @@ def show_my_library():
             show_books(embedded=True)
             st.divider()
 
-        st.subheader(" Book Registry & Intake")
-
         pdfs = PeerLibraryManager.get_user_library(user['user_id'])
         total_pdfs = len(pdfs) if pdfs else 0
         public_pdfs = len([p for p in (pdfs or []) if p.get('is_public')])
         catalog_summary = Database.execute_query("SELECT COUNT(*) as count FROM books", fetch_one=True) or {'count': 0}
         total_catalog_titles = int(catalog_summary.get('count') or 0)
+
+        st.subheader(" Statistics")
 
         kpi1, kpi2, kpi3 = st.columns(3, gap="small")
         with kpi1:
@@ -11615,6 +11615,12 @@ def show_my_library():
             visibility_filter = st.radio("Visibility", ["All", "Public", "Private"], horizontal=True, key="ucs_visibility")
         with op_col3:
             sort_mode = st.radio("Sort", ["Newest", "Most Viewed", "Title A-Z"], horizontal=True, key="ucs_sort")
+
+        if is_management_user:
+            st.subheader(" Browse Books")
+            show_manage_books(embedded=True, browse_only=True)
+
+        st.subheader(" Book Registry & Intake")
 
         with st.container():
             prefill_pdf = None
@@ -11864,9 +11870,6 @@ def show_my_library():
                             st.success(" | ".join(results))
                             st.balloons()
                             st.rerun()
-
-        if is_management_user:
-            show_manage_books(embedded=True, browse_only=True)
 
         filtered_pdfs = pdfs or []
 
