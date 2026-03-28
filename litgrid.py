@@ -12284,24 +12284,152 @@ def show_my_library():
         catalog_summary = Database.execute_query("SELECT COUNT(*) as count FROM books", fetch_one=True) or {'count': 0}
         total_catalog_titles = int(catalog_summary.get('count') or 0)
 
+        def render_workspace_statistics_panel():
+            st.subheader(" Statistics")
+
+            ctrl_col1, ctrl_col2 = st.columns(2, gap="small")
+            with ctrl_col1:
+                stats_window = st.selectbox(
+                    "Window",
+                    ["7D", "30D", "90D", "365D", "All Time"],
+                    index=2,
+                    key="ws_stats_window"
+                )
+            with ctrl_col2:
+                show_charts = st.checkbox("Show Charts", value=True, key="ws_stats_show_charts")
+
+            window_map = {"7D": 7, "30D": 30, "90D": 90, "365D": 365, "All Time": None}
+            window_days = window_map.get(stats_window)
+
+            private_pdfs = max(total_pdfs - public_pdfs, 0)
+            public_share = (public_pdfs / total_pdfs * 100) if total_pdfs > 0 else 0.0
+
+            inventory_summary = Database.execute_query(
+                """
+                SELECT
+                    COUNT(*) as total_copies,
+                    SUM(CASE WHEN is_available = 1 THEN 1 ELSE 0 END) as available_copies
+                FROM book_inventory
+                """,
+                fetch_one=True
+            ) or {}
+            total_copies = int(inventory_summary.get('total_copies') or 0)
+            available_copies = int(inventory_summary.get('available_copies') or 0)
+            checked_out_copies = max(total_copies - available_copies, 0)
+            availability_pct = (available_copies / total_copies * 100) if total_copies > 0 else 0.0
+
+            active_loan_summary = Database.execute_query(
+                """
+                SELECT
+                    SUM(CASE WHEN return_date IS NULL THEN 1 ELSE 0 END) as active_loans,
+                    SUM(CASE WHEN return_date IS NULL AND date(due_date) < date('now') THEN 1 ELSE 0 END) as overdue_loans
+                FROM borrowing
+                """,
+                fetch_one=True
+            ) or {}
+            active_loans = int(active_loan_summary.get('active_loans') or 0)
+            overdue_loans = int(active_loan_summary.get('overdue_loans') or 0)
+
+            if window_days is None:
+                titles_window_query = "SELECT COUNT(*) as count FROM books"
+                titles_window_params = None
+                checkouts_window_query = "SELECT COUNT(*) as count FROM borrowing"
+                checkouts_window_params = None
+                checkouts_trend_query = """
+                    SELECT date(checkout_date) as day, COUNT(*) as checkout_count
+                    FROM borrowing
+                    WHERE checkout_date IS NOT NULL
+                    GROUP BY date(checkout_date)
+                    ORDER BY day DESC
+                    LIMIT 30
+                """
+                checkouts_trend_params = None
+            else:
+                titles_window_query = "SELECT COUNT(*) as count FROM books WHERE date(created_at) >= date('now', ?)"
+                titles_window_params = (f"-{window_days} days",)
+                checkouts_window_query = "SELECT COUNT(*) as count FROM borrowing WHERE date(checkout_date) >= date('now', ?)"
+                checkouts_window_params = (f"-{window_days} days",)
+                checkouts_trend_query = """
+                    SELECT date(checkout_date) as day, COUNT(*) as checkout_count
+                    FROM borrowing
+                    WHERE checkout_date IS NOT NULL AND date(checkout_date) >= date('now', ?)
+                    GROUP BY date(checkout_date)
+                    ORDER BY day DESC
+                    LIMIT 30
+                """
+                checkouts_trend_params = (f"-{window_days} days",)
+
+            titles_window = Database.execute_query(
+                titles_window_query,
+                titles_window_params,
+                fetch_one=True
+            ) or {'count': 0}
+            checkouts_window = Database.execute_query(
+                checkouts_window_query,
+                checkouts_window_params,
+                fetch_one=True
+            ) or {'count': 0}
+            new_titles_in_window = int(titles_window.get('count') or 0)
+            checkouts_in_window = int(checkouts_window.get('count') or 0)
+
+            kpi_col1, kpi_col2 = st.columns(2, gap="small")
+            with kpi_col1:
+                st.metric("My PDFs", total_pdfs)
+                st.metric("Public PDFs", public_pdfs, f"{public_share:.1f}%")
+                st.metric("Private PDFs", private_pdfs)
+                st.metric("Catalog Titles", total_catalog_titles)
+            with kpi_col2:
+                st.metric("Total Copies", total_copies)
+                st.metric("Available Copies", available_copies, f"{availability_pct:.1f}%")
+                st.metric("Checked Out", checked_out_copies)
+                st.metric("Active Loans", active_loans)
+
+            extra_col1, extra_col2 = st.columns(2, gap="small")
+            with extra_col1:
+                st.metric(f"New Titles ({stats_window})", new_titles_in_window)
+            with extra_col2:
+                st.metric(f"Checkouts ({stats_window})", checkouts_in_window)
+
+            st.progress(min(max(availability_pct / 100.0, 0.0), 1.0), text=f"Availability Health: {availability_pct:.1f}%")
+
+            if overdue_loans > 0:
+                st.warning(f"Overdue loans detected: {overdue_loans}")
+            else:
+                st.success("No overdue loans at the moment")
+
+            if show_charts:
+                genre_rows = Database.execute_query(
+                    """
+                    SELECT COALESCE(NULLIF(TRIM(genre), ''), 'Unknown') as genre_name, COUNT(*) as title_count
+                    FROM books
+                    GROUP BY COALESCE(NULLIF(TRIM(genre), ''), 'Unknown')
+                    ORDER BY title_count DESC
+                    LIMIT 6
+                    """
+                ) or []
+                trend_rows = Database.execute_query(
+                    checkouts_trend_query,
+                    checkouts_trend_params
+                ) or []
+
+                if genre_rows:
+                    genre_df = pd.DataFrame(genre_rows)
+                    st.caption("Top Genres")
+                    st.bar_chart(genre_df.set_index('genre_name')['title_count'])
+
+                if trend_rows:
+                    trend_df = pd.DataFrame(trend_rows).sort_values('day')
+                    st.caption(f"Checkout Trend ({stats_window})")
+                    st.line_chart(trend_df.set_index('day')['checkout_count'])
+
         if is_management_user:
             browse_col, stats_col = st.columns([2, 1], gap="large")
             with browse_col:
                 show_manage_books(embedded=True, browse_only=True)
             with stats_col:
-                st.subheader(" Statistics")
-                st.metric("My PDFs", total_pdfs)
-                st.metric("Public PDFs", public_pdfs)
-                st.metric("Catalog Titles", total_catalog_titles)
+                render_workspace_statistics_panel()
         else:
-            st.subheader(" Statistics")
-            kpi1, kpi2, kpi3 = st.columns(3, gap="small")
-            with kpi1:
-                st.metric("My PDFs", total_pdfs)
-            with kpi2:
-                st.metric("Public PDFs", public_pdfs)
-            with kpi3:
-                st.metric("Catalog Titles", total_catalog_titles)
+            render_workspace_statistics_panel()
 
         st.subheader(" Book Registry & Intake")
 
