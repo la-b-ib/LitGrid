@@ -10838,137 +10838,231 @@ def show_borrowing_returns():
         help="Used as default in Return and Active Borrowings sections"
     )
 
-    st.markdown("### Unified Operations Workspace")
-    workspace_col1, workspace_col2, workspace_col3 = st.columns(3, gap="small")
+    def render_active_borrowings_panel():
+        st.subheader("**Active Borrowings**")
 
-    pending_renewals = Database.execute_query(
-        "SELECT COUNT(*) as count FROM renewal_requests WHERE status = 'pending'",
-        fetch_one=True
-    ) or {'count': 0}
-    open_renewals = int(pending_renewals.get('count') or 0)
+        col1, col2, col3, col4 = st.columns(4, gap="small")
+        with col1:
+            filter_type = st.selectbox("Filter", ["All", f"Due Soon (< {due_soon_days} days)", "Overdue"], key="br_active_filter")
+        with col2:
+            search_active = st.text_input("Search by member or book", value=global_borrow_search if global_borrow_search else "", key="br_active_search")
+        with col3:
+            sort_active = st.selectbox("Sort By", ["Due Date (Earliest)", "Due Date (Latest)", "Member A-Z", "Book A-Z"], key="br_active_sort")
+        with col4:
+            active_limit = st.slider("Max Rows", min_value=10, max_value=200, value=50, step=10, key="br_active_limit")
 
-    active_loans_value = int(kpi_summary.get('active_loans') or 0)
-    overdue_value = int(kpi_summary.get('overdue_loans') or 0)
-    due_soon_value = int(kpi_summary.get('due_soon') or 0)
-    today_checkouts_value = int(kpi_summary.get('today_checkouts') or 0)
-    today_returns_value = int(kpi_summary.get('today_returns') or 0)
-    today_fines_value = float(kpi_summary.get('today_fines') or 0)
-
-    with workspace_col1:
-        st.info("Current Load")
-        st.metric("Open Work Items", active_loans_value + due_soon_value + overdue_value + open_renewals)
-        st.metric("Pending Renewals", open_renewals)
-        st.metric("Due Soon", due_soon_value)
-
-    with workspace_col2:
-        st.info("Daily Throughput")
-        net_flow = today_checkouts_value - today_returns_value
-        st.metric("Today Checkouts", today_checkouts_value)
-        st.metric("Today Returns", today_returns_value)
-        st.metric("Net Flow", net_flow)
-
-    with workspace_col3:
-        st.info("Risk & Financial")
-        overdue_rate = (overdue_value / active_loans_value * 100) if active_loans_value > 0 else 0.0
-        st.metric("Overdue Loans", overdue_value, f"{overdue_rate:.1f}%")
-        st.metric("Today Fines", format_currency(today_fines_value))
-        st.metric("Fine Preview", "ON" if fine_preview_mode else "OFF")
-
-    vis_col1, vis_col2 = st.columns(2, gap="small")
-    with vis_col1:
-        flow_df = pd.DataFrame([
-            {"stage": "Checkouts", "value": today_checkouts_value},
-            {"stage": "Returns", "value": today_returns_value},
-            {"stage": "Overdue", "value": overdue_value},
-            {"stage": "Renewals", "value": open_renewals},
-        ])
-        fig_flow = px.bar(
-            flow_df,
-            x="stage",
-            y="value",
-            title="Operational Flow Snapshot",
-            labels={"stage": "Stage", "value": "Count"},
-            color="value",
-            color_continuous_scale="Blues"
-        )
-        fig_flow.update_layout(height=320, xaxis_title=None)
-        st.plotly_chart(fig_flow, use_container_width=True)
-
-    with vis_col2:
-        status_df = pd.DataFrame([
-            {"status": "Healthy", "count": max(active_loans_value - due_soon_value - overdue_value, 0)},
-            {"status": "Due Soon", "count": due_soon_value},
-            {"status": "Overdue", "count": overdue_value},
-        ])
-        fig_status = px.pie(
-            status_df,
-            names="status",
-            values="count",
-            title="Active Loan Health Split",
-            hole=0.45,
-            color_discrete_map={"Healthy": "#2E7D32", "Due Soon": "#F9A825", "Overdue": "#C62828"}
-        )
-        fig_status.update_layout(height=320)
-        st.plotly_chart(fig_status, use_container_width=True)
-
-    focus_queue = Database.execute_query(
+        query = """
+            SELECT br.borrowing_id, b.title, b.isbn, u.full_name, u.email,
+                   br.checkout_date, br.due_date,
+                   julianday(br.due_date) - julianday(date('now')) as days_remaining,
+                   julianday(date('now')) - julianday(br.due_date) as days_overdue
+            FROM borrowing br
+            JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+            JOIN books b ON bi.book_id = b.book_id
+            JOIN users u ON br.user_id = u.user_id
+            WHERE br.return_date IS NULL
         """
-        SELECT
-            b.title,
-            u.full_name,
-            br.due_date,
-            CAST(julianday(br.due_date) - julianday(date('now')) AS INTEGER) as days_remaining
-        FROM borrowing br
-        JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-        JOIN books b ON bi.book_id = b.book_id
-        JOIN users u ON br.user_id = u.user_id
-        WHERE br.return_date IS NULL
-          AND (julianday(br.due_date) - julianday(date('now')) <= ?)
-        ORDER BY br.due_date ASC
-        LIMIT 12
-        """,
-        (int(due_soon_days),)
-    ) or []
+        params = []
 
-    if focus_queue:
-        st.markdown("#### Priority Queue (Due Soon / Overdue)")
-        queue_df = pd.DataFrame(focus_queue)
-        queue_df['status'] = queue_df['days_remaining'].apply(
-            lambda d: "Overdue" if int(d) < 0 else "Due Soon"
-        )
-        st.dataframe(
-            queue_df[['title', 'full_name', 'due_date', 'days_remaining', 'status']],
-            use_container_width=True,
-            hide_index=True
-        )
+        if filter_type == f"Due Soon (< {due_soon_days} days)":
+            query += " AND julianday(br.due_date) - julianday(date('now')) BETWEEN 0 AND ?"
+            params.append(int(due_soon_days))
+        elif filter_type == "Overdue":
+            query += " AND br.due_date < date('now')"
 
-    if overdue_value > 0 or open_renewals > 0:
-        st.warning(
-            f"Attention: {overdue_value} overdue loans and {open_renewals} pending renewals need action."
-        )
-    else:
-        st.success("All core lending operations are healthy right now.")
+        if search_active:
+            query += " AND (u.full_name LIKE ? OR b.title LIKE ?)"
+            params.extend([f'%{search_active}%', f'%{search_active}%'])
 
-    st.markdown("#### Unified Quick Actions")
-    qa_col1, qa_col2, qa_col3 = st.columns(3, gap="small")
-    with qa_col1:
-        st.caption("Checkout Queue")
-        st.info("Use Checkout Book below to issue books with custom days and live availability.")
-        if st.button("Jump to Checkout", key="br_jump_checkout", use_container_width=True):
-            st.toast("Scroll to Checkout Book section")
-    with qa_col2:
-        st.caption("Return Queue")
-        st.info("Use Return Book below with fine preview and member/book smart search.")
-        if st.button("Jump to Return", key="br_jump_return", use_container_width=True):
-            st.toast("Scroll to Return Book section")
-    with qa_col3:
-        st.caption("Renewal Queue")
-        st.info("Use Renewal Requests below for approval workflow or self-service requests.")
-        if st.button("Jump to Renewals", key="br_jump_renewals", use_container_width=True):
-            st.toast("Scroll to Renewal Requests section")
+        if sort_active == "Due Date (Latest)":
+            query += " ORDER BY br.due_date DESC"
+        elif sort_active == "Member A-Z":
+            query += " ORDER BY u.full_name ASC, br.due_date ASC"
+        elif sort_active == "Book A-Z":
+            query += " ORDER BY b.title ASC, br.due_date ASC"
+        else:
+            query += " ORDER BY br.due_date ASC"
 
-    st.divider()
-    st.subheader("**Checkout & Return Operations**")
+        query += " LIMIT ?"
+        params.append(int(active_limit))
+
+        active = Database.execute_query(query, tuple(params) if params else None)
+
+        if active:
+            st.write(f"Found {len(active)} active borrowings")
+
+            export_df = pd.DataFrame(active)
+            if not export_df.empty:
+                st.download_button(
+                    "Download Active Borrowings CSV",
+                    export_df.to_csv(index=False),
+                    file_name="active_borrowings.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="br_export_active_csv"
+                )
+
+            for bw in active:
+                row_col1, row_col2 = st.columns([3, 1], gap="small")
+
+                with row_col1:
+                    st.markdown(f"**{bw['title']}**")
+                    st.caption(f"Borrowed by: {bw['full_name']} ({bw['email']})")
+                    st.caption(f"Checkout: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
+
+                with row_col2:
+                    if bw['days_overdue'] and bw['days_overdue'] > 0:
+                        overdue_days = int(bw['days_overdue'])
+                        st.error(f" Overdue by {overdue_days} days")
+                        fine = bw['days_overdue'] * Config.FINE_PER_DAY
+                        st.caption(f"Fine: {format_currency(fine)}")
+                    elif bw['days_remaining'] <= due_soon_days:
+                        remaining_days = max(int(bw['days_remaining']), 0)
+                        st.warning(f"Due in {remaining_days} days")
+                    else:
+                        remaining_days = max(int(bw['days_remaining']), 0)
+                        st.info(f" Due in {remaining_days} days")
+
+                st.divider()
+        else:
+            st.info("No active borrowings")
+
+    unified_col, active_col = st.columns([3, 2], gap="large")
+
+    with unified_col:
+        st.markdown("### Unified Operations Workspace")
+        workspace_col1, workspace_col2, workspace_col3 = st.columns(3, gap="small")
+
+        pending_renewals = Database.execute_query(
+            "SELECT COUNT(*) as count FROM renewal_requests WHERE status = 'pending'",
+            fetch_one=True
+        ) or {'count': 0}
+        open_renewals = int(pending_renewals.get('count') or 0)
+
+        active_loans_value = int(kpi_summary.get('active_loans') or 0)
+        overdue_value = int(kpi_summary.get('overdue_loans') or 0)
+        due_soon_value = int(kpi_summary.get('due_soon') or 0)
+        today_checkouts_value = int(kpi_summary.get('today_checkouts') or 0)
+        today_returns_value = int(kpi_summary.get('today_returns') or 0)
+        today_fines_value = float(kpi_summary.get('today_fines') or 0)
+
+        with workspace_col1:
+            st.info("Current Load")
+            st.metric("Open Work Items", active_loans_value + due_soon_value + overdue_value + open_renewals)
+            st.metric("Pending Renewals", open_renewals)
+            st.metric("Due Soon", due_soon_value)
+
+        with workspace_col2:
+            st.info("Daily Throughput")
+            net_flow = today_checkouts_value - today_returns_value
+            st.metric("Today Checkouts", today_checkouts_value)
+            st.metric("Today Returns", today_returns_value)
+            st.metric("Net Flow", net_flow)
+
+        with workspace_col3:
+            st.info("Risk & Financial")
+            overdue_rate = (overdue_value / active_loans_value * 100) if active_loans_value > 0 else 0.0
+            st.metric("Overdue Loans", overdue_value, f"{overdue_rate:.1f}%")
+            st.metric("Today Fines", format_currency(today_fines_value))
+            st.metric("Fine Preview", "ON" if fine_preview_mode else "OFF")
+
+        vis_col1, vis_col2 = st.columns(2, gap="small")
+        with vis_col1:
+            flow_df = pd.DataFrame([
+                {"stage": "Checkouts", "value": today_checkouts_value},
+                {"stage": "Returns", "value": today_returns_value},
+                {"stage": "Overdue", "value": overdue_value},
+                {"stage": "Renewals", "value": open_renewals},
+            ])
+            fig_flow = px.bar(
+                flow_df,
+                x="stage",
+                y="value",
+                title="Operational Flow Snapshot",
+                labels={"stage": "Stage", "value": "Count"},
+                color="value",
+                color_continuous_scale="Blues"
+            )
+            fig_flow.update_layout(height=320, xaxis_title=None)
+            st.plotly_chart(fig_flow, use_container_width=True)
+
+        with vis_col2:
+            status_df = pd.DataFrame([
+                {"status": "Healthy", "count": max(active_loans_value - due_soon_value - overdue_value, 0)},
+                {"status": "Due Soon", "count": due_soon_value},
+                {"status": "Overdue", "count": overdue_value},
+            ])
+            fig_status = px.pie(
+                status_df,
+                names="status",
+                values="count",
+                title="Active Loan Health Split",
+                hole=0.45,
+                color_discrete_map={"Healthy": "#2E7D32", "Due Soon": "#F9A825", "Overdue": "#C62828"}
+            )
+            fig_status.update_layout(height=320)
+            st.plotly_chart(fig_status, use_container_width=True)
+
+        focus_queue = Database.execute_query(
+            """
+            SELECT
+                b.title,
+                u.full_name,
+                br.due_date,
+                CAST(julianday(br.due_date) - julianday(date('now')) AS INTEGER) as days_remaining
+            FROM borrowing br
+            JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+            JOIN books b ON bi.book_id = b.book_id
+            JOIN users u ON br.user_id = u.user_id
+            WHERE br.return_date IS NULL
+              AND (julianday(br.due_date) - julianday(date('now')) <= ?)
+            ORDER BY br.due_date ASC
+            LIMIT 12
+            """,
+            (int(due_soon_days),)
+        ) or []
+
+        if focus_queue:
+            st.markdown("#### Priority Queue (Due Soon / Overdue)")
+            queue_df = pd.DataFrame(focus_queue)
+            queue_df['status'] = queue_df['days_remaining'].apply(
+                lambda d: "Overdue" if int(d) < 0 else "Due Soon"
+            )
+            st.dataframe(
+                queue_df[['title', 'full_name', 'due_date', 'days_remaining', 'status']],
+                use_container_width=True,
+                hide_index=True
+            )
+
+        if overdue_value > 0 or open_renewals > 0:
+            st.warning(
+                f"Attention: {overdue_value} overdue loans and {open_renewals} pending renewals need action."
+            )
+        else:
+            st.success("All core lending operations are healthy right now.")
+
+        st.markdown("#### Unified Quick Actions")
+        qa_col1, qa_col2, qa_col3 = st.columns(3, gap="small")
+        with qa_col1:
+            st.caption("Checkout Queue")
+            st.info("Use Checkout Book below to issue books with custom days and live availability.")
+            if st.button("Jump to Checkout", key="br_jump_checkout", use_container_width=True):
+                st.toast("Scroll to Checkout Book section")
+        with qa_col2:
+            st.caption("Return Queue")
+            st.info("Use Return Book below with fine preview and member/book smart search.")
+            if st.button("Jump to Return", key="br_jump_return", use_container_width=True):
+                st.toast("Scroll to Return Book section")
+        with qa_col3:
+            st.caption("Renewal Queue")
+            st.info("Use Renewal Requests below for approval workflow or self-service requests.")
+            if st.button("Jump to Renewals", key="br_jump_renewals", use_container_width=True):
+                st.toast("Scroll to Renewal Requests section")
+
+    with active_col:
+        render_active_borrowings_panel()
+
+
 
     def _compute_fine(days_overdue):
         return (float(days_overdue) * Config.FINE_PER_DAY) if days_overdue and float(days_overdue) > 0 else 0.0
@@ -11206,96 +11300,6 @@ def show_borrowing_returns():
                         else:
                             st.success(" Book returned successfully!")
                         st.balloons()
-    
-    st.divider()
-    st.subheader("**Active Borrowings**")
-    
-    # Filters
-    col1, col2, col3, col4 = st.columns(4, gap="small")
-    with col1:
-        filter_type = st.selectbox("Filter", ["All", f"Due Soon (< {due_soon_days} days)", "Overdue"], key="br_active_filter")
-    with col2:
-        search_active = st.text_input("Search by member or book", value=global_borrow_search if global_borrow_search else "", key="br_active_search")
-    with col3:
-        sort_active = st.selectbox("Sort By", ["Due Date (Earliest)", "Due Date (Latest)", "Member A-Z", "Book A-Z"], key="br_active_sort")
-    with col4:
-        active_limit = st.slider("Max Rows", min_value=10, max_value=200, value=50, step=10, key="br_active_limit")
-    
-    query = """
-        SELECT br.borrowing_id, b.title, b.isbn, u.full_name, u.email,
-               br.checkout_date, br.due_date,
-               julianday(br.due_date) - julianday(date('now')) as days_remaining,
-               julianday(date('now')) - julianday(br.due_date) as days_overdue
-        FROM borrowing br
-        JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-        JOIN books b ON bi.book_id = b.book_id
-        JOIN users u ON br.user_id = u.user_id
-        WHERE br.return_date IS NULL
-    """
-    params = []
-    
-    if filter_type == f"Due Soon (< {due_soon_days} days)":
-        query += " AND julianday(br.due_date) - julianday(date('now')) BETWEEN 0 AND ?"
-        params.append(int(due_soon_days))
-    elif filter_type == "Overdue":
-        query += " AND br.due_date < date('now')"
-    
-    if search_active:
-        query += " AND (u.full_name LIKE ? OR b.title LIKE ?)"
-        params.extend([f'%{search_active}%', f'%{search_active}%'])
-    
-    if sort_active == "Due Date (Latest)":
-        query += " ORDER BY br.due_date DESC"
-    elif sort_active == "Member A-Z":
-        query += " ORDER BY u.full_name ASC, br.due_date ASC"
-    elif sort_active == "Book A-Z":
-        query += " ORDER BY b.title ASC, br.due_date ASC"
-    else:
-        query += " ORDER BY br.due_date ASC"
-
-    query += " LIMIT ?"
-    params.append(int(active_limit))
-    
-    active = Database.execute_query(query, tuple(params) if params else None)
-    
-    if active:
-        st.write(f"Found {len(active)} active borrowings")
-
-        export_df = pd.DataFrame(active)
-        if not export_df.empty:
-            st.download_button(
-                "Download Active Borrowings CSV",
-                export_df.to_csv(index=False),
-                file_name="active_borrowings.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="br_export_active_csv"
-            )
-        
-        for bw in active:
-            col1, col2 = st.columns([3, 1], gap="small")
-            
-            with col1:
-                st.markdown(f"**{bw['title']}**")
-                st.caption(f"Borrowed by: {bw['full_name']} ({bw['email']})")
-                st.caption(f"Checkout: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
-            
-            with col2:
-                if bw['days_overdue'] and bw['days_overdue'] > 0:
-                    overdue_days = int(bw['days_overdue'])
-                    st.error(f" Overdue by {overdue_days} days")
-                    fine = bw['days_overdue'] * Config.FINE_PER_DAY
-                    st.caption(f"Fine: {format_currency(fine)}")
-                elif bw['days_remaining'] <= due_soon_days:
-                    remaining_days = max(int(bw['days_remaining']), 0)
-                    st.warning(f"Due in {remaining_days} days")
-                else:
-                    remaining_days = max(int(bw['days_remaining']), 0)
-                    st.info(f" Due in {remaining_days} days")
-            
-            st.divider()
-    else:
-        st.info("No active borrowings")
     
     st.divider()
     st.subheader(" Renewal Requests")
