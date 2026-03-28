@@ -9044,7 +9044,7 @@ def show_account():
 def show_manage_books(embedded=False):
     """Book management page"""
     if embedded:
-        st.subheader(" Manage Books")
+        st.subheader(" Book Workspace")
     else:
         st.markdown('<h1 class="litgrid-header"> Manage Books</h1>', unsafe_allow_html=True)
     
@@ -11493,7 +11493,7 @@ def show_my_library():
     
     tab_labels = [" My PDFs & Upload"]
     if is_management_user:
-        tab_labels[0] = " My PDFs, Upload & Manage Books"
+        tab_labels[0] = " Book Workspace"
         tab_labels.append(" Manage Members")
     tab_labels.extend([" Privacy Settings", " Browse Community"])
     tabs = st.tabs(tab_labels)
