@@ -9048,7 +9048,7 @@ def show_manage_books(embedded=False):
     else:
         st.markdown('<h1 class="litgrid-header"> Manage Books</h1>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3, tab4 = st.tabs([" All Books", " Add Book", " Bulk Import", " Statistics"])
+    tab1, tab2, tab3 = st.tabs([" All Books + Add Book", " Bulk Import", " Statistics"])
     
     with tab1:
         st.subheader(" Browse Books")
@@ -9330,7 +9330,8 @@ def show_manage_books(embedded=False):
         else:
             st.info("No books found")
     
-    with tab2:
+    with tab1:
+        st.divider()
         st.subheader("**Add New Book**")
         
         with st.form("add_book_form"):
@@ -9410,7 +9411,7 @@ def show_manage_books(embedded=False):
                     else:
                         st.error(" Failed to add book. ISBN may already exist.")
     
-    with tab3:
+    with tab2:
         st.subheader(" Bulk Import from CSV")
         
         st.markdown("""
@@ -9448,7 +9449,7 @@ def show_manage_books(embedded=False):
                 mime="text/csv"
             )
     
-    with tab4:
+    with tab3:
         st.subheader(" Book Statistics")
         
         col1, col2, col3, col4 = st.columns(4, gap="small")
