@@ -10947,18 +10947,18 @@ def show_borrowing_returns():
         today_fines_value = float(kpi_summary.get('today_fines') or 0)
 
         with workspace_col1:
-            st.info("Current Load")
+
             st.metric("Open Work Items", active_loans_value + due_soon_value + overdue_value + open_renewals)
             st.metric("Pending Renewals", open_renewals)
 
 
         with workspace_col2:
-            st.info("Daily Throughput")
+
             net_flow = today_checkouts_value - today_returns_value
             st.metric("Net Flow", net_flow)
 
         with workspace_col3:
-            st.info("Risk & Financial")
+
             overdue_rate = (overdue_value / active_loans_value * 100) if active_loans_value > 0 else 0.0
             st.metric("Overdue Loans", overdue_value, f"{overdue_rate:.1f}%")
             st.metric("Fine Preview", "ON" if fine_preview_mode else "OFF")
@@ -11386,37 +11386,7 @@ def show_borrowing_returns():
         )
 
         # Row 1: Active Snapshot | Borrowing Trends & Analytics | Daily Borrowing Trend
-        row1_col1, row1_col2, row1_col3 = st.columns(3, gap="small")
-
-
-            
-
-        with row1_col1:
-            st.markdown("### Borrowing Trends & Analytics")
-            st.info(f"Range: {start_date} to {end_date}")
-            trend_kpi1, trend_kpi2 = st.columns(2, gap="small")
-            with trend_kpi1:
-                st.metric("Total Borrowed", total_borrowed['count'] if total_borrowed else 0)
-                st.metric("Currently Overdue", overdue_count['count'] if overdue_count else 0)
-            with trend_kpi2:
-                st.metric("Total Returned", total_returned['count'] if total_returned else 0)
-                return_rate = 0.0
-                if total_borrowed and total_borrowed['count']:
-                    return_rate = ((total_returned['count'] if total_returned else 0) / max(total_borrowed['count'], 1)) * 100
-                st.metric("Return Rate", f"{return_rate:.1f}%")
-
-        
-
-        with row1_col2:
-            st.markdown("###  Return Statistics")
-            stat_col1, stat_col2, stat_col3 = st.columns(3, gap="small")
-            with stat_col1:
-                st.metric(" Borrowed", total_borrowed['count'] if total_borrowed else 0)
-            with stat_col2:
-                st.metric(" Returned", total_returned['count'] if total_returned else 0)
-            with stat_col3:
-                st.metric(" Overdue", overdue_count['count'] if overdue_count else 0)
-
+       
         
 def show_reports():
     """Advanced Reports page with 20+ visualizations"""
