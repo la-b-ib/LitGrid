@@ -11011,7 +11011,7 @@ def show_borrowing_returns():
     def _compute_fine(days_overdue):
         return (float(days_overdue) * Config.FINE_PER_DAY) if days_overdue and float(days_overdue) > 0 else 0.0
 
-    checkout_col, return_col = st.columns(2, gap="large")
+    checkout_col, return_col = st.columns(2, gap="small")
 
     with checkout_col:
         st.markdown("#### Checkout Book")
