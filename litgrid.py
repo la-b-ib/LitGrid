@@ -11616,13 +11616,45 @@ def show_my_library():
         with op_col3:
             sort_mode = st.radio("Sort", ["Newest", "Most Viewed", "Title A-Z"], horizontal=True, key="ucs_sort")
 
+        workspace_mode = "Unified"
         if is_management_user:
-            intake_col, browse_col = st.columns(2, gap="large")
-        else:
-            intake_col = st.container()
-            browse_col = None
+            workspace_mode = st.radio(
+                "Workspace Mode",
+                ["Unified", "Intake Focus", "Browse Focus"],
+                horizontal=True,
+                key="ucs_workspace_mode"
+            )
+
+        intake_col = st.container()
+        browse_col = st.container() if is_management_user else None
 
         with intake_col:
+            prefill_pdf = None
+            if pdfs:
+                prefill_id_options = [0] + [int(p['pdf_id']) for p in pdfs if p.get('pdf_id') is not None]
+                selected_prefill_id = st.selectbox(
+                    "Smart Prefill",
+                    options=prefill_id_options,
+                    format_func=lambda x: "None" if x == 0 else next(
+                        (f"{p.get('title') or 'Untitled'} | {p.get('author') or 'Unknown'}" for p in pdfs if int(p.get('pdf_id') or 0) == x),
+                        str(x)
+                    ),
+                    key="ucc_prefill_pdf"
+                )
+                if selected_prefill_id != 0:
+                    prefill_pdf = next((p for p in pdfs if int(p.get('pdf_id') or 0) == int(selected_prefill_id)), None)
+
+                if prefill_pdf and st.button(" Apply Prefill to Intake", key="ucc_apply_prefill", use_container_width=True):
+                    allowed_genres = ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"]
+                    prefill_genre = str(prefill_pdf.get('genre') or "Other")
+                    if prefill_genre not in allowed_genres:
+                        prefill_genre = "Other"
+                    st.session_state["ucc_title"] = str(prefill_pdf.get('title') or "")
+                    st.session_state["ucc_author"] = str(prefill_pdf.get('author') or "")
+                    st.session_state["ucc_genre"] = prefill_genre
+                    st.session_state["ucc_description"] = str(prefill_pdf.get('description') or "")
+                    st.rerun()
+
             st.markdown("###  Unified Intake Action")
             with st.form("unified_content_console_form"):
                 action_col1, action_col2 = st.columns(2, gap="small")
@@ -11746,8 +11778,9 @@ def show_my_library():
                             st.balloons()
                             st.rerun()
 
-        if is_management_user and browse_col is not None:
+        if is_management_user and browse_col is not None and workspace_mode != "Intake Focus":
             with browse_col:
+                st.markdown("###  Browse Books")
                 show_manage_books(embedded=True, browse_only=True)
 
         st.markdown("###  Collection Operations")
