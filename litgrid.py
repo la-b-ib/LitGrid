@@ -9056,6 +9056,11 @@ def show_manage_books(embedded=False, browse_only=False):
     with books_workspace_tab:
         st.subheader(" Browse Books")
 
+        language_rows = Database.execute_query(
+            "SELECT DISTINCT COALESCE(NULLIF(TRIM(language), ''), 'Unknown') as language_name FROM books ORDER BY language_name"
+        ) or []
+        language_options = ["All"] + [row['language_name'] for row in language_rows if row.get('language_name')]
+
         row1_col1, row1_col2, row1_col3 = st.columns(3, gap="small")
         with row1_col1:
             search = st.text_input(" Search (Title, Author, ISBN, Keywords)", key="mb_search")
@@ -9094,6 +9099,37 @@ def show_manage_books(embedded=False, browse_only=False):
         with row3_col4:
             fuzzy_threshold = st.slider("Fuzzy Threshold", min_value=30, max_value=95, value=60, step=5, key="mb_fuzzy_threshold")
 
+        with st.expander("Advanced Search", expanded=False):
+            adv_col1, adv_col2, adv_col3, adv_col4 = st.columns(4, gap="small")
+            with adv_col1:
+                title_query = st.text_input("Title Contains", key="mb_title_query")
+            with adv_col2:
+                author_query = st.text_input("Author Contains", key="mb_author_query")
+            with adv_col3:
+                keyword_query = st.text_input("Keyword Contains", key="mb_keyword_query")
+            with adv_col4:
+                isbn_exact = st.text_input("Exact ISBN/ISBN-10/ISBN-13", key="mb_isbn_exact")
+
+            adv_col5, adv_col6, adv_col7, adv_col8 = st.columns(4, gap="small")
+            with adv_col5:
+                language_filter = st.selectbox("Language", language_options, key="mb_language_filter")
+            with adv_col6:
+                min_available_copies = st.number_input("Min Available Copies", min_value=0, value=0, step=1, key="mb_min_available_copies")
+            with adv_col7:
+                min_total_copies = st.number_input("Min Total Copies", min_value=0, value=0, step=1, key="mb_min_total_copies")
+            with adv_col8:
+                quick_date_preset = st.selectbox(
+                    "Added Date Preset",
+                    ["None", "Last 7 Days", "Last 30 Days", "Last 90 Days", "Last 365 Days"],
+                    key="mb_quick_date_preset"
+                )
+
+            adv_col9, adv_col10 = st.columns(2, gap="small")
+            with adv_col9:
+                popularity_min = st.number_input("Popularity Min", min_value=0.0, value=0.0, step=0.1, key="mb_popularity_min")
+            with adv_col10:
+                popularity_max = st.number_input("Popularity Max", min_value=0.0, value=100.0, step=0.1, key="mb_popularity_max")
+
         date_filter_enabled = st.checkbox(" Calendar Search (Filter by Added Date)", value=False, key="mb_calendar_enabled")
         calendar_range = None
         if date_filter_enabled:
@@ -9130,6 +9166,42 @@ def show_manage_books(embedded=False, browse_only=False):
             search_term = f'%{search}%'
             params.extend([search_term, search_term, search_term, search_term, search_term, search_term])
 
+        if title_query:
+            query += " AND b.title LIKE ?"
+            params.append(f"%{title_query}%")
+
+        if author_query:
+            query += " AND b.author LIKE ?"
+            params.append(f"%{author_query}%")
+
+        if keyword_query:
+            query += " AND b.keywords LIKE ?"
+            params.append(f"%{keyword_query}%")
+
+        if isbn_exact:
+            query += " AND (b.isbn = ? OR b.isbn_13 = ? OR b.isbn_10 = ?)"
+            params.extend([isbn_exact, isbn_exact, isbn_exact])
+
+        if language_filter != "All":
+            query += " AND COALESCE(NULLIF(TRIM(b.language), ''), 'Unknown') = ?"
+            params.append(language_filter)
+
+        if int(min_available_copies) > 0:
+            query += " AND (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id AND bi.is_available = 1) >= ?"
+            params.append(int(min_available_copies))
+
+        if int(min_total_copies) > 0:
+            query += " AND (SELECT COUNT(*) FROM book_inventory bi WHERE bi.book_id = b.book_id) >= ?"
+            params.append(int(min_total_copies))
+
+        if float(popularity_min) > 0.0:
+            query += " AND COALESCE(b.popularity_score, 0) >= ?"
+            params.append(float(popularity_min))
+
+        if float(popularity_max) < 100.0:
+            query += " AND COALESCE(b.popularity_score, 0) <= ?"
+            params.append(float(popularity_max))
+
         if status_filter == "Active":
             query += " AND b.is_available = 1"
         elif status_filter == "Inactive":
@@ -9144,6 +9216,17 @@ def show_manage_books(embedded=False, browse_only=False):
             if start_date and end_date:
                 query += " AND date(b.created_at) BETWEEN ? AND ?"
                 params.extend([str(start_date), str(end_date)])
+        elif quick_date_preset != "None":
+            preset_map = {
+                "Last 7 Days": "-7 days",
+                "Last 30 Days": "-30 days",
+                "Last 90 Days": "-90 days",
+                "Last 365 Days": "-365 days",
+            }
+            preset_value = preset_map.get(quick_date_preset)
+            if preset_value:
+                query += " AND date(b.created_at) >= date('now', ?)"
+                params.append(preset_value)
 
         if sort_by == "Title A-Z":
             query += " ORDER BY b.title ASC"
@@ -9182,10 +9265,28 @@ def show_manage_books(embedded=False, browse_only=False):
                 active_filters.append(f"Search: {search}")
             if genre_query:
                 active_filters.append(f"Genre: {genre_query}")
+            if title_query:
+                active_filters.append(f"Title: {title_query}")
+            if author_query:
+                active_filters.append(f"Author: {author_query}")
+            if keyword_query:
+                active_filters.append(f"Keyword: {keyword_query}")
+            if isbn_exact:
+                active_filters.append(f"ISBN: {isbn_exact}")
+            if language_filter != "All":
+                active_filters.append(f"Language: {language_filter}")
+            if int(min_available_copies) > 0:
+                active_filters.append(f"Min Available: {int(min_available_copies)}")
+            if int(min_total_copies) > 0:
+                active_filters.append(f"Min Copies: {int(min_total_copies)}")
+            if float(popularity_min) > 0.0 or float(popularity_max) < 100.0:
+                active_filters.append(f"Popularity: {float(popularity_min):.1f}-{float(popularity_max):.1f}")
             if status_filter != "All":
                 active_filters.append(f"Status: {status_filter}")
             if date_filter_enabled and isinstance(calendar_range, (tuple, list)) and len(calendar_range) == 2:
                 active_filters.append(f"Date: {calendar_range[0]} to {calendar_range[1]}")
+            elif quick_date_preset != "None":
+                active_filters.append(f"Date Preset: {quick_date_preset}")
             active_filters.append(f"Sort: {sort_by}")
             st.caption(" | ".join(active_filters))
         
