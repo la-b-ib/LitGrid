@@ -12795,8 +12795,8 @@ def show_my_library():
                             st.balloons()
                             st.rerun()
 
-        st.divider()
-        st.subheader(" My Collection Operations")
+
+        st.subheader("Collection Operations")
 
         # Filters Row
         filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4, gap="small")
