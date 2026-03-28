@@ -11837,14 +11837,6 @@ def show_my_library():
         with kpi3:
             st.metric("Catalog Titles", total_catalog_titles)
 
-        op_col1, op_col2, op_col3 = st.columns(3, gap="small")
-        with op_col1:
-            collection_search = st.text_input("Collection Search", placeholder="Title, author, genre", key="ucs_search")
-        with op_col2:
-            visibility_filter = st.radio("Visibility", ["All", "Public", "Private"], horizontal=True, key="ucs_visibility")
-        with op_col3:
-            sort_mode = st.radio("Sort", ["Newest", "Most Viewed", "Title A-Z"], horizontal=True, key="ucs_sort")
-
         if is_management_user:
             show_manage_books(embedded=True, browse_only=True)
 
@@ -12099,6 +12091,17 @@ def show_my_library():
                             st.balloons()
                             st.rerun()
 
+        st.divider()
+        st.subheader(" My Collection Operations")
+
+        col_search_col1, col_search_col2, col_search_col3 = st.columns(3, gap="small")
+        with col_search_col1:
+            collection_search = st.text_input("Search Collection", placeholder="Title, author, genre", key="ucs_search")
+        with col_search_col2:
+            visibility_filter = st.radio("Visibility", ["All", "Public", "Private"], horizontal=True, key="ucs_visibility")
+        with col_search_col3:
+            sort_mode = st.radio("Sort", ["Newest", "Most Viewed", "Title A-Z"], horizontal=True, key="ucs_sort")
+
         filtered_pdfs = pdfs or []
 
         if collection_search:
@@ -12122,6 +12125,8 @@ def show_my_library():
         else:
             filtered_pdfs = sorted(filtered_pdfs, key=lambda p: str(p.get('upload_date') or ''), reverse=True)
 
+        st.caption(f"Showing {len(filtered_pdfs)} of {total_pdfs} PDFs")
+
         # Batch Operations
         if filtered_pdfs:
             batch_options = [
@@ -12134,7 +12139,7 @@ def show_my_library():
             ]
 
             selected_batch_ids = st.multiselect(
-                "Select PDFs",
+                "Select PDFs for Batch Action",
                 options=[o['value'] for o in batch_options],
                 format_func=lambda x: next((o['label'] for o in batch_options if o['value'] == x), str(x)),
                 key="ucs_batch_selected"
@@ -12271,6 +12276,8 @@ def show_my_library():
                         st.success(f"Catalog sync completed. Synced: {synced}, Skipped: {skipped}")
                         st.rerun()
 
+        st.subheader("Individual PDF Management")
+
         if filtered_pdfs:
             for pdf in filtered_pdfs:
                 with st.expander(f" {pdf['title']}"):
@@ -12351,9 +12358,6 @@ def show_my_library():
                                     st.error("Failed to update metadata.")
         else:
             st.info("No PDFs match current filters.")
-
-        if is_management_user:
-            st.divider()
 
     privacy_tab_index = 2 if is_management_user else 1
     community_tab_index = 3 if is_management_user else 2
