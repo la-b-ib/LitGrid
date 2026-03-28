@@ -12094,6 +12094,7 @@ def show_my_library():
         st.divider()
         st.subheader(" My Collection Operations")
 
+        # Filters Row
         filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4, gap="small")
         with filter_col1:
             collection_search = st.text_input("Search", placeholder="Title, author, genre", key="ucs_search")
@@ -12105,6 +12106,7 @@ def show_my_library():
             if st.button("Refresh", use_container_width=True, key="ucs_refresh"):
                 st.rerun()
 
+        # Apply filters
         filtered_pdfs = pdfs or []
 
         if collection_search:
@@ -12132,31 +12134,117 @@ def show_my_library():
         else:
             filtered_pdfs = sorted(filtered_pdfs, key=lambda p: str(p.get('upload_date') or ''), reverse=True)
 
+        # Calculate statistics
         total_views = sum(int(p.get('views_count') or 0) for p in filtered_pdfs)
         public_count = len([p for p in filtered_pdfs if p.get('is_public')])
         private_count = len([p for p in filtered_pdfs if not p.get('is_public')])
         total_size_bytes = sum(int(p.get('file_size') or 0) for p in filtered_pdfs)
         total_size_mb = round(total_size_bytes / (1024 * 1024), 2)
-
-        summary_col1, summary_col2, summary_col3, summary_col4, summary_col5 = st.columns(5, gap="small")
-        with summary_col1:
-            st.metric("Filtered", len(filtered_pdfs))
-        with summary_col2:
-            st.metric("Public", public_count)
-        with summary_col3:
-            st.metric("Private", private_count)
-        with summary_col4:
-            st.metric("Views", total_views)
-        with summary_col5:
-            st.metric("Storage MB", total_size_mb)
+        avg_views = round(total_views / len(filtered_pdfs), 1) if filtered_pdfs else 0
+        avg_size_mb = round(total_size_mb / len(filtered_pdfs), 2) if filtered_pdfs else 0
+        genre_counts = {}
+        author_counts = {}
+        for pdf in filtered_pdfs:
+            genre = pdf.get('genre') or 'Unknown'
+            genre_counts[genre] = genre_counts.get(genre, 0) + 1
+            author = pdf.get('author') or 'Unknown'
+            author_counts[author] = author_counts.get(author, 0) + 1
 
         if filtered_pdfs:
-            side_left, side_right = st.columns(2, gap="medium")
+            stats_col, ops_col = st.columns(2, gap="large")
 
-            with side_left:
+            # ========== LEFT: DYNAMIC STATISTICS ==========
+            with stats_col:
+                st.markdown("### Collection Statistics")
+                
+                # Key Metrics Row
+                metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4, gap="small")
+                with metric_col1:
+                    st.metric("Total PDFs", len(filtered_pdfs))
+                with metric_col2:
+                    st.metric("Total Views", total_views)
+                with metric_col3:
+                    st.metric("Avg Views", avg_views)
+                with metric_col4:
+                    st.metric("Storage MB", total_size_mb)
+                
+                st.divider()
+                
+                # Visibility & Size Stats
+                vis_size_col1, vis_size_col2 = st.columns(2, gap="small")
+                
+                with vis_size_col1:
+                    st.markdown("**Visibility**")
+                    vis_data = [
+                        {"Status": "Public", "Count": public_count},
+                        {"Status": "Private", "Count": private_count}
+                    ]
+                    if any(v["Count"] > 0 for v in vis_data):
+                        fig_vis = px.pie(pd.DataFrame(vis_data), names='Status', values='Count', 
+                                        color_discrete_map={"Public": "#4CAF50", "Private": "#2196F3"})
+                        fig_vis.update_layout(height=280, margin=dict(l=0, r=0, t=0, b=0))
+                        st.plotly_chart(fig_vis, use_container_width=True)
+                    else:
+                        st.info("No visibility data")
+                
+                with vis_size_col2:
+                    st.markdown("**Storage Stats**")
+                    size_info = f"Total: {total_size_mb} MB\nAverage: {avg_size_mb} MB/file"
+                    st.info(size_info)
+                    if filtered_pdfs:
+                        largest = max(filtered_pdfs, key=lambda p: int(p.get('file_size') or 0))
+                        largest_size_mb = round(int(largest.get('file_size') or 0) / (1024 * 1024), 2)
+                        st.caption(f"Largest: {largest.get('title')[:25]} ({largest_size_mb} MB)")
+                
+                st.divider()
+                
+                # Genre Distribution
+                st.markdown("**Genre Distribution**")
+                if genre_counts:
+                    genre_df = pd.DataFrame(list(genre_counts.items()), columns=['Genre', 'Count']).sort_values('Count', ascending=False)
+                    fig_genre = px.bar(genre_df, x='Genre', y='Count', title=None, 
+                                      color='Count', color_continuous_scale='Blues')
+                    fig_genre.update_layout(height=280, showlegend=False, margin=dict(l=0, r=0, t=20, b=0))
+                    st.plotly_chart(fig_genre, use_container_width=True)
+                else:
+                    st.info("No genre data")
+                
+                st.divider()
+                
+                # Top Authors
+                st.markdown("**Top Authors**")
+                if author_counts:
+                    top_authors = sorted(author_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+                    author_df = pd.DataFrame(top_authors, columns=['Author', 'Count'])
+                    fig_author = px.bar(author_df, x='Author', y='Count', title=None, 
+                                       color='Count', color_continuous_scale='Greens')
+                    fig_author.update_layout(height=280, showlegend=False, margin=dict(l=0, r=0, t=20, b=0))
+                    st.plotly_chart(fig_author, use_container_width=True)
+                else:
+                    st.info("No author data")
+                
+                st.divider()
+                
+                # Most Viewed PDFs
+                st.markdown("**Top 5 Most Viewed**")
+                top_viewed = sorted(filtered_pdfs, key=lambda p: int(p.get('views_count') or 0), reverse=True)[:5]
+                if top_viewed:
+                    view_df = pd.DataFrame([
+                        {"Title": p.get('title')[:25], "Views": int(p.get('views_count') or 0)}
+                        for p in top_viewed
+                    ])
+                    fig_views = px.bar(view_df, x='Title', y='Views', title=None,
+                                      color='Views', color_continuous_scale='Reds')
+                    fig_views.update_layout(height=280, showlegend=False, margin=dict(l=0, r=0, t=20, b=0))
+                    st.plotly_chart(fig_views, use_container_width=True)
+                else:
+                    st.info("No view data")
+
+            # ========== RIGHT: BATCH OPERATIONS ==========
+            with ops_col:
                 st.markdown("### Batch Operations")
                 
-                batch_tabs = st.tabs(["Basic Actions", "Advanced Tools", "Analytics"])
+                batch_tabs = st.tabs(["Basic Actions", "Advanced Tools"])
 
                 with batch_tabs[0]:
                     batch_options = [
@@ -12479,62 +12567,13 @@ def show_my_library():
                                         pages = 0
                                     validation_results.append({"Title": pdf.get('title') if pdf else 'Unknown', "Status": status, "Pages": pages})
                                 st.dataframe(validation_results, use_container_width=True, hide_index=True)
-
-                with batch_tabs[2]:
-                    st.markdown("**Collection Analytics**")
-                    
-                    analytics_choice = st.selectbox("View", [
-                        "Storage Usage",
-                        "Genre Distribution",
-                        "Visibility Stats",
-                        "View Trends"
-                    ], key="ucs_analytics_choice")
-
-                    if analytics_choice == "Storage Usage":
-                        size_data = []
-                        for pdf in filtered_pdfs[:20]:
-                            size_mb = pdf.get('file_size', 0) / (1024 * 1024) if pdf.get('file_size') else 0
-                            size_data.append({"Title": pdf.get('title')[:30], "Size MB": round(size_mb, 2)})
-                        if size_data:
-                            fig = px.bar(pd.DataFrame(size_data), x='Title', y='Size MB', title='Top 20 PDFs by Size')
-                            fig.update_layout(height=400)
-                            st.plotly_chart(fig, use_container_width=True)
-
-                    elif analytics_choice == "Genre Distribution":
-                        genre_counts = {}
-                        for pdf in filtered_pdfs:
-                            genre = pdf.get('genre') or 'Unknown'
-                            genre_counts[genre] = genre_counts.get(genre, 0) + 1
-                        if genre_counts:
-                            genre_df = pd.DataFrame(list(genre_counts.items()), columns=['Genre', 'Count'])
-                            fig = px.pie(genre_df, names='Genre', values='Count', title='Genre Distribution')
-                            fig.update_layout(height=400)
-                            st.plotly_chart(fig, use_container_width=True)
-
-                    elif analytics_choice == "Visibility Stats":
-                        vis_stats = [
-                            {"Type": "Public", "Count": public_count},
-                            {"Type": "Private", "Count": private_count}
-                        ]
-                        fig = px.pie(pd.DataFrame(vis_stats), names='Type', values='Count', title='Visibility')
-                        fig.update_layout(height=400)
-                        st.plotly_chart(fig, use_container_width=True)
-
-                    elif analytics_choice == "View Trends":
-                        top_viewed = sorted(filtered_pdfs, key=lambda p: int(p.get('views_count') or 0), reverse=True)[:10]
-                        if top_viewed:
-                            view_df = pd.DataFrame([
-                                {"Title": p.get('title')[:30], "Views": int(p.get('views_count') or 0)}
-                                for p in top_viewed
-                            ])
-                            fig = px.bar(view_df, x='Title', y='Views', title='Top 10 Most Viewed')
-                            fig.update_layout(height=400)
-                            st.plotly_chart(fig, use_container_width=True)
-
-            with side_right:
-                st.markdown("### Individual PDF Details")
+                
+                st.divider()
+                st.markdown("### Individual PDF Details (Scrollable)")
                 
                 if filtered_pdfs:
+                    pdf_display_height = st.slider("Display Height (px)", min_value=200, max_value=1000, value=600, step=50, key="ucs_pdf_height")
+                    
                     for idx, pdf in enumerate(filtered_pdfs):
                         with st.container():
                             pdf_card_col1, pdf_card_col2, pdf_card_col3 = st.columns([2.5, 1, 0.5], gap="small")
