@@ -9046,7 +9046,8 @@ def show_account():
 def show_manage_books(embedded=False, browse_only=False):
     """Book management page"""
     if embedded:
-        st.subheader(" Book Workspace")
+        if not browse_only:
+            st.subheader(" Book Workspace")
     else:
         st.markdown('<h1 class="litgrid-header"> Manage Books</h1>', unsafe_allow_html=True)
     
@@ -11616,19 +11617,7 @@ def show_my_library():
         with op_col3:
             sort_mode = st.radio("Sort", ["Newest", "Most Viewed", "Title A-Z"], horizontal=True, key="ucs_sort")
 
-        workspace_mode = "Unified"
-        if is_management_user:
-            workspace_mode = st.radio(
-                "Workspace Mode",
-                ["Unified", "Intake Focus", "Browse Focus"],
-                horizontal=True,
-                key="ucs_workspace_mode"
-            )
-
-        intake_col = st.container()
-        browse_col = st.container() if is_management_user else None
-
-        with intake_col:
+        with st.container():
             prefill_pdf = None
             if pdfs:
                 prefill_id_options = [0] + [int(p['pdf_id']) for p in pdfs if p.get('pdf_id') is not None]
@@ -11778,10 +11767,9 @@ def show_my_library():
                             st.balloons()
                             st.rerun()
 
-        if is_management_user and browse_col is not None and workspace_mode != "Intake Focus":
-            with browse_col:
-                st.markdown("###  Browse Books")
-                show_manage_books(embedded=True, browse_only=True)
+        if is_management_user:
+            st.markdown("###  Browse Books")
+            show_manage_books(embedded=True, browse_only=True)
 
         st.markdown("###  Collection Operations")
         filtered_pdfs = pdfs or []
