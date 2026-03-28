@@ -10224,441 +10224,438 @@ def show_borrowing_returns():
     """Borrowing and returns page"""
     st.markdown('<h1 class="litgrid-header">Borrowing & Returns</h1>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([" Checkout", " Return", " Active Borrowings", " Renewals", " Trends"])
+    st.subheader("**Checkout Book**")
     
-    with tab1:
-        st.subheader("**Checkout Book**")
+    with st.form("checkout_form"):
+        col1, col2 = st.columns(2, gap="small")
         
-        with st.form("checkout_form"):
-            col1, col2 = st.columns(2, gap="small")
-            
-            with col1:
-                # Search member
-                member_search = st.text_input("Search Member (username or email)")
-                if member_search:
-                    members = Database.execute_query(
-                        "SELECT user_id, username, full_name, email FROM users WHERE username LIKE ? OR email LIKE ? LIMIT 10",
-                        (f'%{member_search}%', f'%{member_search}%')
-                    )
-                    if members:
-                        member_options = {f"{m['full_name']} (@{m['username']})": m['user_id'] for m in members}
-                        selected_member = st.selectbox("Select Member", list(member_options.keys()))
-                    else:
-                        st.warning("No members found")
-                        selected_member = None
+        with col1:
+            # Search member
+            member_search = st.text_input("Search Member (username or email)")
+            if member_search:
+                members = Database.execute_query(
+                    "SELECT user_id, username, full_name, email FROM users WHERE username LIKE ? OR email LIKE ? LIMIT 10",
+                    (f'%{member_search}%', f'%{member_search}%')
+                )
+                if members:
+                    member_options = {f"{m['full_name']} (@{m['username']})": m['user_id'] for m in members}
+                    selected_member = st.selectbox("Select Member", list(member_options.keys()))
                 else:
+                    st.warning("No members found")
                     selected_member = None
-            
-            with col2:
-                # Search book
-                book_search = st.text_input("Search Book (title or ISBN)")
-                if book_search:
-                    books = Database.execute_query(
-                        """SELECT b.book_id, b.title, b.isbn, 
-                                  (SELECT COUNT(*) FROM book_inventory WHERE book_id = b.book_id AND is_available = 1) as available
-                           FROM books b 
-                           WHERE (b.title LIKE ? OR b.isbn LIKE ?) AND b.is_available = 1 
-                           LIMIT 10""",
-                        (f'%{book_search}%', f'%{book_search}%')
-                    )
-                    if books:
-                        book_options = {f"{bk['title']} ({bk['isbn']}) - {bk['available']} available": bk['book_id'] for bk in books}
-                        selected_book = st.selectbox("Select Book", list(book_options.keys()))
-                    else:
-                        st.warning("No books found")
-                        selected_book = None
-                else:
-                    selected_book = None
-            
-            checkout_days = st.number_input("Borrowing Days", min_value=1, max_value=90, value=Config.DEFAULT_BORROWING_DAYS)
-            
-            submit = st.form_submit_button(" Checkout Book", use_container_width=True)
-            
-            if submit:
-                if not selected_member or not selected_book:
-                    st.error("Please select both member and book!")
-                else:
-                    user_id = member_options[selected_member]
-                    book_id = book_options[selected_book]
-                    
-                    # Get available inventory
-                    inventory = Database.execute_query(
-                        "SELECT inventory_id FROM book_inventory WHERE book_id = ? AND is_available = 1 LIMIT 1",
-                        (book_id,), fetch_one=True
-                    )
-                    
-                    if not inventory:
-                        st.error("No copies available!")
-                    else:
-                        # Create borrowing record
-                        due_date = date.today() + timedelta(days=checkout_days)
-                        current_user = Auth.get_user()
-                        
-                        if Database.execute_update(
-                            """INSERT INTO borrowing (inventory_id, user_id, checkout_date, due_date, 
-                                                      checkout_by_user_id)
-                               VALUES (?, ?, date('now'), ?, ?)""",
-                            (inventory['inventory_id'], user_id, due_date, current_user['user_id'])
-                        ):
-                            # Update inventory
-                            Database.execute_update(
-                                "UPDATE book_inventory SET is_available = 0 WHERE inventory_id = ?",
-                                (inventory['inventory_id'],)
-                            )
-                            
-                            st.success(f" Book checked out successfully! Due date: {due_date}")
-                            st.balloons()
-    
-    with tab2:
-        st.subheader("**Return Book**")
+            else:
+                selected_member = None
         
-        with st.form("return_form"):
-            # Search for active borrowings
-            search = st.text_input("Search by member name or book title")
-            
-            if search:
-                borrowings = Database.execute_query(
-                    """SELECT br.borrowing_id, b.title, u.full_name, br.checkout_date, br.due_date,
-                              julianday(date('now')) - julianday(br.due_date) as days_overdue,
-                              bi.inventory_id
-                       FROM borrowing br
-                       JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-                       JOIN books b ON bi.book_id = b.book_id
-                       JOIN users u ON br.user_id = u.user_id
-                       WHERE br.return_date IS NULL 
-                         AND (u.full_name LIKE ? OR b.title LIKE ?)
-                       LIMIT 20""",
-                    (f'%{search}%', f'%{search}%')
+        with col2:
+            # Search book
+            book_search = st.text_input("Search Book (title or ISBN)")
+            if book_search:
+                books = Database.execute_query(
+                    """SELECT b.book_id, b.title, b.isbn, 
+                              (SELECT COUNT(*) FROM book_inventory WHERE book_id = b.book_id AND is_available = 1) as available
+                       FROM books b 
+                       WHERE (b.title LIKE ? OR b.isbn LIKE ?) AND b.is_available = 1 
+                       LIMIT 10""",
+                    (f'%{book_search}%', f'%{book_search}%')
+                )
+                if books:
+                    book_options = {f"{bk['title']} ({bk['isbn']}) - {bk['available']} available": bk['book_id'] for bk in books}
+                    selected_book = st.selectbox("Select Book", list(book_options.keys()))
+                else:
+                    st.warning("No books found")
+                    selected_book = None
+            else:
+                selected_book = None
+        
+        checkout_days = st.number_input("Borrowing Days", min_value=1, max_value=90, value=Config.DEFAULT_BORROWING_DAYS)
+        
+        submit = st.form_submit_button(" Checkout Book", use_container_width=True)
+        
+        if submit:
+            if not selected_member or not selected_book:
+                st.error("Please select both member and book!")
+            else:
+                user_id = member_options[selected_member]
+                book_id = book_options[selected_book]
+                
+                # Get available inventory
+                inventory = Database.execute_query(
+                    "SELECT inventory_id FROM book_inventory WHERE book_id = ? AND is_available = 1 LIMIT 1",
+                    (book_id,), fetch_one=True
                 )
                 
-                if borrowings:
-                    borrowing_options = {
-                        f"{bw['full_name']} - {bw['title']} (Due: {format_date(bw['due_date'])})": bw 
-                        for bw in borrowings
-                    }
-                    selected_borrowing = st.selectbox("Select Borrowing", list(borrowing_options.keys()))
+                if not inventory:
+                    st.error("No copies available!")
                 else:
-                    st.warning("No active borrowings found")
-                    selected_borrowing = None
-            else:
-                selected_borrowing = None
-            
-            submit = st.form_submit_button(" Return Book", use_container_width=True)
-            
-            if submit:
-                if not selected_borrowing:
-                    st.error("Please select a borrowing to return!")
-                else:
-                    borrowing = borrowing_options[selected_borrowing]
+                    # Create borrowing record
+                    due_date = date.today() + timedelta(days=checkout_days)
                     current_user = Auth.get_user()
                     
-                    # Calculate fine if overdue
-                    fine = 0
-                    if borrowing['days_overdue'] > 0:
-                        fine = borrowing['days_overdue'] * Config.FINE_PER_DAY
-                    
-                    # Update borrowing record
                     if Database.execute_update(
-                        """UPDATE borrowing 
-                           SET return_date = date('now'), return_to_user_id = ?, 
-                               fine_amount = ?
-                           WHERE borrowing_id = ?""",
-                        (current_user['user_id'], fine, borrowing['borrowing_id'])
+                        """INSERT INTO borrowing (inventory_id, user_id, checkout_date, due_date, 
+                                                  checkout_by_user_id)
+                           VALUES (?, ?, date('now'), ?, ?)""",
+                        (inventory['inventory_id'], user_id, due_date, current_user['user_id'])
                     ):
                         # Update inventory
                         Database.execute_update(
-                            "UPDATE book_inventory SET is_available = 1 WHERE inventory_id = ?",
-                            (borrowing['inventory_id'],)
+                            "UPDATE book_inventory SET is_available = 0 WHERE inventory_id = ?",
+                            (inventory['inventory_id'],)
                         )
                         
-                        # Update user fine balance if applicable
-                        if fine > 0:
-                            Database.execute_update(
-                                "UPDATE users SET fine_balance = fine_balance + ? WHERE user_id IN (SELECT user_id FROM borrowing WHERE borrowing_id = ?)",
-                                (fine, borrowing['borrowing_id'])
-                            )
-                        
-                        if fine > 0:
-                            st.warning(f" Book returned with fine: {format_currency(fine)}")
-                        else:
-                            st.success(" Book returned successfully!")
+                        st.success(f" Book checked out successfully! Due date: {due_date}")
                         st.balloons()
     
-    with tab3:
-        st.subheader("**Active Borrowings**")
+    st.divider()
+    st.subheader("**Return Book**")
+    
+    with st.form("return_form"):
+        # Search for active borrowings
+        search = st.text_input("Search by member name or book title")
         
-        # Filters
-        col1, col2 = st.columns(2, gap="small")
-        with col1:
-            filter_type = st.selectbox("Filter", ["All", "Due Soon (< 3 days)", "Overdue"])
-        with col2:
-            search_active = st.text_input("Search by member or book")
+        if search:
+            borrowings = Database.execute_query(
+                """SELECT br.borrowing_id, b.title, u.full_name, br.checkout_date, br.due_date,
+                          julianday(date('now')) - julianday(br.due_date) as days_overdue,
+                          bi.inventory_id
+                   FROM borrowing br
+                   JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                   JOIN books b ON bi.book_id = b.book_id
+                   JOIN users u ON br.user_id = u.user_id
+                   WHERE br.return_date IS NULL 
+                     AND (u.full_name LIKE ? OR b.title LIKE ?)
+                   LIMIT 20""",
+                (f'%{search}%', f'%{search}%')
+            )
+            
+            if borrowings:
+                borrowing_options = {
+                    f"{bw['full_name']} - {bw['title']} (Due: {format_date(bw['due_date'])})": bw 
+                    for bw in borrowings
+                }
+                selected_borrowing = st.selectbox("Select Borrowing", list(borrowing_options.keys()))
+            else:
+                st.warning("No active borrowings found")
+                selected_borrowing = None
+        else:
+            selected_borrowing = None
         
-        query = """
-            SELECT br.borrowing_id, b.title, b.isbn, u.full_name, u.email,
-                   br.checkout_date, br.due_date,
-                   julianday(br.due_date) - julianday(date('now')) as days_remaining,
+        submit = st.form_submit_button(" Return Book", use_container_width=True)
+        
+        if submit:
+            if not selected_borrowing:
+                st.error("Please select a borrowing to return!")
+            else:
+                borrowing = borrowing_options[selected_borrowing]
+                current_user = Auth.get_user()
+                
+                # Calculate fine if overdue
+                fine = 0
+                if borrowing['days_overdue'] > 0:
+                    fine = borrowing['days_overdue'] * Config.FINE_PER_DAY
+                
+                # Update borrowing record
+                if Database.execute_update(
+                    """UPDATE borrowing 
+                       SET return_date = date('now'), return_to_user_id = ?, 
+                           fine_amount = ?
+                       WHERE borrowing_id = ?""",
+                    (current_user['user_id'], fine, borrowing['borrowing_id'])
+                ):
+                    # Update inventory
+                    Database.execute_update(
+                        "UPDATE book_inventory SET is_available = 1 WHERE inventory_id = ?",
+                        (borrowing['inventory_id'],)
+                    )
+                    
+                    # Update user fine balance if applicable
+                    if fine > 0:
+                        Database.execute_update(
+                            "UPDATE users SET fine_balance = fine_balance + ? WHERE user_id IN (SELECT user_id FROM borrowing WHERE borrowing_id = ?)",
+                            (fine, borrowing['borrowing_id'])
+                        )
+                    
+                    if fine > 0:
+                        st.warning(f" Book returned with fine: {format_currency(fine)}")
+                    else:
+                        st.success(" Book returned successfully!")
+                    st.balloons()
+    
+    st.divider()
+    st.subheader("**Active Borrowings**")
+    
+    # Filters
+    col1, col2 = st.columns(2, gap="small")
+    with col1:
+        filter_type = st.selectbox("Filter", ["All", "Due Soon (< 3 days)", "Overdue"])
+    with col2:
+        search_active = st.text_input("Search by member or book")
+    
+    query = """
+        SELECT br.borrowing_id, b.title, b.isbn, u.full_name, u.email,
+               br.checkout_date, br.due_date,
+               julianday(br.due_date) - julianday(date('now')) as days_remaining,
+               julianday(date('now')) - julianday(br.due_date) as days_overdue
+        FROM borrowing br
+        JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+        JOIN books b ON bi.book_id = b.book_id
+        JOIN users u ON br.user_id = u.user_id
+        WHERE br.return_date IS NULL
+    """
+    params = []
+    
+    if filter_type == "Due Soon (< 3 days)":
+        query += " AND julianday(br.due_date) - julianday(date('now')) BETWEEN 0 AND 3"
+    elif filter_type == "Overdue":
+        query += " AND br.due_date < date('now')"
+    
+    if search_active:
+        query += " AND (u.full_name LIKE ? OR b.title LIKE ?)"
+        params.extend([f'%{search_active}%', f'%{search_active}%'])
+    
+    query += " ORDER BY br.due_date"
+    
+    active = Database.execute_query(query, tuple(params) if params else None)
+    
+    if active:
+        st.write(f"Found {len(active)} active borrowings")
+        
+        for bw in active:
+            col1, col2 = st.columns([3, 1], gap="small")
+            
+            with col1:
+                st.markdown(f"**{bw['title']}**")
+                st.caption(f"Borrowed by: {bw['full_name']} ({bw['email']})")
+                st.caption(f"Checkout: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
+            
+            with col2:
+                if bw['days_overdue'] and bw['days_overdue'] > 0:
+                    st.error(f" Overdue by {bw['days_overdue']} days")
+                    fine = bw['days_overdue'] * Config.FINE_PER_DAY
+                    st.caption(f"Fine: {format_currency(fine)}")
+                elif bw['days_remaining'] <= 3:
+                    st.warning(f"Due in {bw['days_remaining']} days")
+                else:
+                    st.info(f" Due in {bw['days_remaining']} days")
+            
+            st.divider()
+    else:
+        st.info("No active borrowings")
+    
+    st.divider()
+    st.subheader(" Renewal Requests")
+    
+    current_user = Auth.get_user()
+    
+    if current_user['role'] == 'admin' or current_user['role'] == 'librarian':
+        # Librarian view - approve/reject renewals
+        st.markdown("### Pending Renewal Requests")
+        
+        pending = Database.execute_query("""
+            SELECT rr.renewal_id, rr.borrowing_id, rr.created_at as request_date, rr.requested_days,
+                   b.title, u.full_name, u.email, br.due_date,
                    julianday(date('now')) - julianday(br.due_date) as days_overdue
-            FROM borrowing br
+            FROM renewal_requests rr
+            JOIN borrowing br ON rr.borrowing_id = br.borrowing_id
             JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
             JOIN books b ON bi.book_id = b.book_id
             JOIN users u ON br.user_id = u.user_id
-            WHERE br.return_date IS NULL
-        """
-        params = []
+            WHERE rr.status = 'pending'
+            ORDER BY rr.created_at
+        """)
         
-        if filter_type == "Due Soon (< 3 days)":
-            query += " AND julianday(br.due_date) - julianday(date('now')) BETWEEN 0 AND 3"
-        elif filter_type == "Overdue":
-            query += " AND br.due_date < date('now')"
+        if pending:
+            for req in pending:
+                col1, col2, col3 = st.columns([3, 2, 1], gap="small")
+                
+                with col1:
+                    st.markdown(f"**{req['title']}**")
+                    st.caption(f"Member: {req['full_name']} ({req['email']})")
+                    st.caption(f"Requested: {format_date(req['request_date'])} | Extension: {req['requested_days']} days")
+                
+                with col2:
+                    st.caption(f"Current Due: {format_date(req['due_date'])}")
+                    if req['days_overdue'] and req['days_overdue'] > 0:
+                        st.error(f" Already overdue by {req['days_overdue']} days")
+                    else:
+                        new_due = req['due_date'] + timedelta(days=req['requested_days'])
+                        st.info(f"New Due: {format_date(new_due)}")
+                
+                with col3:
+                    if st.button(" Approve", key=f"approve_{req['renewal_id']}"):
+                        success, msg = EnhancedBorrowingManager.approve_renewal(
+                            req['renewal_id'], 
+                            current_user['user_id'], 
+                            'approved'
+                        )
+                        if success:
+                            st.success("Approved!")
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                    
+                    if st.button(" Reject", key=f"reject_{req['renewal_id']}"):
+                        success, msg = EnhancedBorrowingManager.approve_renewal(
+                            req['renewal_id'], 
+                            current_user['user_id'], 
+                            'rejected'
+                        )
+                        if success:
+                            st.warning("Rejected")
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                
+                st.divider()
+        else:
+            st.info("No pending renewal requests")
+    
+    else:
+        # Member view - request renewal
+        st.markdown("### My Active Borrowings")
         
-        if search_active:
-            query += " AND (u.full_name LIKE ? OR b.title LIKE ?)"
-            params.extend([f'%{search_active}%', f'%{search_active}%'])
+        my_borrowings = Database.execute_query("""
+            SELECT br.borrowing_id, b.title, br.checkout_date, br.due_date,
+                   julianday(br.due_date) - julianday(date('now')) as days_remaining,
+                   (SELECT COUNT(*) FROM renewal_requests 
+                    WHERE borrowing_id = br.borrowing_id AND status = 'pending') as has_pending
+            FROM borrowing br
+            JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+            JOIN books b ON bi.book_id = b.book_id
+            WHERE br.user_id = ? AND br.return_date IS NULL
+            ORDER BY br.due_date
+        """, (current_user['user_id'],))
         
-        query += " ORDER BY br.due_date"
-        
-        active = Database.execute_query(query, tuple(params) if params else None)
-        
-        if active:
-            st.write(f"Found {len(active)} active borrowings")
-            
-            for bw in active:
+        if my_borrowings:
+            for bw in my_borrowings:
                 col1, col2 = st.columns([3, 1], gap="small")
                 
                 with col1:
                     st.markdown(f"**{bw['title']}**")
-                    st.caption(f"Borrowed by: {bw['full_name']} ({bw['email']})")
-                    st.caption(f"Checkout: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
-                
-                with col2:
-                    if bw['days_overdue'] and bw['days_overdue'] > 0:
-                        st.error(f" Overdue by {bw['days_overdue']} days")
-                        fine = bw['days_overdue'] * Config.FINE_PER_DAY
-                        st.caption(f"Fine: {format_currency(fine)}")
+                    st.caption(f"Checked out: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
+                    
+                    if bw['days_remaining'] < 0:
+                        st.error(f" Overdue by {abs(bw['days_remaining'])} days")
                     elif bw['days_remaining'] <= 3:
                         st.warning(f"Due in {bw['days_remaining']} days")
                     else:
                         st.info(f" Due in {bw['days_remaining']} days")
                 
+                with col2:
+                    if bw['has_pending'] > 0:
+                        st.caption("Renewal Pending")
+                    else:
+                        if st.button(" Request Renewal", key=f"renew_{bw['borrowing_id']}"):
+                            # Default 14 days extension
+                            success, msg = EnhancedBorrowingManager.request_renewal(
+                                bw['borrowing_id'], 
+                                current_user['user_id']
+                            )
+                            if success:
+                                st.success("Renewal requested!")
+                                st.rerun()
+                            else:
+                                st.error(msg)
+                
                 st.divider()
         else:
-            st.info("No active borrowings")
+            st.info("You don't have any active borrowings")
     
-    with tab4:
-        st.subheader(" Renewal Requests")
+    st.divider()
+    st.subheader(" Borrowing Trends & Analytics")
+    
+    # Date range selector
+    col1, col2 = st.columns(2, gap="small")
+    with col1:
+        start_date = st.date_input("Start Date", date.today() - timedelta(days=30))
+    with col2:
+        end_date = st.date_input("End Date", date.today())
+    
+    if st.button(" Generate Trends", use_container_width=True):
+        st.divider()
         
-        current_user = Auth.get_user()
+        # Daily borrowing trend
+        st.markdown("###  Daily Borrowing Trend")
+        daily_data = Database.execute_query("""
+            SELECT DATE(checkout_date) as date, COUNT(*) as checkouts
+            FROM borrowing
+            WHERE checkout_date BETWEEN %s AND %s
+            GROUP BY DATE(checkout_date)
+            ORDER BY date
+        """, (start_date, end_date))
         
-        if current_user['role'] == 'admin' or current_user['role'] == 'librarian':
-            # Librarian view - approve/reject renewals
-            st.markdown("### Pending Renewal Requests")
-            
-            pending = Database.execute_query("""
-                SELECT rr.renewal_id, rr.borrowing_id, rr.created_at as request_date, rr.requested_days,
-                       b.title, u.full_name, u.email, br.due_date,
-                       julianday(date('now')) - julianday(br.due_date) as days_overdue
-                FROM renewal_requests rr
-                JOIN borrowing br ON rr.borrowing_id = br.borrowing_id
-                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-                JOIN books b ON bi.book_id = b.book_id
-                JOIN users u ON br.user_id = u.user_id
-                WHERE rr.status = 'pending'
-                ORDER BY rr.created_at
-            """)
-            
-            if pending:
-                for req in pending:
-                    col1, col2, col3 = st.columns([3, 2, 1], gap="small")
-                    
-                    with col1:
-                        st.markdown(f"**{req['title']}**")
-                        st.caption(f"Member: {req['full_name']} ({req['email']})")
-                        st.caption(f"Requested: {format_date(req['request_date'])} | Extension: {req['requested_days']} days")
-                    
-                    with col2:
-                        st.caption(f"Current Due: {format_date(req['due_date'])}")
-                        if req['days_overdue'] and req['days_overdue'] > 0:
-                            st.error(f" Already overdue by {req['days_overdue']} days")
-                        else:
-                            new_due = req['due_date'] + timedelta(days=req['requested_days'])
-                            st.info(f"New Due: {format_date(new_due)}")
-                    
-                    with col3:
-                        if st.button(" Approve", key=f"approve_{req['renewal_id']}"):
-                            success, msg = EnhancedBorrowingManager.approve_renewal(
-                                req['renewal_id'], 
-                                current_user['user_id'], 
-                                'approved'
-                            )
-                            if success:
-                                st.success("Approved!")
-                                st.rerun()
-                            else:
-                                st.error(msg)
-                        
-                        if st.button(" Reject", key=f"reject_{req['renewal_id']}"):
-                            success, msg = EnhancedBorrowingManager.approve_renewal(
-                                req['renewal_id'], 
-                                current_user['user_id'], 
-                                'rejected'
-                            )
-                            if success:
-                                st.warning("Rejected")
-                                st.rerun()
-                            else:
-                                st.error(msg)
-                    
-                    st.divider()
-            else:
-                st.info("No pending renewal requests")
-        
+        if daily_data:
+            df = pd.DataFrame(daily_data)
+            fig = px.line(df, x='date', y='checkouts',
+                        title='Daily Checkout Activity',
+                        labels={'date': 'Date', 'checkouts': 'Books Checked Out'})
+            fig.update_traces(line_color='#1E88E5', line_width=3)
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            # Member view - request renewal
-            st.markdown("### My Active Borrowings")
-            
-            my_borrowings = Database.execute_query("""
-                SELECT br.borrowing_id, b.title, br.checkout_date, br.due_date,
-                       julianday(br.due_date) - julianday(date('now')) as days_remaining,
-                       (SELECT COUNT(*) FROM renewal_requests 
-                        WHERE borrowing_id = br.borrowing_id AND status = 'pending') as has_pending
-                FROM borrowing br
-                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-                JOIN books b ON bi.book_id = b.book_id
-                WHERE br.user_id = ? AND br.return_date IS NULL
-                ORDER BY br.due_date
-            """, (current_user['user_id'],))
-            
-            if my_borrowings:
-                for bw in my_borrowings:
-                    col1, col2 = st.columns([3, 1], gap="small")
-                    
-                    with col1:
-                        st.markdown(f"**{bw['title']}**")
-                        st.caption(f"Checked out: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
-                        
-                        if bw['days_remaining'] < 0:
-                            st.error(f" Overdue by {abs(bw['days_remaining'])} days")
-                        elif bw['days_remaining'] <= 3:
-                            st.warning(f"Due in {bw['days_remaining']} days")
-                        else:
-                            st.info(f" Due in {bw['days_remaining']} days")
-                    
-                    with col2:
-                        if bw['has_pending'] > 0:
-                            st.caption("Renewal Pending")
-                        else:
-                            if st.button(" Request Renewal", key=f"renew_{bw['borrowing_id']}"):
-                                # Default 14 days extension
-                                success, msg = EnhancedBorrowingManager.request_renewal(
-                                    bw['borrowing_id'], 
-                                    current_user['user_id']
-                                )
-                                if success:
-                                    st.success("Renewal requested!")
-                                    st.rerun()
-                                else:
-                                    st.error(msg)
-                    
-                    st.divider()
-            else:
-                st.info("You don't have any active borrowings")
-    
-    with tab5:
-        st.subheader(" Borrowing Trends & Analytics")
+            st.info("No data available for selected period")
         
-        # Date range selector
-        col1, col2 = st.columns(2, gap="small")
+        # Return rate
+        st.markdown("###  Return Statistics")
+        col1, col2, col3 = st.columns(3, gap="small")
+        
+        total_borrowed = Database.execute_query(
+            "SELECT COUNT(*) as count FROM borrowing WHERE checkout_date BETWEEN %s AND %s",
+            (start_date, end_date), fetch_one=True
+        )
+        
+        total_returned = Database.execute_query(
+            "SELECT COUNT(*) as count FROM borrowing WHERE return_date BETWEEN %s AND %s",
+            (start_date, end_date), fetch_one=True
+        )
+        
+        overdue_count = Database.execute_query(
+            """SELECT COUNT(*) as count FROM borrowing 
+               WHERE return_date IS NULL AND due_date < date('now')""",
+            fetch_one=True
+        )
+        
         with col1:
-            start_date = st.date_input("Start Date", date.today() - timedelta(days=30))
+            st.metric(" Total Borrowed", total_borrowed['count'] if total_borrowed else 0)
         with col2:
-            end_date = st.date_input("End Date", date.today())
+            st.metric(" Total Returned", total_returned['count'] if total_returned else 0)
+        with col3:
+            st.metric(" Currently Overdue", overdue_count['count'] if overdue_count else 0)
         
-        if st.button(" Generate Trends", use_container_width=True):
-            st.divider()
-            
-            # Daily borrowing trend
-            st.markdown("###  Daily Borrowing Trend")
-            daily_data = Database.execute_query("""
-                SELECT DATE(checkout_date) as date, COUNT(*) as checkouts
-                FROM borrowing
-                WHERE checkout_date BETWEEN %s AND %s
-                GROUP BY DATE(checkout_date)
-                ORDER BY date
-            """, (start_date, end_date))
-            
-            if daily_data:
-                df = pd.DataFrame(daily_data)
-                fig = px.line(df, x='date', y='checkouts',
-                            title='Daily Checkout Activity',
-                            labels={'date': 'Date', 'checkouts': 'Books Checked Out'})
-                fig.update_traces(line_color='#1E88E5', line_width=3)
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No data available for selected period")
-            
-            # Return rate
-            st.markdown("###  Return Statistics")
-            col1, col2, col3 = st.columns(3, gap="small")
-            
-            total_borrowed = Database.execute_query(
-                "SELECT COUNT(*) as count FROM borrowing WHERE checkout_date BETWEEN %s AND %s",
-                (start_date, end_date), fetch_one=True
-            )
-            
-            total_returned = Database.execute_query(
-                "SELECT COUNT(*) as count FROM borrowing WHERE return_date BETWEEN %s AND %s",
-                (start_date, end_date), fetch_one=True
-            )
-            
-            overdue_count = Database.execute_query(
-                """SELECT COUNT(*) as count FROM borrowing 
-                   WHERE return_date IS NULL AND due_date < date('now')""",
-                fetch_one=True
-            )
-            
-            with col1:
-                st.metric(" Total Borrowed", total_borrowed['count'] if total_borrowed else 0)
-            with col2:
-                st.metric(" Total Returned", total_returned['count'] if total_returned else 0)
-            with col3:
-                st.metric(" Currently Overdue", overdue_count['count'] if overdue_count else 0)
-            
-            # Most borrowed books
-            st.markdown("###  Most Borrowed Books")
-            popular = Database.execute_query("""
-                SELECT b.title, COUNT(*) as borrow_count
-                FROM borrowing br
-                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-                JOIN books b ON bi.book_id = b.book_id
-                WHERE br.checkout_date BETWEEN %s AND %s
-                GROUP BY b.book_id, b.title
-                ORDER BY borrow_count DESC
-                LIMIT 10
-            """, (start_date, end_date))
-            
-            if popular:
-                df = pd.DataFrame(popular)
-                fig = px.bar(df, x='borrow_count', y='title', orientation='h',
-                           title='Top 10 Borrowed Books',
-                           labels={'borrow_count': 'Times Borrowed', 'title': 'Book Title'})
-                fig.update_traces(marker_color='#1E88E5')
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No borrowing data available")
-            
-            # Average borrowing duration
-            st.markdown("### ⏱ Average Borrowing Duration")
-            avg_duration = Database.execute_query("""
-                SELECT AVG(julianday(return_date) - julianday(checkout_date)) as avg_days
-                FROM borrowing
-                WHERE return_date BETWEEN %s AND %s
-            """, (start_date, end_date), fetch_one=True)
-            
-            if avg_duration and avg_duration['avg_days']:
-                st.metric("Average Days Borrowed", f"{avg_duration['avg_days']:.1f} days")
-            else:
-                st.info("No return data available")
+        # Most borrowed books
+        st.markdown("###  Most Borrowed Books")
+        popular = Database.execute_query("""
+            SELECT b.title, COUNT(*) as borrow_count
+            FROM borrowing br
+            JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+            JOIN books b ON bi.book_id = b.book_id
+            WHERE br.checkout_date BETWEEN %s AND %s
+            GROUP BY b.book_id, b.title
+            ORDER BY borrow_count DESC
+            LIMIT 10
+        """, (start_date, end_date))
+        
+        if popular:
+            df = pd.DataFrame(popular)
+            fig = px.bar(df, x='borrow_count', y='title', orientation='h',
+                       title='Top 10 Borrowed Books',
+                       labels={'borrow_count': 'Times Borrowed', 'title': 'Book Title'})
+            fig.update_traces(marker_color='#1E88E5')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No borrowing data available")
+        
+        # Average borrowing duration
+        st.markdown("### ⏱ Average Borrowing Duration")
+        avg_duration = Database.execute_query("""
+            SELECT AVG(julianday(return_date) - julianday(checkout_date)) as avg_days
+            FROM borrowing
+            WHERE return_date BETWEEN %s AND %s
+        """, (start_date, end_date), fetch_one=True)
+        
+        if avg_duration and avg_duration['avg_days']:
+            st.metric("Average Days Borrowed", f"{avg_duration['avg_days']:.1f} days")
+        else:
+            st.info("No return data available")
 
 def show_reports():
     """Advanced Reports page with 20+ visualizations"""
