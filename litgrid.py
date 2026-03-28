@@ -11656,72 +11656,71 @@ def show_my_library():
                     )
 
                 title = st.text_input("Title of the book *", max_chars=500, key="ucc_title")
-                meta_col1, meta_col2, meta_col3, meta_col4 = st.columns(4, gap="small")
-                with meta_col1:
-                    authors_text = st.text_input("Author(s)", max_chars=300, key="ucc_author")
-                with meta_col2:
-                    publisher = st.text_input("Publisher", max_chars=300, key="ucc_publisher")
-                with meta_col3:
-                    genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], key="ucc_genre")
-                with meta_col4:
-                    subtitle = st.text_input("Subtitle", max_chars=500, key="ucc_subtitle")
-
-                bib_col1, bib_col2, bib_col3, bib_col4 = st.columns(4, gap="small")
                 current_year = datetime.now().year
                 max_year = current_year + 10
-                with bib_col1:
+
+                row1_col1, row1_col2, row1_col3, row1_col4, row1_col5 = st.columns(5, gap="small")
+                with row1_col1:
+                    authors_text = st.text_input("Author(s)", max_chars=300, key="ucc_author")
+                with row1_col2:
+                    publisher = st.text_input("Publisher", max_chars=300, key="ucc_publisher")
+                with row1_col3:
+                    genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], key="ucc_genre")
+                with row1_col4:
+                    subtitle = st.text_input("Subtitle", max_chars=500, key="ucc_subtitle")
+                with row1_col5:
                     publication_year = st.number_input("Year of publication", min_value=1800, max_value=max_year, value=current_year, key="ucc_pub_year")
-                with bib_col2:
+
+                row2_col1, row2_col2, row2_col3, row2_col4, row2_col5 = st.columns(5, gap="small")
+                with row2_col1:
                     edition = st.text_input("Edition", placeholder="e.g., 2nd Edition", key="ucc_edition")
-                with bib_col3:
+                with row2_col2:
                     isbn_issn = st.text_input("ISBN/ISSN", placeholder="ISBN-13 or ISSN", key="ucc_isbn_issn")
-                with bib_col4:
+                with row2_col3:
                     keywords = st.text_input("Keywords", placeholder="fiction, mystery, thriller", key="ucc_keywords")
-
-                ext_col1, ext_col2, ext_col3, ext_col4 = st.columns(4, gap="small")
-                with ext_col1:
+                with row2_col4:
                     contributors = st.text_input("Contributors/Editors", key="ucc_contributors")
-                with ext_col2:
+                with row2_col5:
                     publication_place = st.text_input("Publication Place", key="ucc_pub_place")
-                with ext_col3:
+
+                row3_col1, row3_col2, row3_col3, row3_col4, row3_col5 = st.columns(5, gap="small")
+                with row3_col1:
                     series_title = st.text_input("Series", key="ucc_series")
-                with ext_col4:
+                with row3_col2:
                     volume = st.text_input("Volume", key="ucc_volume")
-
-                ext2_col1, ext2_col2, ext2_col3, ext2_col4 = st.columns(4, gap="small")
-                with ext2_col1:
+                with row3_col3:
                     shared_language = st.selectbox("Language", ["English", "Hindi", "Spanish", "French", "German", "Other"], key="ucc_language")
-                with ext2_col2:
+                with row3_col4:
                     shared_pages = st.number_input("Pages", min_value=1, value=200, key="ucc_pages")
-                with ext2_col3:
+                with row3_col5:
                     call_number = st.text_input("Call Number", key="ucc_call_number")
-                with ext2_col4:
-                    accession_number = st.text_input("Accession Number", key="ucc_accession")
 
-                ext3_col1, ext3_col2, ext3_col3 = st.columns(3, gap="small")
-                with ext3_col1:
+                row4_col1, row4_col2, row4_col3, row4_col4, row4_col5 = st.columns(5, gap="small")
+                with row4_col1:
+                    accession_number = st.text_input("Accession Number", key="ucc_accession")
+                with row4_col2:
                     shelf_location = st.text_input("Shelf/Location", placeholder="Aisle-B / Rack-12", key="ucc_catalog_location")
-                with ext3_col2:
+                with row4_col3:
                     condition_note = st.text_input("Condition Notes", placeholder="new/good/worn", key="ucc_condition")
-                with ext3_col3:
+                with row4_col4:
                     source_url = st.text_input("Source URL", placeholder="https://...", key="ucc_source_url")
+                with row4_col5:
+                    pass
 
                 description = st.text_area("Description", max_chars=1400, key="ucc_description")
 
-                pdf_col1, pdf_col2 = st.columns(2, gap="small")
-                with pdf_col1:
+                row5_col1, row5_col2, row5_col3, row5_col4, row5_col5 = st.columns(5, gap="small")
+                with row5_col1:
                     uploaded_file = st.file_uploader("PDF File", type=['pdf'], key="ucc_pdf_file")
-                with pdf_col2:
+                with row5_col2:
                     is_public = st.checkbox("Publish PDF as Public", value=False, key="ucc_pdf_public")
-
-                digital_col1, digital_col2, digital_col3 = st.columns(3, gap="small")
-                with digital_col1:
+                with row5_col3:
                     digital_format = st.selectbox(
                         "Digital file format",
                         ["PDF", "EPUB", "MOBI", "DOCX", "TXT", "Other"],
                         key="ucc_digital_format"
                     )
-                with digital_col2:
+                with row5_col4:
                     auto_file_size_bytes = len(uploaded_file.getvalue()) if uploaded_file else 0
                     st.text_input(
                         "File size",
@@ -11729,17 +11728,17 @@ def show_my_library():
                         disabled=True,
                         key="ucc_file_size_display"
                     )
-                with digital_col3:
+                with row5_col5:
                     cover_image = st.file_uploader("Cover image", type=['png', 'jpg', 'jpeg', 'webp'], key="ucc_cover_image")
 
                 pages = 1
                 language = "Other"
                 copies = 1
                 if is_management_user and create_catalog:
-                    cat_col1, cat_col2 = st.columns(2, gap="small")
-                    with cat_col1:
+                    row6_col1, row6_col2, row6_col3, row6_col4, row6_col5 = st.columns(5, gap="small")
+                    with row6_col1:
                         copies = st.number_input("Copies", min_value=1, value=1, key="ucc_copies")
-                    with cat_col2:
+                    with row6_col2:
                         catalog_acquired_on = st.date_input("Acquired On", value=date.today(), key="ucc_acquired_on")
                 else:
                     catalog_acquired_on = date.today()
