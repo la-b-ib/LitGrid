@@ -11423,89 +11423,132 @@ def show_borrowing_returns():
 
     if generate_trends:
         st.divider()
-        
-        # Daily borrowing trend
-        st.markdown("###  Daily Borrowing Trend")
-        daily_data = Database.execute_query("""
-            SELECT DATE(checkout_date) as date, COUNT(*) as checkouts
-            FROM borrowing
-            WHERE checkout_date BETWEEN ? AND ?
-            GROUP BY DATE(checkout_date)
-            ORDER BY date
-        """, (start_date, end_date))
-        
-        if daily_data:
-            df = pd.DataFrame(daily_data)
-            fig = px.line(df, x='date', y='checkouts',
-                        title='Daily Checkout Activity',
-                        labels={'date': 'Date', 'checkouts': 'Books Checked Out'})
-            fig.update_traces(line_color='#1E88E5', line_width=3)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No data available for selected period")
-        
-        # Return rate
-        st.markdown("###  Return Statistics")
-        col1, col2, col3 = st.columns(3, gap="small")
-        
+
         total_borrowed = Database.execute_query(
             "SELECT COUNT(*) as count FROM borrowing WHERE checkout_date BETWEEN ? AND ?",
             (start_date, end_date), fetch_one=True
         )
-        
+
         total_returned = Database.execute_query(
             "SELECT COUNT(*) as count FROM borrowing WHERE return_date BETWEEN ? AND ?",
             (start_date, end_date), fetch_one=True
         )
-        
+
         overdue_count = Database.execute_query(
-            """SELECT COUNT(*) as count FROM borrowing 
+            """SELECT COUNT(*) as count FROM borrowing
                WHERE return_date IS NULL AND due_date < date('now')""",
             fetch_one=True
         )
-        
-        with col1:
-            st.metric(" Total Borrowed", total_borrowed['count'] if total_borrowed else 0)
-        with col2:
-            st.metric(" Total Returned", total_returned['count'] if total_returned else 0)
-        with col3:
-            st.metric(" Currently Overdue", overdue_count['count'] if overdue_count else 0)
-        
-        # Most borrowed books
-        st.markdown("###  Most Borrowed Books")
-        popular = Database.execute_query("""
-            SELECT b.title, COUNT(*) as borrow_count
-            FROM borrowing br
-            JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-            JOIN books b ON bi.book_id = b.book_id
-            WHERE br.checkout_date BETWEEN ? AND ?
-            GROUP BY b.book_id, b.title
-            ORDER BY borrow_count DESC
-            LIMIT 10
-        """, (start_date, end_date))
-        
-        if popular:
-            df = pd.DataFrame(popular)
-            fig = px.bar(df, x='borrow_count', y='title', orientation='h',
-                       title='Top 10 Borrowed Books',
-                       labels={'borrow_count': 'Times Borrowed', 'title': 'Book Title'})
-            fig.update_traces(marker_color='#1E88E5')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No borrowing data available")
-        
-        # Average borrowing duration
-        st.markdown("### ⏱ Average Borrowing Duration")
-        avg_duration = Database.execute_query("""
-            SELECT AVG(julianday(return_date) - julianday(checkout_date)) as avg_days
-            FROM borrowing
-            WHERE return_date BETWEEN ? AND ?
-        """, (start_date, end_date), fetch_one=True)
-        
-        if avg_duration and avg_duration['avg_days']:
-            st.metric("Average Days Borrowed", f"{avg_duration['avg_days']:.1f} days")
-        else:
-            st.info("No return data available")
+
+        # Row 1: My Active Borrowings | Borrowing Trends & Analytics | Daily Borrowing Trend
+        row1_col1, row1_col2, row1_col3 = st.columns(3, gap="small")
+
+        with row1_col1:
+            st.markdown("### My Active Borrowings")
+            my_active = Database.execute_query(
+                """
+                SELECT b.title, br.due_date,
+                       CAST(julianday(br.due_date) - julianday(date('now')) AS INTEGER) as days_remaining
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                JOIN books b ON bi.book_id = b.book_id
+                WHERE br.user_id = ? AND br.return_date IS NULL
+                ORDER BY br.due_date ASC
+                LIMIT 8
+                """,
+                (current_user['user_id'],)
+            ) or []
+            if my_active:
+                my_df = pd.DataFrame(my_active)
+                my_df['status'] = my_df['days_remaining'].apply(
+                    lambda d: "Overdue" if int(d) < 0 else ("Due Soon" if int(d) <= due_soon_days else "On Track")
+                )
+                st.dataframe(my_df[['title', 'due_date', 'days_remaining', 'status']], use_container_width=True, hide_index=True)
+            else:
+                st.info("No active borrowings")
+
+        with row1_col2:
+            st.markdown("### Borrowing Trends & Analytics")
+            st.info(f"Range: {start_date} to {end_date}")
+            trend_kpi1, trend_kpi2 = st.columns(2, gap="small")
+            with trend_kpi1:
+                st.metric("Total Borrowed", total_borrowed['count'] if total_borrowed else 0)
+                st.metric("Currently Overdue", overdue_count['count'] if overdue_count else 0)
+            with trend_kpi2:
+                st.metric("Total Returned", total_returned['count'] if total_returned else 0)
+                return_rate = 0.0
+                if total_borrowed and total_borrowed['count']:
+                    return_rate = ((total_returned['count'] if total_returned else 0) / max(total_borrowed['count'], 1)) * 100
+                st.metric("Return Rate", f"{return_rate:.1f}%")
+
+        with row1_col3:
+            st.markdown("###  Daily Borrowing Trend")
+            daily_data = Database.execute_query("""
+                SELECT DATE(checkout_date) as date, COUNT(*) as checkouts
+                FROM borrowing
+                WHERE checkout_date BETWEEN ? AND ?
+                GROUP BY DATE(checkout_date)
+                ORDER BY date
+            """, (start_date, end_date))
+            if daily_data:
+                df = pd.DataFrame(daily_data)
+                fig = px.line(df, x='date', y='checkouts',
+                            title='Daily Checkout Activity',
+                            labels={'date': 'Date', 'checkouts': 'Books Checked Out'})
+                fig.update_traces(line_color='#1E88E5', line_width=3)
+                fig.update_layout(height=300)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No data available for selected period")
+
+        # Row 2: Return Statistics | Most Borrowed Books | Average Borrowing Duration
+        row2_col1, row2_col2, row2_col3 = st.columns(3, gap="small")
+
+        with row2_col1:
+            st.markdown("###  Return Statistics")
+            stat_col1, stat_col2, stat_col3 = st.columns(3, gap="small")
+            with stat_col1:
+                st.metric(" Borrowed", total_borrowed['count'] if total_borrowed else 0)
+            with stat_col2:
+                st.metric(" Returned", total_returned['count'] if total_returned else 0)
+            with stat_col3:
+                st.metric(" Overdue", overdue_count['count'] if overdue_count else 0)
+
+        with row2_col2:
+            st.markdown("###  Most Borrowed Books")
+            popular = Database.execute_query("""
+                SELECT b.title, COUNT(*) as borrow_count
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                JOIN books b ON bi.book_id = b.book_id
+                WHERE br.checkout_date BETWEEN ? AND ?
+                GROUP BY b.book_id, b.title
+                ORDER BY borrow_count DESC
+                LIMIT 10
+            """, (start_date, end_date))
+            if popular:
+                df = pd.DataFrame(popular)
+                fig = px.bar(df, x='borrow_count', y='title', orientation='h',
+                           title='Top 10 Borrowed Books',
+                           labels={'borrow_count': 'Times Borrowed', 'title': 'Book Title'})
+                fig.update_traces(marker_color='#1E88E5')
+                fig.update_layout(height=300)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No borrowing data available")
+
+        with row2_col3:
+            st.markdown("### ⏱ Average Borrowing Duration")
+            avg_duration = Database.execute_query("""
+                SELECT AVG(julianday(return_date) - julianday(checkout_date)) as avg_days
+                FROM borrowing
+                WHERE return_date BETWEEN ? AND ?
+            """, (start_date, end_date), fetch_one=True)
+
+            if avg_duration and avg_duration['avg_days']:
+                st.metric("Average Days Borrowed", f"{avg_duration['avg_days']:.1f} days")
+            else:
+                st.info("No return data available")
 
 def show_reports():
     """Advanced Reports page with 20+ visualizations"""
@@ -14901,5 +14944,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
