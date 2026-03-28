@@ -9043,7 +9043,7 @@ def show_account():
                 st.success(f"✅ Anonymous alias rotated to: **{new_alias}**")
                 st.rerun()
 
-def show_manage_books(embedded=False):
+def show_manage_books(embedded=False, browse_only=False):
     """Book management page"""
     if embedded:
         st.subheader(" Book Workspace")
@@ -9333,6 +9333,9 @@ def show_manage_books(embedded=False):
                         st.divider()
         else:
             st.info("No books found")
+
+    if browse_only:
+        return
     
     with books_workspace_tab:
         st.divider()
@@ -11613,128 +11616,139 @@ def show_my_library():
         with op_col3:
             sort_mode = st.radio("Sort", ["Newest", "Most Viewed", "Title A-Z"], horizontal=True, key="ucs_sort")
 
-        st.markdown("###  Unified Intake Action")
-        with st.form("unified_content_console_form"):
-            action_col1, action_col2 = st.columns(2, gap="small")
-            with action_col1:
-                create_pdf = st.checkbox("Create/Upload PDF Asset", value=True, key="ucc_create_pdf")
-            with action_col2:
-                create_catalog = st.checkbox(
-                    "Create Physical Catalog Record",
-                    value=True if is_management_user else False,
-                    disabled=not is_management_user,
-                    key="ucc_create_catalog"
-                )
+        if is_management_user:
+            intake_col, browse_col = st.columns(2, gap="large")
+        else:
+            intake_col = st.container()
+            browse_col = None
 
-            title = st.text_input("Title *", max_chars=500, key="ucc_title")
-            meta_col1, meta_col2, meta_col3 = st.columns(3, gap="small")
-            with meta_col1:
-                author = st.text_input("Author", max_chars=300, key="ucc_author")
-            with meta_col2:
-                genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], key="ucc_genre")
-            with meta_col3:
-                keywords = st.text_input("Keywords", placeholder="fiction, mystery, thriller", key="ucc_keywords")
+        with intake_col:
+            st.markdown("###  Unified Intake Action")
+            with st.form("unified_content_console_form"):
+                action_col1, action_col2 = st.columns(2, gap="small")
+                with action_col1:
+                    create_pdf = st.checkbox("Create/Upload PDF Asset", value=True, key="ucc_create_pdf")
+                with action_col2:
+                    create_catalog = st.checkbox(
+                        "Create Physical Catalog Record",
+                        value=True if is_management_user else False,
+                        disabled=not is_management_user,
+                        key="ucc_create_catalog"
+                    )
 
-            description = st.text_area("Description", max_chars=1400, key="ucc_description")
+                title = st.text_input("Title *", max_chars=500, key="ucc_title")
+                meta_col1, meta_col2, meta_col3 = st.columns(3, gap="small")
+                with meta_col1:
+                    author = st.text_input("Author", max_chars=300, key="ucc_author")
+                with meta_col2:
+                    genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], key="ucc_genre")
+                with meta_col3:
+                    keywords = st.text_input("Keywords", placeholder="fiction, mystery, thriller", key="ucc_keywords")
 
-            pdf_col1, pdf_col2 = st.columns(2, gap="small")
-            with pdf_col1:
-                uploaded_file = st.file_uploader("PDF File", type=['pdf'], key="ucc_pdf_file")
-            with pdf_col2:
-                is_public = st.checkbox("Publish PDF as Public", value=False, key="ucc_pdf_public")
+                description = st.text_area("Description", max_chars=1400, key="ucc_description")
 
-            catalog_isbn = ""
-            publication_year = datetime.now().year
-            pages = 1
-            language = "Other"
-            copies = 1
-            if is_management_user and create_catalog:
-                st.markdown("####  Catalog Details")
-                current_year = datetime.now().year
-                max_year = current_year + 10
-                cat_col1, cat_col2, cat_col3 = st.columns(3, gap="small")
-                with cat_col1:
-                    catalog_isbn = st.text_input("ISBN (optional)", placeholder="Auto-generated if empty", key="ucc_isbn")
-                with cat_col2:
-                    publication_year = st.number_input("Publication Year", min_value=1800, max_value=max_year, value=current_year, key="ucc_year")
-                with cat_col3:
-                    copies = st.number_input("Copies", min_value=1, value=1, key="ucc_copies")
+                pdf_col1, pdf_col2 = st.columns(2, gap="small")
+                with pdf_col1:
+                    uploaded_file = st.file_uploader("PDF File", type=['pdf'], key="ucc_pdf_file")
+                with pdf_col2:
+                    is_public = st.checkbox("Publish PDF as Public", value=False, key="ucc_pdf_public")
 
-                cat2_col1, cat2_col2 = st.columns(2, gap="small")
-                with cat2_col1:
-                    pages = st.number_input("Pages", min_value=1, value=200, key="ucc_pages")
-                with cat2_col2:
-                    language = st.selectbox("Language", ["English", "Hindi", "Spanish", "French", "German", "Other"], key="ucc_language")
+                catalog_isbn = ""
+                publication_year = datetime.now().year
+                pages = 1
+                language = "Other"
+                copies = 1
+                if is_management_user and create_catalog:
+                    st.markdown("####  Catalog Details")
+                    current_year = datetime.now().year
+                    max_year = current_year + 10
+                    cat_col1, cat_col2, cat_col3 = st.columns(3, gap="small")
+                    with cat_col1:
+                        catalog_isbn = st.text_input("ISBN (optional)", placeholder="Auto-generated if empty", key="ucc_isbn")
+                    with cat_col2:
+                        publication_year = st.number_input("Publication Year", min_value=1800, max_value=max_year, value=current_year, key="ucc_year")
+                    with cat_col3:
+                        copies = st.number_input("Copies", min_value=1, value=1, key="ucc_copies")
 
-            submit_unified = st.form_submit_button(" Execute Unified Action", use_container_width=True)
+                    cat2_col1, cat2_col2 = st.columns(2, gap="small")
+                    with cat2_col1:
+                        pages = st.number_input("Pages", min_value=1, value=200, key="ucc_pages")
+                    with cat2_col2:
+                        language = st.selectbox("Language", ["English", "Hindi", "Spanish", "French", "German", "Other"], key="ucc_language")
 
-            if submit_unified:
-                if not create_pdf and not create_catalog:
-                    st.error("Select at least one action: PDF asset and/or catalog record.")
-                elif not title:
-                    st.error("Title is required.")
-                else:
-                    results = []
+                submit_unified = st.form_submit_button(" Execute Unified Action", use_container_width=True)
 
-                    if create_pdf:
-                        if not uploaded_file:
-                            st.error("PDF file is required when Create/Upload PDF Asset is selected.")
-                        else:
-                            pdf_ok, pdf_msg = PeerLibraryManager.upload_pdf_to_library(
-                                user['user_id'], uploaded_file, title, author, genre, description, is_public
-                            )
-                            if pdf_ok:
-                                results.append("PDF uploaded")
+                if submit_unified:
+                    if not create_pdf and not create_catalog:
+                        st.error("Select at least one action: PDF asset and/or catalog record.")
+                    elif not title:
+                        st.error("Title is required.")
+                    else:
+                        results = []
+
+                        if create_pdf:
+                            if not uploaded_file:
+                                st.error("PDF file is required when Create/Upload PDF Asset is selected.")
                             else:
-                                st.error(pdf_msg)
-
-                    if create_catalog and is_management_user:
-                        if not author or not genre:
-                            st.error("Author and Genre are required for catalog record creation.")
-                        else:
-                            resolved_isbn = (catalog_isbn or "").strip()
-                            if not resolved_isbn:
-                                resolved_isbn = f"AUTO-{user['user_id']}-{int(time.time())}"
-
-                            catalog_ok = Database.execute_update(
-                                """
-                                INSERT INTO books (isbn, title, author, genre, publication_year,
-                                                 pages, language, description, keywords, is_available)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                                """,
-                                (
-                                    resolved_isbn,
-                                    title,
-                                    author,
-                                    genre,
-                                    publication_year,
-                                    pages,
-                                    language,
-                                    description or None,
-                                    keywords or None
+                                pdf_ok, pdf_msg = PeerLibraryManager.upload_pdf_to_library(
+                                    user['user_id'], uploaded_file, title, author, genre, description, is_public
                                 )
-                            )
+                                if pdf_ok:
+                                    results.append("PDF uploaded")
+                                else:
+                                    st.error(pdf_msg)
 
-                            if catalog_ok:
-                                created = Database.execute_query(
-                                    "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
-                                    (resolved_isbn,)
-                                )
-                                if created:
-                                    book_id = created[0]['book_id']
-                                    for i in range(int(copies)):
-                                        Database.execute_update(
-                                            "INSERT INTO book_inventory (book_id, barcode, is_available) VALUES (?, ?, 1)",
-                                            (book_id, f"{resolved_isbn}-{i+1}")
-                                        )
-                                results.append(f"Catalog record created ({int(copies)} copies)")
+                        if create_catalog and is_management_user:
+                            if not author or not genre:
+                                st.error("Author and Genre are required for catalog record creation.")
                             else:
-                                st.error("Catalog creation failed (likely duplicate ISBN).")
+                                resolved_isbn = (catalog_isbn or "").strip()
+                                if not resolved_isbn:
+                                    resolved_isbn = f"AUTO-{user['user_id']}-{int(time.time())}"
 
-                    if results:
-                        st.success(" | ".join(results))
-                        st.balloons()
-                        st.rerun()
+                                catalog_ok = Database.execute_update(
+                                    """
+                                    INSERT INTO books (isbn, title, author, genre, publication_year,
+                                                     pages, language, description, keywords, is_available)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                                    """,
+                                    (
+                                        resolved_isbn,
+                                        title,
+                                        author,
+                                        genre,
+                                        publication_year,
+                                        pages,
+                                        language,
+                                        description or None,
+                                        keywords or None
+                                    )
+                                )
+
+                                if catalog_ok:
+                                    created = Database.execute_query(
+                                        "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
+                                        (resolved_isbn,)
+                                    )
+                                    if created:
+                                        book_id = created[0]['book_id']
+                                        for i in range(int(copies)):
+                                            Database.execute_update(
+                                                "INSERT INTO book_inventory (book_id, barcode, is_available) VALUES (?, ?, 1)",
+                                                (book_id, f"{resolved_isbn}-{i+1}")
+                                            )
+                                    results.append(f"Catalog record created ({int(copies)} copies)")
+                                else:
+                                    st.error("Catalog creation failed (likely duplicate ISBN).")
+
+                        if results:
+                            st.success(" | ".join(results))
+                            st.balloons()
+                            st.rerun()
+
+        if is_management_user and browse_col is not None:
+            with browse_col:
+                show_manage_books(embedded=True, browse_only=True)
 
         st.markdown("###  Collection Operations")
         filtered_pdfs = pdfs or []
@@ -11995,7 +12009,6 @@ def show_my_library():
 
         if is_management_user:
             st.divider()
-            show_manage_books(embedded=True)
 
     privacy_tab_index = 2 if is_management_user else 1
     community_tab_index = 3 if is_management_user else 2
