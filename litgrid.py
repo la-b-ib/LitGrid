@@ -11592,9 +11592,6 @@ def show_my_library():
             show_books(embedded=True)
             st.divider()
 
-        st.subheader(" Unified Content Console")
-        st.caption("One workflow for collection operations, PDF publishing, and physical catalog intake.")
-
         pdfs = PeerLibraryManager.get_user_library(user['user_id'])
         total_pdfs = len(pdfs) if pdfs else 0
         public_pdfs = len([p for p in (pdfs or []) if p.get('is_public')])
@@ -11644,7 +11641,6 @@ def show_my_library():
                     st.session_state["ucc_description"] = str(prefill_pdf.get('description') or "")
                     st.rerun()
 
-            st.markdown("###  Unified Intake Action")
             with st.form("unified_content_console_form"):
                 action_col1, action_col2 = st.columns(2, gap="small")
                 with action_col1:
@@ -11680,7 +11676,6 @@ def show_my_library():
                 language = "Other"
                 copies = 1
                 if is_management_user and create_catalog:
-                    st.markdown("####  Catalog Details")
                     current_year = datetime.now().year
                     max_year = current_year + 10
                     cat_col1, cat_col2, cat_col3 = st.columns(3, gap="small")
@@ -11768,10 +11763,8 @@ def show_my_library():
                             st.rerun()
 
         if is_management_user:
-            st.markdown("###  Browse Books")
             show_manage_books(embedded=True, browse_only=True)
 
-        st.markdown("###  Collection Operations")
         filtered_pdfs = pdfs or []
 
         if collection_search:
@@ -11797,7 +11790,6 @@ def show_my_library():
 
         # Batch Operations
         if filtered_pdfs:
-            st.markdown("####  Batch Actions")
             batch_options = [
                 {
                     'label': f"{p.get('title') or 'Untitled'} | {p.get('author') or 'Unknown'} | ID {p.get('pdf_id')}",
@@ -11946,7 +11938,6 @@ def show_my_library():
                         st.rerun()
 
         if filtered_pdfs:
-            st.caption(f"Showing {len(filtered_pdfs)} item(s)")
             for pdf in filtered_pdfs:
                 with st.expander(f" {pdf['title']}"):
                     pcol1, pcol2 = st.columns([3, 1], gap="small")
@@ -11985,7 +11976,6 @@ def show_my_library():
                             st.success("Visibility updated!")
                             st.rerun()
 
-                    st.markdown("#####  Inline Metadata Editor")
                     with st.form(f"ucs_edit_{pdf['pdf_id']}"):
                         e_col1, e_col2 = st.columns(2, gap="small")
                         with e_col1:
