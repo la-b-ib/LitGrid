@@ -12659,12 +12659,16 @@ def show_my_library():
                 pages = 1
                 language = "Other"
                 copies = 1
+                submit_unified = None
                 if is_management_user and create_catalog:
-                    row6_col1, row6_col2, row6_col3, row6_col4, row6_col5 = st.columns(5, gap="small")
+                    row6_col1, row6_col2, row6_col3 = st.columns(3, gap="small")
                     with row6_col1:
                         copies = st.number_input("Copies", min_value=1, value=1, key="ucc_copies")
                     with row6_col2:
                         catalog_acquired_on = st.date_input("Acquired On", value=date.today(), key="ucc_acquired_on")
+                    with row6_col3:
+                        st.markdown("<div style='height: 1.8rem;'></div>", unsafe_allow_html=True)
+                        submit_unified = st.form_submit_button(" Execute Unified Action", use_container_width=True)
                 else:
                     catalog_acquired_on = date.today()
 
@@ -12672,7 +12676,8 @@ def show_my_library():
                 language = shared_language
                 catalog_location = shelf_location
 
-                submit_unified = st.form_submit_button(" Execute Unified Action", use_container_width=True)
+                if submit_unified is None:
+                    submit_unified = st.form_submit_button(" Execute Unified Action", use_container_width=True)
 
                 if submit_unified:
                     if not create_pdf and not create_catalog:
