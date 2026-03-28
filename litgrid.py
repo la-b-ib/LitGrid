@@ -11352,58 +11352,7 @@ def show_borrowing_returns():
         else:
             st.info("No pending renewal requests")
     
-    else:
-        # Member view - request renewal
-        st.markdown("### My Active Borrowings")
-        
-        my_borrowings = Database.execute_query("""
-            SELECT br.borrowing_id, b.title, br.checkout_date, br.due_date,
-                   julianday(br.due_date) - julianday(date('now')) as days_remaining,
-                   (SELECT COUNT(*) FROM renewal_requests 
-                    WHERE borrowing_id = br.borrowing_id AND status = 'pending') as has_pending
-            FROM borrowing br
-            JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-            JOIN books b ON bi.book_id = b.book_id
-            WHERE br.user_id = ? AND br.return_date IS NULL
-            ORDER BY br.due_date
-        """, (current_user['user_id'],))
-        
-        if my_borrowings:
-            for bw in my_borrowings:
-                col1, col2 = st.columns([3, 1], gap="small")
-                
-                with col1:
-                    st.markdown(f"**{bw['title']}**")
-                    st.caption(f"Checked out: {format_date(bw['checkout_date'])} | Due: {format_date(bw['due_date'])}")
-                    
-                    if bw['days_remaining'] < 0:
-                        st.error(f" Overdue by {abs(int(bw['days_remaining']))} days")
-                    elif bw['days_remaining'] <= due_soon_days:
-                        st.warning(f"Due in {max(int(bw['days_remaining']), 0)} days")
-                    else:
-                        st.info(f" Due in {max(int(bw['days_remaining']), 0)} days")
-                
-                with col2:
-                    if bw['has_pending'] > 0:
-                        st.caption("Renewal Pending")
-                    else:
-                        if st.button(" Request Renewal", key=f"renew_{bw['borrowing_id']}"):
-                            # Default 14 days extension
-                            success, msg = EnhancedBorrowingManager.request_renewal(
-                                bw['borrowing_id'], 
-                                current_user['user_id']
-                            )
-                            if success:
-                                st.success("Renewal requested!")
-                                st.rerun()
-                            else:
-                                st.error(msg)
-                
-                st.divider()
-        else:
-            st.info("You don't have any active borrowings")
-    
-    st.divider()
+
     st.subheader(" Borrowing Trends & Analytics")
 
     trend_map = {"7D": 7, "30D": 30, "90D": 90, "180D": 180, "365D": 365}
