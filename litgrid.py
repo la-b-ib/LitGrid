@@ -12284,18 +12284,24 @@ def show_my_library():
         catalog_summary = Database.execute_query("SELECT COUNT(*) as count FROM books", fetch_one=True) or {'count': 0}
         total_catalog_titles = int(catalog_summary.get('count') or 0)
 
-        st.subheader(" Statistics")
-
-        kpi1, kpi2, kpi3 = st.columns(3, gap="small")
-        with kpi1:
-            st.metric("My PDFs", total_pdfs)
-        with kpi2:
-            st.metric("Public PDFs", public_pdfs)
-        with kpi3:
-            st.metric("Catalog Titles", total_catalog_titles)
-
         if is_management_user:
-            show_manage_books(embedded=True, browse_only=True)
+            browse_col, stats_col = st.columns([2, 1], gap="large")
+            with browse_col:
+                show_manage_books(embedded=True, browse_only=True)
+            with stats_col:
+                st.subheader(" Statistics")
+                st.metric("My PDFs", total_pdfs)
+                st.metric("Public PDFs", public_pdfs)
+                st.metric("Catalog Titles", total_catalog_titles)
+        else:
+            st.subheader(" Statistics")
+            kpi1, kpi2, kpi3 = st.columns(3, gap="small")
+            with kpi1:
+                st.metric("My PDFs", total_pdfs)
+            with kpi2:
+                st.metric("Public PDFs", public_pdfs)
+            with kpi3:
+                st.metric("Catalog Titles", total_catalog_titles)
 
         st.subheader(" Book Registry & Intake")
 
