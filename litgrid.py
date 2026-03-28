@@ -12573,88 +12573,88 @@ def show_my_library():
                 
                 if filtered_pdfs:
                     pdf_display_height = st.slider("Display Height (px)", min_value=200, max_value=1000, value=600, step=50, key="ucs_pdf_height")
-                    
-                    for idx, pdf in enumerate(filtered_pdfs):
-                        with st.container():
-                            pdf_card_col1, pdf_card_col2, pdf_card_col3 = st.columns([2.5, 1, 0.5], gap="small")
-                            
-                            with pdf_card_col1:
-                                visibility_label = "Public" if pdf.get('is_public') else "Private"
-                                st.markdown(f"**[{visibility_label}] {pdf['title'][:40]}**")
-                                st.caption(f"Author: {pdf.get('author') or 'Unknown'} | Genre: {pdf.get('genre') or 'Other'}")
-                                st.caption(f"Uploaded: {pdf.get('upload_date') or 'N/A'} | Views: {pdf.get('views_count') or 0}")
+                
+                for idx, pdf in enumerate(filtered_pdfs):
+                    with st.container():
+                        pdf_card_col1, pdf_card_col2, pdf_card_col3 = st.columns([2.5, 1, 0.5], gap="small")
+                        
+                        with pdf_card_col1:
+                            visibility_label = "Public" if pdf.get('is_public') else "Private"
+                            st.markdown(f"**[{visibility_label}] {pdf['title'][:40]}**")
+                            st.caption(f"Author: {pdf.get('author') or 'Unknown'} | Genre: {pdf.get('genre') or 'Other'}")
+                            st.caption(f"Uploaded: {pdf.get('upload_date') or 'N/A'} | Views: {pdf.get('views_count') or 0}")
 
-                            with pdf_card_col2:
-                                if st.button("Download", key=f"ucs_quick_dl_{pdf['pdf_id']}", help="Download", use_container_width=True):
-                                    pdf_data = PeerLibraryManager.get_pdf_file(pdf['pdf_id'])
-                                    if pdf_data:
-                                        PeerLibraryManager.increment_pdf_views(pdf['pdf_id'])
-                                        st.download_button(
-                                            "Confirm",
-                                            pdf_data['pdf_file'],
-                                            pdf_data['pdf_filename'],
-                                            mime="application/pdf",
-                                            key=f"ucs_download_btn_{pdf['pdf_id']}"
-                                        )
+                        with pdf_card_col2:
+                            if st.button("Download", key=f"ucs_quick_dl_{pdf['pdf_id']}", help="Download", use_container_width=True):
+                                pdf_data = PeerLibraryManager.get_pdf_file(pdf['pdf_id'])
+                                if pdf_data:
+                                    PeerLibraryManager.increment_pdf_views(pdf['pdf_id'])
+                                    st.download_button(
+                                        "Confirm",
+                                        pdf_data['pdf_file'],
+                                        pdf_data['pdf_filename'],
+                                        mime="application/pdf",
+                                        key=f"ucs_download_btn_{pdf['pdf_id']}"
+                                    )
 
-                            with pdf_card_col3:
-                                if st.button("Edit", key=f"ucs_edit_toggle_{pdf['pdf_id']}", help="Edit", use_container_width=True):
-                                    st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = not st.session_state.get(f'edit_pdf_{pdf["pdf_id"]}', False)
+                        with pdf_card_col3:
+                            if st.button("Edit", key=f"ucs_edit_toggle_{pdf['pdf_id']}", help="Edit", use_container_width=True):
+                                st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = not st.session_state.get(f'edit_pdf_{pdf["pdf_id"]}', False)
 
-                            if st.session_state.get(f'edit_pdf_{pdf["pdf_id"]}', False):
-                                with st.form(f"ucs_quick_edit_{pdf['pdf_id']}", clear_on_submit=False):
-                                    st.markdown("**Edit Metadata**")
-                                    edit_title = st.text_input("Title", value=str(pdf.get('title') or ""), key=f"ucs_title_{pdf['pdf_id']}")
-                                    edit_author = st.text_input("Author", value=str(pdf.get('author') or ""), key=f"ucs_author_{pdf['pdf_id']}")
-                                    edit_genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], index=0, key=f"ucs_genre_{pdf['pdf_id']}")
-                                    edit_keywords = st.text_input("Tags/Keywords", value=str(pdf.get('keywords') or ""), key=f"ucs_keywords_{pdf['pdf_id']}")
-                                    edit_description = st.text_area("Description", value=str(pdf.get('description') or ""), key=f"ucs_desc_{pdf['pdf_id']}", height=60)
+                        if st.session_state.get(f'edit_pdf_{pdf["pdf_id"]}', False):
+                            with st.form(f"ucs_quick_edit_{pdf['pdf_id']}", clear_on_submit=False):
+                                st.markdown("**Edit Metadata**")
+                                edit_title = st.text_input("Title", value=str(pdf.get('title') or ""), key=f"ucs_title_{pdf['pdf_id']}")
+                                edit_author = st.text_input("Author", value=str(pdf.get('author') or ""), key=f"ucs_author_{pdf['pdf_id']}")
+                                edit_genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], index=0, key=f"ucs_genre_{pdf['pdf_id']}")
+                                edit_keywords = st.text_input("Tags/Keywords", value=str(pdf.get('keywords') or ""), key=f"ucs_keywords_{pdf['pdf_id']}")
+                                edit_description = st.text_area("Description", value=str(pdf.get('description') or ""), key=f"ucs_desc_{pdf['pdf_id']}", height=60)
 
-                                    vis_cols = st.columns([1, 1], gap="small")
-                                    with vis_cols[0]:
-                                        new_visibility = st.checkbox("Make Public", value=pdf.get('is_public', False), key=f"ucs_vis_toggle_{pdf['pdf_id']}")
-                                    with vis_cols[1]:
-                                        pass
+                                vis_cols = st.columns([1, 1], gap="small")
+                                with vis_cols[0]:
+                                    new_visibility = st.checkbox("Make Public", value=pdf.get('is_public', False), key=f"ucs_vis_toggle_{pdf['pdf_id']}")
+                                with vis_cols[1]:
+                                    pass
 
-                                    save_cols = st.columns([1, 1], gap="small")
-                                    with save_cols[0]:
-                                        save_edit = st.form_submit_button("Save", use_container_width=True)
-                                    with save_cols[1]:
-                                        cancel_edit = st.form_submit_button("Cancel", use_container_width=True)
+                                save_cols = st.columns([1, 1], gap="small")
+                                with save_cols[0]:
+                                    save_edit = st.form_submit_button("Save", use_container_width=True)
+                                with save_cols[1]:
+                                    cancel_edit = st.form_submit_button("Cancel", use_container_width=True)
 
-                                    if cancel_edit:
-                                        st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = False
-                                        st.rerun()
+                                if cancel_edit:
+                                    st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = False
+                                    st.rerun()
 
-                                    if save_edit:
-                                        if not edit_title.strip():
-                                            st.error("Title cannot be empty.")
-                                        else:
-                                            updated = Database.execute_update(
-                                                """
-                                                UPDATE pdf_library
-                                                SET title = ?, author = ?, genre = ?, keywords = ?, description = ?, is_public = ?
-                                                WHERE pdf_id = ? AND user_id = ?
-                                                """,
-                                                (
-                                                    edit_title.strip(),
-                                                    edit_author.strip(),
-                                                    edit_genre,
-                                                    edit_keywords.strip(),
-                                                    edit_description.strip(),
-                                                    new_visibility,
-                                                    pdf['pdf_id'],
-                                                    user['user_id']
-                                                )
+                                if save_edit:
+                                    if not edit_title.strip():
+                                        st.error("Title cannot be empty.")
+                                    else:
+                                        updated = Database.execute_update(
+                                            """
+                                            UPDATE pdf_library
+                                            SET title = ?, author = ?, genre = ?, keywords = ?, description = ?, is_public = ?
+                                            WHERE pdf_id = ? AND user_id = ?
+                                            """,
+                                            (
+                                                edit_title.strip(),
+                                                edit_author.strip(),
+                                                edit_genre,
+                                                edit_keywords.strip(),
+                                                edit_description.strip(),
+                                                new_visibility,
+                                                pdf['pdf_id'],
+                                                user['user_id']
                                             )
-                                            if updated:
-                                                st.success("Metadata saved.")
-                                                st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = False
-                                                st.rerun()
-                                            else:
-                                                st.error("Failed to save metadata.")
+                                        )
+                                        if updated:
+                                            st.success("Metadata saved.")
+                                            st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = False
+                                            st.rerun()
+                                        else:
+                                            st.error("Failed to save metadata.")
 
-                            st.divider()
+                        st.divider()
         else:
             st.info("No PDFs match current filters.")
 
