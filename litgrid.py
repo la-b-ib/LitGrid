@@ -10927,7 +10927,7 @@ def show_borrowing_returns():
         else:
             st.info("No active borrowings")
 
-    unified_col, active_col = st.columns([3, 2], gap="large")
+    unified_col, active_col = st.columns([3, 2], gap="small")
 
     with unified_col:
         st.markdown("### Operations")
