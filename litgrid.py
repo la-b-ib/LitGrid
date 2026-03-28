@@ -12094,13 +12094,16 @@ def show_my_library():
         st.divider()
         st.subheader(" My Collection Operations")
 
-        col_search_col1, col_search_col2, col_search_col3 = st.columns(3, gap="small")
-        with col_search_col1:
-            collection_search = st.text_input("Search Collection", placeholder="Title, author, genre", key="ucs_search")
-        with col_search_col2:
-            visibility_filter = st.radio("Visibility", ["All", "Public", "Private"], horizontal=True, key="ucs_visibility")
-        with col_search_col3:
-            sort_mode = st.radio("Sort", ["Newest", "Most Viewed", "Title A-Z"], horizontal=True, key="ucs_sort")
+        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4, gap="small")
+        with filter_col1:
+            collection_search = st.text_input("🔍 Search", placeholder="Title, author, genre", key="ucs_search")
+        with filter_col2:
+            visibility_filter = st.selectbox("Visibility", ["All", "Public", "Private"], key="ucs_visibility")
+        with filter_col3:
+            sort_mode = st.selectbox("Sort", ["Newest", "Most Viewed", "Title A-Z", "Author A-Z"], key="ucs_sort")
+        with filter_col4:
+            if st.button("🔄 Refresh", use_container_width=True, key="ucs_refresh"):
+                st.rerun()
 
         filtered_pdfs = pdfs or []
 
@@ -12122,242 +12125,282 @@ def show_my_library():
             filtered_pdfs = sorted(filtered_pdfs, key=lambda p: int(p.get('views_count') or 0), reverse=True)
         elif sort_mode == "Title A-Z":
             filtered_pdfs = sorted(filtered_pdfs, key=lambda p: str(p.get('title') or '').lower())
+        elif sort_mode == "Author A-Z":
+            filtered_pdfs = sorted(filtered_pdfs, key=lambda p: str(p.get('author') or '').lower())
         else:
             filtered_pdfs = sorted(filtered_pdfs, key=lambda p: str(p.get('upload_date') or ''), reverse=True)
 
-        st.caption(f"Showing {len(filtered_pdfs)} of {total_pdfs} PDFs")
+        total_views = sum(int(p.get('views_count') or 0) for p in filtered_pdfs)
+        public_count = len([p for p in filtered_pdfs if p.get('is_public')])
+        private_count = len([p for p in filtered_pdfs if not p.get('is_public')])
 
-        # Batch Operations
+        summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4, gap="small")
+        with summary_col1:
+            st.metric("Filtered PDFs", len(filtered_pdfs))
+        with summary_col2:
+            st.metric("Public", public_count)
+        with summary_col3:
+            st.metric("Private", private_count)
+        with summary_col4:
+            st.metric("Total Views", total_views)
+
         if filtered_pdfs:
-            batch_options = [
-                {
-                    'label': f"{p.get('title') or 'Untitled'} | {p.get('author') or 'Unknown'} | ID {p.get('pdf_id')}",
-                    'value': int(p.get('pdf_id'))
-                }
-                for p in filtered_pdfs
-                if p.get('pdf_id') is not None
-            ]
+            side_left, side_right = st.columns(2, gap="medium")
 
-            selected_batch_ids = st.multiselect(
-                "Select PDFs for Batch Action",
-                options=[o['value'] for o in batch_options],
-                format_func=lambda x: next((o['label'] for o in batch_options if o['value'] == x), str(x)),
-                key="ucs_batch_selected"
-            )
+            with side_left:
+                st.markdown("###  Batch Operations")
+                
+                batch_options = [
+                    {
+                        'label': f"📄 {p.get('title') or 'Untitled'}",
+                        'value': int(p.get('pdf_id'))
+                    }
+                    for p in filtered_pdfs
+                    if p.get('pdf_id') is not None
+                ]
 
-            batch_col1, batch_col2, batch_col3 = st.columns(3, gap="small")
-            with batch_col1:
-                batch_action_options = ["Make Public", "Make Private", "Export ZIP"]
+                selected_batch_ids = st.multiselect(
+                    "Select PDFs",
+                    options=[o['value'] for o in batch_options],
+                    format_func=lambda x: next((o['label'] for o in batch_options if o['value'] == x), str(x)),
+                    key="ucs_batch_selected"
+                )
+
+                batch_action_options = ["📤 Make Public", "🔒 Make Private", "📦 Export ZIP", "📊 Export Metadata"]
                 if is_management_user:
-                    batch_action_options.append("Catalog Sync")
-                batch_action = st.radio(
-                    "Action",
-                    batch_action_options,
-                    horizontal=False,
-                    key="ucs_batch_action"
-                )
-            with batch_col2:
-                batch_copies = st.number_input("Catalog Copies (for sync)", min_value=1, value=1, key="ucs_batch_copies")
-                batch_pub_year = st.number_input(
-                    "Catalog Year (for sync)",
-                    min_value=1800,
-                    max_value=datetime.now().year + 10,
-                    value=datetime.now().year,
-                    key="ucs_batch_year"
-                )
-            with batch_col3:
-                apply_batch = st.button(" Apply Batch Action", use_container_width=True, key="ucs_batch_apply")
+                    batch_action_options.append("📚 Catalog Sync")
+                batch_action = st.selectbox("Action", batch_action_options, key="ucs_batch_action")
 
-            if apply_batch:
-                if not selected_batch_ids:
-                    st.warning("Select at least one PDF for batch actions.")
-                else:
-                    if batch_action == "Make Public":
-                        updated = 0
-                        for pdf_id in selected_batch_ids:
-                            ok = Database.execute_update(
-                                "UPDATE pdf_library SET is_public = 1 WHERE pdf_id = ? AND user_id = ?",
-                                (pdf_id, user['user_id'])
-                            )
-                            if ok:
-                                updated += 1
-                        st.success(f"Updated {updated} item(s) to Public.")
-                        st.rerun()
+                batch_params_col1, batch_params_col2 = st.columns(2, gap="small")
+                with batch_params_col1:
+                    batch_copies = st.number_input("Copies (sync)", min_value=1, value=1, key="ucs_batch_copies", help="For catalog sync")
+                with batch_params_col2:
+                    batch_pub_year = st.number_input("Year (sync)", min_value=1800, max_value=datetime.now().year + 10, value=datetime.now().year, key="ucs_batch_year", help="For catalog sync")
 
-                    elif batch_action == "Make Private":
-                        updated = 0
-                        for pdf_id in selected_batch_ids:
-                            ok = Database.execute_update(
-                                "UPDATE pdf_library SET is_public = 0 WHERE pdf_id = ? AND user_id = ?",
-                                (pdf_id, user['user_id'])
-                            )
-                            if ok:
-                                updated += 1
-                        st.success(f"Updated {updated} item(s) to Private.")
-                        st.rerun()
+                apply_batch = st.button(" Execute Batch Action", use_container_width=True, type="primary", key="ucs_batch_apply")
 
-                    elif batch_action == "Export ZIP":
-                        zip_buffer = BytesIO()
-                        exported = 0
-                        with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
+                if apply_batch:
+                    if not selected_batch_ids:
+                        st.warning("⚠️ Select at least one PDF for batch actions.")
+                    else:
+                        action_key = batch_action.split()[-1].lower()
+                        
+                        if "Public" in batch_action:
+                            updated = 0
                             for pdf_id in selected_batch_ids:
-                                pdf_data = PeerLibraryManager.get_pdf_file(pdf_id)
-                                if pdf_data and pdf_data.get('pdf_file'):
-                                    filename = pdf_data.get('pdf_filename') or f"pdf_{pdf_id}.pdf"
-                                    archive.writestr(filename, pdf_data['pdf_file'])
-                                    exported += 1
-
-                        if exported > 0:
-                            zip_bytes = zip_buffer.getvalue()
-                            st.download_button(
-                                " Download Batch ZIP",
-                                data=zip_bytes,
-                                file_name=f"pdf_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
-                                mime="application/zip",
-                                key="ucs_batch_zip_download"
-                            )
-                            st.success(f"Prepared ZIP for {exported} PDF(s).")
-                        else:
-                            st.warning("No files could be exported for selected items.")
-
-                    elif batch_action == "Catalog Sync" and is_management_user:
-                        synced = 0
-                        skipped = 0
-                        for pdf_id in selected_batch_ids:
-                            row = next((p for p in filtered_pdfs if int(p.get('pdf_id')) == int(pdf_id)), None)
-                            if not row:
-                                skipped += 1
-                                continue
-
-                            sync_isbn = f"PDFLIB-{int(pdf_id)}"
-                            existing = Database.execute_query(
-                                "SELECT book_id FROM books WHERE isbn = ? LIMIT 1",
-                                (sync_isbn,),
-                                fetch_one=True
-                            )
-                            if existing:
-                                skipped += 1
-                                continue
-
-                            created = Database.execute_update(
-                                """
-                                INSERT INTO books (isbn, title, author, genre, publication_year,
-                                                 pages, language, description, keywords, is_available)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                                """,
-                                (
-                                    sync_isbn,
-                                    row.get('title') or f"PDF {pdf_id}",
-                                    row.get('author') or "Unknown",
-                                    row.get('genre') or "Other",
-                                    int(batch_pub_year),
-                                    1,
-                                    "Other",
-                                    row.get('description') or None,
-                                    "pdf_library_sync"
+                                ok = Database.execute_update(
+                                    "UPDATE pdf_library SET is_public = 1 WHERE pdf_id = ? AND user_id = ?",
+                                    (pdf_id, user['user_id'])
                                 )
-                            )
-                            if created:
-                                book = Database.execute_query(
-                                    "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
+                                if ok:
+                                    updated += 1
+                            st.success(f"✅ Updated {updated} PDF(s) to Public.")
+                            st.rerun()
+
+                        elif "Private" in batch_action:
+                            updated = 0
+                            for pdf_id in selected_batch_ids:
+                                ok = Database.execute_update(
+                                    "UPDATE pdf_library SET is_public = 0 WHERE pdf_id = ? AND user_id = ?",
+                                    (pdf_id, user['user_id'])
+                                )
+                                if ok:
+                                    updated += 1
+                            st.success(f"✅ Updated {updated} PDF(s) to Private.")
+                            st.rerun()
+
+                        elif "ZIP" in batch_action:
+                            zip_buffer = BytesIO()
+                            exported = 0
+                            with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
+                                for pdf_id in selected_batch_ids:
+                                    pdf_data = PeerLibraryManager.get_pdf_file(pdf_id)
+                                    if pdf_data and pdf_data.get('pdf_file'):
+                                        filename = pdf_data.get('pdf_filename') or f"pdf_{pdf_id}.pdf"
+                                        archive.writestr(filename, pdf_data['pdf_file'])
+                                        exported += 1
+
+                            if exported > 0:
+                                zip_bytes = zip_buffer.getvalue()
+                                st.download_button(
+                                    "📥 Download ZIP",
+                                    data=zip_bytes,
+                                    file_name=f"pdf_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                                    mime="application/zip",
+                                    key="ucs_batch_zip_download",
+                                    use_container_width=True
+                                )
+                                st.success(f"✅ Prepared ZIP for {exported} PDF(s).")
+                            else:
+                                st.warning("❌ No files could be exported.")
+
+                        elif "Metadata" in batch_action:
+                            metadata_list = []
+                            for pdf_id in selected_batch_ids:
+                                pdf = next((p for p in filtered_pdfs if int(p.get('pdf_id')) == pdf_id), None)
+                                if pdf:
+                                    metadata_list.append({
+                                        'Title': pdf.get('title'),
+                                        'Author': pdf.get('author'),
+                                        'Genre': pdf.get('genre'),
+                                        'Visibility': '🌐 Public' if pdf.get('is_public') else '🔒 Private',
+                                        'Views': pdf.get('views_count'),
+                                        'Uploaded': pdf.get('upload_date')
+                                    })
+                            if metadata_list:
+                                metadata_df = pd.DataFrame(metadata_list)
+                                csv_data = metadata_df.to_csv(index=False)
+                                st.download_button(
+                                    "📥 Download Metadata CSV",
+                                    data=csv_data,
+                                    file_name=f"pdfs_metadata_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                    mime="text/csv",
+                                    key="ucs_batch_metadata_download",
+                                    use_container_width=True
+                                )
+                                st.success(f"✅ Prepared metadata for {len(metadata_list)} PDF(s).")
+
+                        elif "Sync" in batch_action and is_management_user:
+                            synced = 0
+                            skipped = 0
+                            for pdf_id in selected_batch_ids:
+                                row = next((p for p in filtered_pdfs if int(p.get('pdf_id')) == int(pdf_id)), None)
+                                if not row:
+                                    skipped += 1
+                                    continue
+
+                                sync_isbn = f"PDFLIB-{int(pdf_id)}"
+                                existing = Database.execute_query(
+                                    "SELECT book_id FROM books WHERE isbn = ? LIMIT 1",
                                     (sync_isbn,),
                                     fetch_one=True
                                 )
-                                if book:
-                                    for i in range(int(batch_copies)):
-                                        Database.execute_update(
-                                            "INSERT INTO book_inventory (book_id, barcode, is_available) VALUES (?, ?, 1)",
-                                            (book['book_id'], f"{sync_isbn}-{i+1}")
-                                        )
-                                synced += 1
-                            else:
-                                skipped += 1
+                                if existing:
+                                    skipped += 1
+                                    continue
 
-                        st.success(f"Catalog sync completed. Synced: {synced}, Skipped: {skipped}")
-                        st.rerun()
-
-        st.subheader("Individual PDF Management")
-
-        if filtered_pdfs:
-            for pdf in filtered_pdfs:
-                with st.expander(f" {pdf['title']}"):
-                    pcol1, pcol2 = st.columns([3, 1], gap="small")
-
-                    with pcol1:
-                        st.write(f"**Author:** {pdf.get('author') or 'Unknown'}")
-                        st.write(f"**Genre:** {pdf.get('genre') or 'Unknown'}")
-                        st.write(f"**Description:** {pdf.get('description') or 'No description'}")
-                        st.write(f"**Visibility:** {' Public' if pdf.get('is_public') else ' Private'}")
-                        st.write(f"**Uploaded:** {pdf.get('upload_date')}")
-                        st.write(f"**Views:** {pdf.get('views_count')}")
-
-                    with pcol2:
-                        if st.button(" Download", key=f"ucs_download_{pdf['pdf_id']}", use_container_width=True):
-                            pdf_data = PeerLibraryManager.get_pdf_file(pdf['pdf_id'])
-                            if pdf_data:
-                                PeerLibraryManager.increment_pdf_views(pdf['pdf_id'])
-                                st.download_button(
-                                    " Confirm Download",
-                                    pdf_data['pdf_file'],
-                                    pdf_data['pdf_filename'],
-                                    mime="application/pdf",
-                                    key=f"ucs_download_btn_{pdf['pdf_id']}"
-                                )
-
-                        new_visibility = st.checkbox(
-                            "Public",
-                            value=pdf.get('is_public', False),
-                            key=f"ucs_vis_{pdf['pdf_id']}"
-                        )
-                        if new_visibility != pdf.get('is_public'):
-                            Database.execute_update(
-                                "UPDATE pdf_library SET is_public = ? WHERE pdf_id = ?",
-                                (new_visibility, pdf['pdf_id'])
-                            )
-                            st.success("Visibility updated!")
-                            st.rerun()
-
-                    with st.form(f"ucs_edit_{pdf['pdf_id']}"):
-                        e_col1, e_col2 = st.columns(2, gap="small")
-                        with e_col1:
-                            edit_title = st.text_input("Title", value=str(pdf.get('title') or ""), key=f"ucs_title_{pdf['pdf_id']}")
-                            edit_author = st.text_input("Author", value=str(pdf.get('author') or ""), key=f"ucs_author_{pdf['pdf_id']}")
-                        with e_col2:
-                            edit_genre = st.text_input("Genre", value=str(pdf.get('genre') or ""), key=f"ucs_genre_{pdf['pdf_id']}")
-                            edit_description = st.text_area(
-                                "Description",
-                                value=str(pdf.get('description') or ""),
-                                key=f"ucs_desc_{pdf['pdf_id']}",
-                                height=100
-                            )
-
-                        save_edit = st.form_submit_button(" Save Metadata", use_container_width=True)
-                        if save_edit:
-                            if not edit_title.strip():
-                                st.error("Title cannot be empty.")
-                            else:
-                                updated = Database.execute_update(
+                                created = Database.execute_update(
                                     """
-                                    UPDATE pdf_library
-                                    SET title = ?, author = ?, genre = ?, description = ?
-                                    WHERE pdf_id = ? AND user_id = ?
+                                    INSERT INTO books (isbn, title, author, genre, publication_year,
+                                                     pages, language, description, keywords, is_available)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                                     """,
                                     (
-                                        edit_title.strip(),
-                                        edit_author.strip(),
-                                        edit_genre.strip(),
-                                        edit_description.strip(),
-                                        pdf['pdf_id'],
-                                        user['user_id']
+                                        sync_isbn,
+                                        row.get('title') or f"PDF {pdf_id}",
+                                        row.get('author') or "Unknown",
+                                        row.get('genre') or "Other",
+                                        int(batch_pub_year),
+                                        1,
+                                        "Other",
+                                        row.get('description') or None,
+                                        "pdf_library_sync"
                                     )
                                 )
-                                if updated:
-                                    st.success("Metadata updated successfully.")
-                                    st.rerun()
+                                if created:
+                                    book = Database.execute_query(
+                                        "SELECT book_id FROM books WHERE isbn = ? ORDER BY book_id DESC LIMIT 1",
+                                        (sync_isbn,),
+                                        fetch_one=True
+                                    )
+                                    if book:
+                                        for i in range(int(batch_copies)):
+                                            Database.execute_update(
+                                                "INSERT INTO book_inventory (book_id, barcode, is_available) VALUES (?, ?, 1)",
+                                                (book['book_id'], f"{sync_isbn}-{i+1}")
+                                            )
+                                    synced += 1
                                 else:
-                                    st.error("Failed to update metadata.")
+                                    skipped += 1
+
+                            st.success(f"✅ Catalog sync completed. Synced: {synced}, Skipped: {skipped}")
+                            st.rerun()
+
+            with side_right:
+                st.markdown("###  Individual PDF Details")
+                
+                if filtered_pdfs:
+                    for idx, pdf in enumerate(filtered_pdfs):
+                        with st.container():
+                            pdf_card_col1, pdf_card_col2, pdf_card_col3 = st.columns([2.5, 1, 0.5], gap="small")
+                            
+                            with pdf_card_col1:
+                                visibility_icon = "🌐" if pdf.get('is_public') else "🔒"
+                                st.markdown(f"**{visibility_icon} {pdf['title'][:40]}**")
+                                st.caption(f"👤 {pdf.get('author') or 'Unknown'} | 🏷️ {pdf.get('genre') or 'Other'}")
+                                st.caption(f"📅 {pdf.get('upload_date') or 'N/A'} | 👁️ {pdf.get('views_count') or 0} views")
+
+                            with pdf_card_col2:
+                                if st.button("📥", key=f"ucs_quick_dl_{pdf['pdf_id']}", help="Download", use_container_width=True):
+                                    pdf_data = PeerLibraryManager.get_pdf_file(pdf['pdf_id'])
+                                    if pdf_data:
+                                        PeerLibraryManager.increment_pdf_views(pdf['pdf_id'])
+                                        st.download_button(
+                                            "Confirm",
+                                            pdf_data['pdf_file'],
+                                            pdf_data['pdf_filename'],
+                                            mime="application/pdf",
+                                            key=f"ucs_download_btn_{pdf['pdf_id']}"
+                                        )
+
+                            with pdf_card_col3:
+                                if st.button("✏️", key=f"ucs_edit_toggle_{pdf['pdf_id']}", help="Edit", use_container_width=True):
+                                    st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = not st.session_state.get(f'edit_pdf_{pdf["pdf_id"]}', False)
+
+                            if st.session_state.get(f'edit_pdf_{pdf["pdf_id"]}', False):
+                                with st.form(f"ucs_quick_edit_{pdf['pdf_id']}", clear_on_submit=False):
+                                    st.markdown("**Edit Metadata**")
+                                    edit_title = st.text_input("Title", value=str(pdf.get('title') or ""), key=f"ucs_title_{pdf['pdf_id']}")
+                                    edit_author = st.text_input("Author", value=str(pdf.get('author') or ""), key=f"ucs_author_{pdf['pdf_id']}")
+                                    edit_genre = st.selectbox("Genre", ["Fiction", "Non-Fiction", "Science", "Technology", "History", "Biography", "Self-Help", "Other"], index=0, key=f"ucs_genre_{pdf['pdf_id']}")
+                                    edit_description = st.text_area("Description", value=str(pdf.get('description') or ""), key=f"ucs_desc_{pdf['pdf_id']}", height=60)
+
+                                    vis_cols = st.columns([1, 1], gap="small")
+                                    with vis_cols[0]:
+                                        new_visibility = st.checkbox("Make Public", value=pdf.get('is_public', False), key=f"ucs_vis_toggle_{pdf['pdf_id']}")
+                                    with vis_cols[1]:
+                                        pass
+
+                                    save_cols = st.columns([1, 1], gap="small")
+                                    with save_cols[0]:
+                                        save_edit = st.form_submit_button("💾 Save", use_container_width=True)
+                                    with save_cols[1]:
+                                        cancel_edit = st.form_submit_button("❌ Cancel", use_container_width=True)
+
+                                    if cancel_edit:
+                                        st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = False
+                                        st.rerun()
+
+                                    if save_edit:
+                                        if not edit_title.strip():
+                                            st.error("Title cannot be empty.")
+                                        else:
+                                            updated = Database.execute_update(
+                                                """
+                                                UPDATE pdf_library
+                                                SET title = ?, author = ?, genre = ?, description = ?, is_public = ?
+                                                WHERE pdf_id = ? AND user_id = ?
+                                                """,
+                                                (
+                                                    edit_title.strip(),
+                                                    edit_author.strip(),
+                                                    edit_genre,
+                                                    edit_description.strip(),
+                                                    new_visibility,
+                                                    pdf['pdf_id'],
+                                                    user['user_id']
+                                                )
+                                            )
+                                            if updated:
+                                                st.success("✅ Metadata saved.")
+                                                st.session_state[f'edit_pdf_{pdf["pdf_id"]}'] = False
+                                                st.rerun()
+                                            else:
+                                                st.error("Failed to save metadata.")
+
+                            st.divider()
         else:
-            st.info("No PDFs match current filters.")
+            st.info("📭 No PDFs match current filters.")
 
     privacy_tab_index = 2 if is_management_user else 1
     community_tab_index = 3 if is_management_user else 2
