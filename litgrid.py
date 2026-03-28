@@ -11349,44 +11349,6 @@ def show_borrowing_returns():
         else:
             st.info("No pending renewal requests")
     
-
-    st.subheader(" Borrowing Trends & Analytics")
-
-    trend_map = {"7D": 7, "30D": 30, "90D": 90, "180D": 180, "365D": 365}
-    trend_days = trend_map.get(trend_window, 30)
-
-    # Date range selector
-    col1, col2, col3 = st.columns(3, gap="small")
-    with col1:
-        start_date = st.date_input("Start Date", date.today() - timedelta(days=trend_days), key="br_trend_start")
-    with col2:
-        end_date = st.date_input("End Date", date.today(), key="br_trend_end")
-    with col3:
-        auto_generate_trends = st.checkbox("Auto Generate", value=True, key="br_trend_auto")
-
-    generate_trends = auto_generate_trends or st.button(" Generate Trends", use_container_width=True, key="br_generate_trends")
-
-    if generate_trends:
-        st.divider()
-
-        total_borrowed = Database.execute_query(
-            "SELECT COUNT(*) as count FROM borrowing WHERE checkout_date BETWEEN ? AND ?",
-            (start_date, end_date), fetch_one=True
-        )
-
-        total_returned = Database.execute_query(
-            "SELECT COUNT(*) as count FROM borrowing WHERE return_date BETWEEN ? AND ?",
-            (start_date, end_date), fetch_one=True
-        )
-
-        overdue_count = Database.execute_query(
-            """SELECT COUNT(*) as count FROM borrowing
-               WHERE return_date IS NULL AND due_date < date('now')""",
-            fetch_one=True
-        )
-
-        # Row 1: Active Snapshot | Borrowing Trends & Analytics | Daily Borrowing Trend
-       
         
 def show_reports():
     """Advanced Reports page with 20+ visualizations"""
