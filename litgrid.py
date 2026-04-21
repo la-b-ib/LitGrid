@@ -2456,6 +2456,598 @@ class EnhancedBorrowingManager:
         except:
             return {}
 
+class CirculationManager:
+    """Unified circulation manager for borrowing, returns, renewals, and inventory management"""
+    
+    BORROWING_STATUS_BORROWED = 'borrowed'
+    BORROWING_STATUS_RETURNED = 'returned'
+    BORROWING_STATUS_OVERDUE = 'overdue'
+    BORROWING_STATUS_RENEWED = 'renewed'
+    BORROWING_STATUS_LOST = 'lost'
+    
+    RENEWAL_STATUS_PENDING = 'pending'
+    RENEWAL_STATUS_APPROVED = 'approved'
+    RENEWAL_STATUS_REJECTED = 'rejected'
+    
+    @staticmethod
+    def _update_book_statistics(book_id: int):
+        """Update book_statistics table with current inventory and borrowing data"""
+        try:
+            stats = Database.execute_query("""
+                SELECT
+                    (SELECT COUNT(*) FROM book_inventory WHERE book_id = ?) as total_copies,
+                    (SELECT COUNT(*) FROM book_inventory WHERE book_id = ? AND is_available = 1) as available_copies,
+                    (SELECT COUNT(*) FROM borrowing br
+                     JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                     WHERE bi.book_id = ? AND br.return_date IS NULL) as current_borrowed,
+                    (SELECT COUNT(*) FROM borrowing br
+                     JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                     WHERE bi.book_id = ?) as total_checkouts
+            """, (book_id, book_id, book_id, book_id), fetch_one=True)
+            
+            if stats:
+                existing = Database.execute_query(
+                    "SELECT stat_id FROM book_statistics WHERE book_id = ?",
+                    (book_id,), fetch_one=True
+                )
+                
+                if existing:
+                    Database.execute_update("""
+                        UPDATE book_statistics 
+                        SET total_copies = ?, available_copies = ?, 
+                            current_borrowed = ?, total_checkouts = ?,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE book_id = ?
+                    """, (stats['total_copies'], stats['available_copies'],
+                          stats['current_borrowed'], stats['total_checkouts'], book_id))
+                else:
+                    Database.execute_update("""
+                        INSERT INTO book_statistics 
+                        (book_id, total_copies, available_copies, current_borrowed, total_checkouts)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (book_id, stats['total_copies'], stats['available_copies'],
+                          stats['current_borrowed'], stats['total_checkouts']))
+            
+            return True
+        except Exception as e:
+            print(f"Error updating book statistics: {e}")
+            return False
+    
+    @staticmethod
+    def _update_books_availability(book_id: int):
+        """Update books.is_available based on inventory status"""
+        try:
+            available = Database.execute_query("""
+                SELECT COUNT(*) as cnt FROM book_inventory 
+                WHERE book_id = ? AND is_available = 1
+            """, (book_id,), fetch_one=True)
+            
+            if available:
+                is_available = 1 if available['cnt'] > 0 else 0
+                Database.execute_update("""
+                    UPDATE books SET is_available = ? WHERE book_id = ?
+                """, (is_available, book_id))
+            
+            return True
+        except Exception as e:
+            print(f"Error updating books availability: {e}")
+            return False
+    
+    @staticmethod
+    def validate_checkout(user_id: int, book_id: int, inventory_id: int = None) -> dict:
+        """Validate checkout operation before executing"""
+        errors = []
+        warnings = []
+        
+        if not user_id or user_id <= 0:
+            errors.append("Invalid member ID")
+        
+        if not book_id or book_id <= 0:
+            errors.append("Invalid book ID")
+        
+        if not errors:
+            user = Database.execute_query("""
+                SELECT user_id, full_name, is_active, fine_balance,
+                       (SELECT COUNT(*) FROM borrowing WHERE user_id = ? AND return_date IS NULL) as active_loans,
+                       (SELECT borrowing_days FROM users WHERE user_id = ?) as borrowing_days,
+                       (SELECT max_books_allowed FROM users WHERE user_id = ?) as max_books
+                FROM users WHERE user_id = ?
+            """, (user_id, user_id, user_id, user_id), fetch_one=True)
+            
+            if not user:
+                errors.append("Member not found")
+            else:
+                if not user['is_active']:
+                    errors.append("Member account is inactive")
+                
+                max_books = user['max_books'] or 10
+                if user['active_loans'] >= max_books:
+                    errors.append(f"Member has reached maximum borrowing limit ({max_books} books)")
+                
+                if user['fine_balance'] and user['fine_balance'] > 0:
+                    warnings.append(f"Member has outstanding fines: {format_currency(user['fine_balance'])}")
+        
+        if not errors:
+            duplicate = Database.execute_query("""
+                SELECT COUNT(*) as cnt
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                WHERE br.user_id = ? AND bi.book_id = ? AND br.return_date IS NULL
+            """, (user_id, book_id), fetch_one=True)
+            
+            if duplicate and duplicate['cnt'] > 0:
+                errors.append("Member already has an active borrowing for this title")
+        
+        if not errors:
+            if inventory_id:
+                inv = Database.execute_query("""
+                    SELECT inventory_id, is_available FROM book_inventory 
+                    WHERE inventory_id = ?
+                """, (inventory_id,), fetch_one=True)
+                if not inv:
+                    errors.append("Inventory item not found")
+                elif not inv['is_available']:
+                    errors.append("Selected copy is not available")
+            else:
+                available = Database.execute_query("""
+                    SELECT COUNT(*) as cnt FROM book_inventory 
+                    WHERE book_id = ? AND is_available = 1
+                """, (book_id,), fetch_one=True)
+                if not available or available['cnt'] == 0:
+                    errors.append("No copies available for this book")
+        
+        return {
+            'valid': len(errors) == 0,
+            'errors': errors,
+            'warnings': warnings
+        }
+    
+    @staticmethod
+    def validate_return(borrowing_id: int) -> dict:
+        """Validate return operation before executing"""
+        errors = []
+        warnings = []
+        
+        if not borrowing_id or borrowing_id <= 0:
+            errors.append("Invalid borrowing ID")
+        
+        if not errors:
+            borrowing = Database.execute_query("""
+                SELECT br.*, b.title, u.full_name,
+                       julianday(date('now')) - julianday(br.due_date) as days_overdue
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                JOIN books b ON bi.book_id = b.book_id
+                JOIN users u ON br.user_id = u.user_id
+                WHERE br.borrowing_id = ?
+            """, (borrowing_id,), fetch_one=True)
+            
+            if not borrowing:
+                errors.append("Borrowing record not found")
+            elif borrowing['return_date'] is not None:
+                errors.append("This book has already been returned")
+            else:
+                if borrowing['days_overdue'] and borrowing['days_overdue'] > 0:
+                    overdue_days = int(borrowing['days_overdue'])
+                    fine = overdue_days * Config.FINE_PER_DAY
+                    warnings.append(f"Book is {overdue_days} days overdue. Fine: {format_currency(fine)}")
+        
+        return {
+            'valid': len(errors) == 0,
+            'errors': errors,
+            'warnings': warnings
+        }
+    
+    @staticmethod
+    def validate_renewal(borrowing_id: int, user_id: int) -> dict:
+        """Validate renewal request before executing"""
+        errors = []
+        warnings = []
+        
+        if not borrowing_id or borrowing_id <= 0:
+            errors.append("Invalid borrowing ID")
+        
+        if not user_id or user_id <= 0:
+            errors.append("Invalid member ID")
+        
+        if not errors:
+            borrowing = Database.execute_query("""
+                SELECT br.*, b.title,
+                       julianday(date('now')) - julianday(br.due_date) as days_overdue
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                JOIN books b ON bi.book_id = b.book_id
+                WHERE br.borrowing_id = ? AND br.user_id = ?
+            """, (borrowing_id, user_id), fetch_one=True)
+            
+            if not borrowing:
+                errors.append("Borrowing record not found or does not belong to this member")
+            elif borrowing['return_date'] is not None:
+                errors.append("This book has already been returned")
+            else:
+                if borrowing['days_overdue'] and borrowing['days_overdue'] > 0:
+                    errors.append("Cannot renew an overdue book. Please return it first.")
+                
+                pending = Database.execute_query("""
+                    SELECT renewal_id FROM renewal_requests 
+                    WHERE borrowing_id = ? AND status = 'pending'
+                """, (borrowing_id,), fetch_one=True)
+                if pending:
+                    errors.append("There is already a pending renewal request for this borrowing")
+        
+        return {
+            'valid': len(errors) == 0,
+            'errors': errors,
+            'warnings': warnings
+        }
+    
+    @staticmethod
+    def checkout_book(user_id: int, book_id: int, due_date, 
+                      checkout_by_user_id: int, auto_pick_oldest: bool = True) -> dict:
+        """Execute checkout operation with inventory synchronization"""
+        validation = CirculationManager.validate_checkout(user_id, book_id)
+        if not validation['valid']:
+            return {
+                'success': False,
+                'errors': validation['errors'],
+                'warnings': validation['warnings']
+            }
+        
+        try:
+            if auto_pick_oldest:
+                inventory = Database.execute_query("""
+                    SELECT inventory_id FROM book_inventory
+                    WHERE book_id = ? AND is_available = 1
+                    ORDER BY acquired_date ASC, inventory_id ASC
+                    LIMIT 1
+                """, (book_id,), fetch_one=True)
+            else:
+                inventory = Database.execute_query("""
+                    SELECT inventory_id FROM book_inventory
+                    WHERE book_id = ? AND is_available = 1
+                    LIMIT 1
+                """, (book_id,), fetch_one=True)
+            
+            if not inventory:
+                return {
+                    'success': False,
+                    'errors': ['No copies available'],
+                    'warnings': []
+                }
+            
+            inventory_id = inventory['inventory_id']
+            
+            borrowing_id = Database.execute_update("""
+                INSERT INTO borrowing 
+                (inventory_id, user_id, checkout_date, due_date, checkout_by_user_id, status)
+                VALUES (?, ?, date('now'), ?, ?, ?)
+            """, (inventory_id, user_id, due_date, checkout_by_user_id, 
+                  CirculationManager.BORROWING_STATUS_BORROWED))
+            
+            if not borrowing_id:
+                return {
+                    'success': False,
+                    'errors': ['Failed to create borrowing record'],
+                    'warnings': []
+                }
+            
+            Database.execute_update("""
+                UPDATE book_inventory SET is_available = 0 WHERE inventory_id = ?
+            """, (inventory_id,))
+            
+            CirculationManager._update_book_statistics(book_id)
+            CirculationManager._update_books_availability(book_id)
+            
+            new_borrowing = Database.execute_query("""
+                SELECT br.*, b.title, b.isbn, u.full_name, u.email
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                JOIN books b ON bi.book_id = b.book_id
+                JOIN users u ON br.user_id = u.user_id
+                WHERE br.borrowing_id = (SELECT MAX(borrowing_id) FROM borrowing)
+            """, fetch_one=True)
+            
+            return {
+                'success': True,
+                'errors': [],
+                'warnings': validation['warnings'],
+                'borrowing_id': new_borrowing['borrowing_id'] if new_borrowing else None,
+                'details': new_borrowing,
+                'message': f"Book '{new_borrowing['title']}' checked out to {new_borrowing['full_name']}. Due: {due_date}"
+            }
+        
+        except Exception as e:
+            return {
+                'success': False,
+                'errors': [f"Checkout failed: {str(e)}"],
+                'warnings': []
+            }
+    
+    @staticmethod
+    def return_book(borrowing_id: int, return_to_user_id: int, 
+                    waive_fine: bool = False) -> dict:
+        """Execute return operation with inventory synchronization"""
+        validation = CirculationManager.validate_return(borrowing_id)
+        if not validation['valid']:
+            return {
+                'success': False,
+                'errors': validation['errors'],
+                'warnings': validation['warnings']
+            }
+        
+        try:
+            borrowing = Database.execute_query("""
+                SELECT br.*, bi.book_id, b.title, u.full_name, u.user_id as member_id,
+                       julianday(date('now')) - julianday(br.due_date) as days_overdue
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                JOIN books b ON bi.book_id = b.book_id
+                JOIN users u ON br.user_id = u.user_id
+                WHERE br.borrowing_id = ?
+            """, (borrowing_id,), fetch_one=True)
+            
+            if not borrowing:
+                return {
+                    'success': False,
+                    'errors': ['Borrowing record not found'],
+                    'warnings': []
+                }
+            
+            days_overdue = int(borrowing['days_overdue']) if borrowing['days_overdue'] else 0
+            fine_amount = 0.0 if waive_fine else max(0, days_overdue * Config.FINE_PER_DAY)
+            
+            Database.execute_update("""
+                UPDATE borrowing
+                SET return_date = date('now'), return_to_user_id = ?,
+                    fine_amount = ?, status = ?
+                WHERE borrowing_id = ?
+            """, (return_to_user_id, fine_amount, 
+                  CirculationManager.BORROWING_STATUS_RETURNED, borrowing_id))
+            
+            Database.execute_update("""
+                UPDATE book_inventory SET is_available = 1 WHERE inventory_id = ?
+            """, (borrowing['inventory_id'],))
+            
+            if fine_amount > 0:
+                Database.execute_update("""
+                    UPDATE users SET fine_balance = fine_balance + ? WHERE user_id = ?
+                """, (fine_amount, borrowing['member_id']))
+            
+            book_id = borrowing['book_id']
+            CirculationManager._update_book_statistics(book_id)
+            CirculationManager._update_books_availability(book_id)
+            
+            if fine_amount > 0:
+                message = f"Book '{borrowing['title']}' returned by {borrowing['full_name']} with fine: {format_currency(fine_amount)}"
+            else:
+                message = f"Book '{borrowing['title']}' returned by {borrowing['full_name']} successfully"
+            
+            return {
+                'success': True,
+                'errors': [],
+                'warnings': validation['warnings'],
+                'fine_amount': fine_amount,
+                'days_overdue': days_overdue,
+                'details': borrowing,
+                'message': message
+            }
+        
+        except Exception as e:
+            return {
+                'success': False,
+                'errors': [f"Return failed: {str(e)}"],
+                'warnings': []
+            }
+    
+    @staticmethod
+    def request_renewal(borrowing_id: int, user_id: int, 
+                        requested_days: int = 14) -> dict:
+        """Request a book renewal"""
+        validation = CirculationManager.validate_renewal(borrowing_id, user_id)
+        if not validation['valid']:
+            return {
+                'success': False,
+                'errors': validation['errors'],
+                'warnings': validation['warnings']
+            }
+        
+        try:
+            Database.execute_update("""
+                INSERT INTO renewal_requests
+                (borrowing_id, requested_by, requested_days, status)
+                VALUES (?, ?, ?, ?)
+            """, (borrowing_id, user_id, requested_days, 
+                  CirculationManager.RENEWAL_STATUS_PENDING))
+            
+            return {
+                'success': True,
+                'errors': [],
+                'warnings': validation['warnings'],
+                'message': f"Renewal request submitted for {requested_days} days"
+            }
+        
+        except Exception as e:
+            return {
+                'success': False,
+                'errors': [f"Renewal request failed: {str(e)}"],
+                'warnings': []
+            }
+    
+    @staticmethod
+    def approve_renewal(renewal_id: int, reviewer_id: int, 
+                        approve: bool = True, notes: str = "") -> dict:
+        """Approve or reject a renewal request"""
+        try:
+            renewal = Database.execute_query("""
+                SELECT rr.*, br.due_date, br.borrowing_id, bi.book_id
+                FROM renewal_requests rr
+                JOIN borrowing br ON rr.borrowing_id = br.borrowing_id
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                WHERE rr.renewal_id = ?
+            """, (renewal_id,), fetch_one=True)
+            
+            if not renewal:
+                return {
+                    'success': False,
+                    'errors': ['Renewal request not found'],
+                    'warnings': []
+                }
+            
+            if renewal['status'] != CirculationManager.RENEWAL_STATUS_PENDING:
+                return {
+                    'success': False,
+                    'errors': [f"Renewal request already {renewal['status']}"],
+                    'warnings': []
+                }
+            
+            new_status = (CirculationManager.RENEWAL_STATUS_APPROVED 
+                          if approve else CirculationManager.RENEWAL_STATUS_REJECTED)
+            
+            if approve:
+                from datetime import datetime
+                due_date_str = renewal['due_date']
+                if isinstance(due_date_str, str):
+                    current_due = datetime.strptime(due_date_str, '%Y-%m-%d').date()
+                else:
+                    current_due = due_date_str
+                
+                new_due_date = current_due + timedelta(days=renewal['requested_days'])
+                
+                Database.execute_update("""
+                    UPDATE borrowing
+                    SET due_date = ?, status = ?
+                    WHERE borrowing_id = ?
+                """, (new_due_date, CirculationManager.BORROWING_STATUS_RENEWED, 
+                      renewal['borrowing_id']))
+                
+                book_id = renewal['book_id']
+                CirculationManager._update_book_statistics(book_id)
+            
+            Database.execute_update("""
+                UPDATE renewal_requests
+                SET status = ?, reviewed_by = ?, reviewed_at = datetime('now'), review_notes = ?
+                WHERE renewal_id = ?
+            """, (new_status, reviewer_id, notes, renewal_id))
+            
+            action = "approved" if approve else "rejected"
+            return {
+                'success': True,
+                'errors': [],
+                'warnings': [],
+                'message': f"Renewal {action} successfully"
+            }
+        
+        except Exception as e:
+            return {
+                'success': False,
+                'errors': [f"Renewal approval failed: {str(e)}"],
+                'warnings': []
+            }
+    
+    @staticmethod
+    def update_overdue_statuses() -> dict:
+        """Update status for all overdue borrowings"""
+        try:
+            result = Database.execute_update("""
+                UPDATE borrowing
+                SET status = ?
+                WHERE return_date IS NULL
+                  AND due_date < date('now')
+                  AND status != ?
+            """, (CirculationManager.BORROWING_STATUS_OVERDUE, 
+                  CirculationManager.BORROWING_STATUS_OVERDUE))
+            
+            count = result or 0
+            return {
+                'success': True,
+                'updated_count': count,
+                'message': f"Updated {count} overdue borrowing records"
+            }
+        
+        except Exception as e:
+            return {
+                'success': False,
+                'updated_count': 0,
+                'errors': [f"Failed to update overdue statuses: {str(e)}"]
+            }
+    
+    @staticmethod
+    def get_borrowing_details(borrowing_id: int) -> dict:
+        """Get detailed information about a borrowing"""
+        try:
+            result = Database.execute_query("""
+                SELECT br.*, 
+                       b.title, b.isbn, b.author,
+                       u.full_name, u.email, u.username,
+                       cu.full_name as checkout_by_name,
+                       ru.full_name as return_by_name,
+                       bi.inventory_id, bi.barcode, bi.location,
+                       julianday(date('now')) - julianday(br.due_date) as days_overdue,
+                       julianday(br.due_date) - julianday(date('now')) as days_remaining
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                JOIN books b ON bi.book_id = b.book_id
+                JOIN users u ON br.user_id = u.user_id
+                LEFT JOIN users cu ON br.checkout_by_user_id = cu.user_id
+                LEFT JOIN users ru ON br.return_to_user_id = ru.user_id
+                WHERE br.borrowing_id = ?
+            """, (borrowing_id,), fetch_one=True)
+            
+            return result if result else None
+        
+        except Exception as e:
+            print(f"Error getting borrowing details: {e}")
+            return None
+    
+    @staticmethod
+    def search_borrowings(search_term: str = None, status: str = None,
+                          user_id: int = None, book_id: int = None,
+                          limit: int = 100) -> list:
+        """Search borrowing records with multiple filters"""
+        try:
+            query = """
+                SELECT br.*, 
+                       b.title, b.isbn,
+                       u.full_name, u.email,
+                       julianday(date('now')) - julianday(br.due_date) as days_overdue,
+                       julianday(br.due_date) - julianday(date('now')) as days_remaining
+                FROM borrowing br
+                JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
+                JOIN books b ON bi.book_id = b.book_id
+                JOIN users u ON br.user_id = u.user_id
+                WHERE 1=1
+            """
+            params = []
+            
+            if search_term:
+                query += """ AND (
+                    u.full_name LIKE ? OR u.email LIKE ? OR u.username LIKE ?
+                    OR b.title LIKE ? OR b.isbn LIKE ? OR b.author LIKE ?
+                )"""
+                search_pattern = f"%{search_term}%"
+                params.extend([search_pattern] * 6)
+            
+            if status:
+                query += " AND br.status = ?"
+                params.append(status)
+            
+            if user_id:
+                query += " AND br.user_id = ?"
+                params.append(user_id)
+            
+            if book_id:
+                query += " AND bi.book_id = ?"
+                params.append(book_id)
+            
+            query += " ORDER BY br.checkout_date DESC LIMIT ?"
+            params.append(limit)
+            
+            return Database.execute_query(query, tuple(params) if params else None) or []
+        
+        except Exception as e:
+            print(f"Error searching borrowings: {e}")
+            return []
+
 # ================================================================
 # CONFIGURATION
 # ================================================================
@@ -10791,6 +11383,10 @@ def show_manage_members():
 def show_borrowing_returns():
     """Borrowing and returns page"""
 
+    overdue_result = CirculationManager.update_overdue_statuses()
+    if overdue_result['success'] and overdue_result['updated_count'] > 0:
+        st.toast(f"Updated {overdue_result['updated_count']} overdue records", icon="⚠️")
+
     st.markdown("### Control Center")
     ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns(4, gap="small")
     with ctrl_col1:
@@ -11104,58 +11700,31 @@ def show_borrowing_returns():
 
             if submit_checkout:
                 if not selected_member or not selected_book:
-                    st.error("Please select both member and book!")
+                    st.error("Please select both a member and a book to proceed with checkout.")
                 else:
                     user_id = member_options[selected_member]
                     book_id = book_options[selected_book]
-
-                    duplicate_active = Database.execute_query(
-                        """
-                        SELECT COUNT(*) as count
-                        FROM borrowing br
-                        JOIN book_inventory bi ON br.inventory_id = bi.inventory_id
-                        WHERE br.user_id = ? AND bi.book_id = ? AND br.return_date IS NULL
-                        """,
-                        (user_id, book_id),
-                        fetch_one=True
-                    ) or {'count': 0}
-
-                    if int(duplicate_active.get('count') or 0) > 0:
-                        st.error("This member already has an active borrowing for this title.")
+                    current_user = Auth.get_user()
+                    
+                    result = CirculationManager.checkout_book(
+                        user_id=user_id,
+                        book_id=book_id,
+                        due_date=due_date,
+                        checkout_by_user_id=current_user['user_id'],
+                        auto_pick_oldest=auto_pick_oldest
+                    )
+                    
+                    if result['success']:
+                        for warning in result.get('warnings', []):
+                            st.warning(warning)
+                        st.success(result['message'])
+                        st.balloons()
+                        st.rerun()
                     else:
-                        if auto_pick_oldest:
-                            inventory = Database.execute_query(
-                                """
-                                SELECT inventory_id
-                                FROM book_inventory
-                                WHERE book_id = ? AND is_available = 1
-                                ORDER BY acquired_date ASC, inventory_id ASC
-                                LIMIT 1
-                                """,
-                                (book_id,), fetch_one=True
-                            )
-                        else:
-                            inventory = Database.execute_query(
-                                "SELECT inventory_id FROM book_inventory WHERE book_id = ? AND is_available = 1 LIMIT 1",
-                                (book_id,), fetch_one=True
-                            )
-
-                        if not inventory:
-                            st.error("No copies available!")
-                        else:
-                            current_user = Auth.get_user()
-                            if Database.execute_update(
-                                """INSERT INTO borrowing (inventory_id, user_id, checkout_date, due_date,
-                                                          checkout_by_user_id)
-                                   VALUES (?, ?, date('now'), ?, ?)""",
-                                (inventory['inventory_id'], user_id, due_date, current_user['user_id'])
-                            ):
-                                Database.execute_update(
-                                    "UPDATE book_inventory SET is_available = 0 WHERE inventory_id = ?",
-                                    (inventory['inventory_id'],)
-                                )
-                                st.success(f" Book checked out successfully! Due date: {due_date}")
-                                st.balloons()
+                        for error in result.get('errors', []):
+                            st.error(f" Checkout Failed: {error}")
+                        for warning in result.get('warnings', []):
+                            st.warning(warning)
 
     with return_col:
         st.markdown("#### Return Book")
@@ -11213,35 +11782,31 @@ def show_borrowing_returns():
 
             if submit_return:
                 if not selected_borrowing:
-                    st.error("Please select a borrowing to return!")
+                    st.error("Please select a borrowing to return.")
                 else:
                     borrowing = borrowing_options[selected_borrowing]
                     current_user = Auth.get_user()
-                    fine = 0 if waive_fine else _compute_fine(borrowing['days_overdue'])
-
-                    if Database.execute_update(
-                        """UPDATE borrowing
-                           SET return_date = date('now'), return_to_user_id = ?,
-                               fine_amount = ?
-                           WHERE borrowing_id = ?""",
-                        (current_user['user_id'], fine, borrowing['borrowing_id'])
-                    ):
-                        Database.execute_update(
-                            "UPDATE book_inventory SET is_available = 1 WHERE inventory_id = ?",
-                            (borrowing['inventory_id'],)
-                        )
-
-                        if fine > 0:
-                            Database.execute_update(
-                                "UPDATE users SET fine_balance = fine_balance + ? WHERE user_id IN (SELECT user_id FROM borrowing WHERE borrowing_id = ?)",
-                                (fine, borrowing['borrowing_id'])
-                            )
-
-                        if fine > 0:
-                            st.warning(f" Book returned with fine: {format_currency(fine)}")
+                    
+                    result = CirculationManager.return_book(
+                        borrowing_id=borrowing['borrowing_id'],
+                        return_to_user_id=current_user['user_id'],
+                        waive_fine=waive_fine
+                    )
+                    
+                    if result['success']:
+                        for warning in result.get('warnings', []):
+                            st.warning(warning)
+                        if result.get('fine_amount', 0) > 0:
+                            st.warning(result['message'])
                         else:
-                            st.success(" Book returned successfully!")
+                            st.success(result['message'])
                         st.balloons()
+                        st.rerun()
+                    else:
+                        for error in result.get('errors', []):
+                            st.error(f" Return Failed: {error}")
+                        for warning in result.get('warnings', []):
+                            st.warning(warning)
     
 
     
@@ -11283,34 +11848,173 @@ def show_borrowing_returns():
                 
                 with col3:
                     if st.button(" Approve", key=f"approve_{req['renewal_id']}"):
-                        success, msg = EnhancedBorrowingManager.approve_renewal(
-                            req['renewal_id'], 
-                            current_user['user_id'], 
-                            'approved'
+                        result = CirculationManager.approve_renewal(
+                            renewal_id=req['renewal_id'],
+                            reviewer_id=current_user['user_id'],
+                            approve=True,
+                            notes="Approved by librarian"
                         )
-                        if success:
-                            st.success("Approved!")
+                        if result['success']:
+                            st.success(result['message'])
                             st.rerun()
                         else:
-                            st.error(msg)
+                            for error in result.get('errors', []):
+                                st.error(error)
                     
                     if st.button(" Reject", key=f"reject_{req['renewal_id']}"):
-                        success, msg = EnhancedBorrowingManager.approve_renewal(
-                            req['renewal_id'], 
-                            current_user['user_id'], 
-                            'rejected'
+                        result = CirculationManager.approve_renewal(
+                            renewal_id=req['renewal_id'],
+                            reviewer_id=current_user['user_id'],
+                            approve=False,
+                            notes="Rejected by librarian"
                         )
-                        if success:
-                            st.warning("Rejected")
+                        if result['success']:
+                            st.warning(result['message'])
                             st.rerun()
                         else:
-                            st.error(msg)
+                            for error in result.get('errors', []):
+                                st.error(error)
                 
                 st.divider()
         else:
             st.info("No pending renewal requests")
     
+    st.markdown("---")
+    st.markdown("### Borrowing History Search")
+    
+    search_col1, search_col2, search_col3 = st.columns(3, gap="small")
+    
+    with search_col1:
+        history_member_search = st.text_input(
+            "Search Member (username or email)",
+            value="",
+            key="history_member_search"
+        )
+        history_book_search = st.text_input(
+            "Search Book (title or ISBN)",
+            value="",
+            key="history_book_search"
+        )
+    
+    with search_col2:
+        history_status = st.selectbox(
+            "Filter by Status",
+            ["All", "Borrowed", "Returned", "Overdue", "Renewed", "Lost"],
+            key="history_status"
+        )
+        history_date_filter = st.selectbox(
+            "Filter by Date Type",
+            ["Checkout Date", "Due Date", "Return Date"],
+            key="history_date_type"
+        )
+    
+    with search_col3:
+        use_date_range = st.checkbox("Use Date Range", value=False, key="use_date_range")
+        if use_date_range:
+            history_start_date = st.date_input(
+                "Start Date",
+                value=date.today() - timedelta(days=30),
+                key="history_start_date"
+            )
+            history_end_date = st.date_input(
+                "End Date",
+                value=date.today(),
+                key="history_end_date"
+            )
+    
+    search_button = st.button(" Search Borrowing Records", use_container_width=True, key="search_history")
+    
+    if search_button:
+        search_filters = {}
         
+        if history_member_search:
+            search_filters['member_search'] = history_member_search
+        if history_book_search:
+            search_filters['book_search'] = history_book_search
+        
+        status_map = {
+            "Borrowed": CirculationManager.BORROWING_STATUS_BORROWED,
+            "Returned": CirculationManager.BORROWING_STATUS_RETURNED,
+            "Overdue": CirculationManager.BORROWING_STATUS_OVERDUE,
+            "Renewed": CirculationManager.BORROWING_STATUS_RENEWED,
+            "Lost": CirculationManager.BORROWING_STATUS_LOST
+        }
+        if history_status != "All" and history_status in status_map:
+            search_filters['status'] = status_map[history_status]
+        
+        if use_date_range:
+            date_column_map = {
+                "Checkout Date": "checkout_date",
+                "Due Date": "due_date",
+                "Return Date": "return_date"
+            }
+            search_filters['date_column'] = date_column_map[history_date_filter]
+            search_filters['start_date'] = history_start_date
+            search_filters['end_date'] = history_end_date
+        
+        with st.spinner("Searching borrowing records..."):
+            result = CirculationManager.search_borrowings(**search_filters)
+            
+            if result['success']:
+                records = result.get('records', [])
+                total_count = result.get('total_count', 0)
+                
+                st.success(f"Found {total_count} borrowing records")
+                
+                if records:
+                    history_df = []
+                    for rec in records:
+                        status_display = {
+                            CirculationManager.BORROWING_STATUS_BORROWED: "📚 Borrowed",
+                            CirculationManager.BORROWING_STATUS_RETURNED: "✅ Returned",
+                            CirculationManager.BORROWING_STATUS_OVERDUE: "⚠️ Overdue",
+                            CirculationManager.BORROWING_STATUS_RENEWED: "🔄 Renewed",
+                            CirculationManager.BORROWING_STATUS_LOST: "❌ Lost"
+                        }.get(rec['status'], rec['status'] or "Unknown")
+                        
+                        fine_info = format_currency(rec.get('fine_amount', 0) or 0) if (rec.get('fine_amount') or 0) > 0 else "-"
+                        
+                        history_df.append({
+                            "ID": rec['borrowing_id'],
+                            "Member": rec.get('member_name') or rec.get('username') or "N/A",
+                            "Book": rec.get('title') or "N/A",
+                            "Status": status_display,
+                            "Checkout": format_date(rec.get('checkout_date')),
+                            "Due": format_date(rec.get('due_date')),
+                            "Returned": format_date(rec.get('return_date')) if rec.get('return_date') else "-",
+                            "Fine": fine_info
+                        })
+                    
+                    df = pd.DataFrame(history_df)
+                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    
+                    with st.expander(" View Detailed Statistics"):
+                        stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+                        
+                        status_counts = {}
+                        for rec in records:
+                            s = rec.get('status') or 'unknown'
+                            status_counts[s] = status_counts.get(s, 0) + 1
+                        
+                        total_fines = sum(rec.get('fine_amount') or 0 for rec in records)
+                        returned_count = status_counts.get(CirculationManager.BORROWING_STATUS_RETURNED, 0)
+                        overdue_count = status_counts.get(CirculationManager.BORROWING_STATUS_OVERDUE, 0)
+                        
+                        with stat_col1:
+                            st.metric("Total Records", len(records))
+                        with stat_col2:
+                            st.metric("Returned", returned_count)
+                        with stat_col3:
+                            st.metric("Overdue", overdue_count)
+                        with stat_col4:
+                            st.metric("Total Fines", format_currency(total_fines))
+                else:
+                    st.info("No borrowing records found matching your criteria")
+            else:
+                for error in result.get('errors', []):
+                    st.error(f"Search failed: {error}")
+
+
 def show_reports():
     """Advanced Reports page with 20+ visualizations"""
     st.markdown('<h1 class="litgrid-header"> Advanced Reports & Analytics</h1>', unsafe_allow_html=True)
